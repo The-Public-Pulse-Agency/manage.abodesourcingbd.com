@@ -114,6 +114,7 @@ model Colour {
   code      String?
   active    Boolean  @default(true)
   orderLines OrderLine[]
+  sampleRequests SampleRequest[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -182,8 +183,11 @@ model PurchaseOrder {
   currency      String       @default("USD")
   status        OrderStatus  @default(DRAFT)
   notes         String?
-  lines         OrderLine[]
-  milestones    TaMilestone[]
+  lines          OrderLine[]
+  milestones     TaMilestone[]
+  sampleRequests SampleRequest[]
+  production     ProductionRecord?
+  inspections    Inspection[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -259,4 +263,71 @@ model TaMilestone {
 
   @@unique([poId, key])
   @@index([plannedDate])
+}
+
+enum SampleType {
+  LAB_DIP
+  FIT
+  PP
+  SIZE_SET
+}
+
+enum SampleStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum InspectionType {
+  INLINE
+  FINAL
+}
+
+enum InspectionResult {
+  PASS
+  FAIL
+}
+
+model SampleRequest {
+  id           String        @id @default(cuid())
+  poId         String
+  po           PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  colourId     String?
+  colour       Colour?       @relation(fields: [colourId], references: [id])
+  type         SampleType
+  status       SampleStatus  @default(PENDING)
+  sentDate     DateTime?
+  approvedDate DateTime?
+  remarks      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([poId])
+}
+
+model ProductionRecord {
+  id        String        @id @default(cuid())
+  poId      String        @unique
+  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  cutQty    Int           @default(0)
+  sewQty    Int           @default(0)
+  finishQty Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Inspection {
+  id        String           @id @default(cuid())
+  poId      String
+  po        PurchaseOrder    @relation(fields: [poId], references: [id], onDelete: Cascade)
+  type      InspectionType
+  result    InspectionResult
+  date      DateTime
+  aql       String?
+  remarks   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([poId])
 }

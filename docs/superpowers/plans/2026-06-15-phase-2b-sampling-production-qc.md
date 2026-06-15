@@ -660,3 +660,18 @@ git add -A && git commit -m "test: full Phase 2b verification" --allow-empty
 **Placeholder scan:** none.
 **Type consistency:** `ProductionQty`/`ProductionPct` in progress.ts; `lineMills` reused from money.ts for ordered qty; all inputs use `z.input`.
 **Deferred:** auto-completing T&A milestones from sample-approved / AQL-pass events (future); all 2b UI → Phase 2c.
+
+---
+
+## Review Revisions (applied after multi-agent adversarial review)
+
+1. **Sample status lifecycle** — `updateSampleStatus` enforces a transition map (`PENDING→SUBMITTED`, `SUBMITTED→APPROVED|REJECTED`, `REJECTED→SUBMITTED`, `APPROVED` terminal; same-status no-op allowed) and rejects illegal jumps.
+2. **approvedDate coupling** — `APPROVED` requires `approvedDate` (Zod refine); any non-APPROVED status force-nulls `approvedDate` so a rejected/reset sample can't keep a stale approval date.
+3. **PO existence + state gate** — `createSampleRequest`/`upsertProduction`/`addInspection`/`getProduction` load the PO and throw `Purchase order not found` if missing; sampling blocks `CANCELLED/CLOSED`; production & QC block `DRAFT/CANCELLED/CLOSED` (record only against confirmed+ orders).
+4. **P2002-safe production upsert** — `upsertProduction` catches a concurrent-insert P2002 and falls back to an update.
+5. **Deterministic QC ordering** — `listInspections` orders by `[date desc, createdAt desc, id desc]`; test asserts exact order (incl. a same-date tiebreak), not `>=`.
+6. **Stage-ordering invariant** — `productionSchema` refine enforces `finishQty ≤ sewQty ≤ cutQty`; production records `before`→`after` in audit.
+7. **Per-colour samples** — `SampleRequest.colourId` (optional FK) added now so lab dips can be colour-scoped later without a second migration (UI deferred to 2c).
+8. **Negative-path tests** — unknown poId, illegal transition, APPROVED-without-date, cancelled-PO writes, and multi-line/zero-line ordered-qty all covered.
+
+Migration note: dev (`public`) and test (`test`) schemas share one Neon DB; both `migrate dev` and `migrate deploy` run, and the full suite passing confirms the test schema has all tables (proven on phases 1a/2a).

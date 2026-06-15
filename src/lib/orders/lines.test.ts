@@ -6,9 +6,11 @@ import { createFactory } from "@/lib/masterdata/factory";
 import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "./po";
 import { confirmPurchaseOrder } from "./confirm";
+import { approveCosting } from "./costing";
 import { setOrderLine, removeOrderLine } from "./lines";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 
 async function seedPo() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });
@@ -111,6 +113,7 @@ describe("setOrderLine", () => {
       styleId: style.id,
       sizes: [{ label: "M", qty: 10, netFob: 1.5, sellFob: 2.0 }],
     });
+    await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
     await expect(
       setOrderLine(admin, po.id, {

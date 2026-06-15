@@ -16,7 +16,7 @@ import { StatusPill } from "@/components/status-pill";
 import { DocumentsPanel } from "@/components/documents-panel";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { SizeGridForm } from "./size-grid-form";
-import { ConfirmButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
+import { ConfirmButton, ApproveCostingButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
 import { TnaTimeline } from "./tna-timeline";
 import { SamplingPanel } from "./sampling-panel";
 import { ProductionPanel } from "./production-panel";
@@ -156,9 +156,20 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div className="space-y-1">
               <p className="eyebrow">Confirm</p>
               <p className="text-sm text-ink-soft">
-                Locks the order &amp; builds the critical path. Requires every size to have qty &gt; 0 and sell ≥ cost.
+                Costing must be approved, then Confirm locks the order &amp; builds the critical path.
               </p>
-              <div className="pt-2">
+              <p className="text-sm">
+                Costing:{" "}
+                {po.costingApprovedAt ? (
+                  <span className="font-medium text-ok">approved ✓</span>
+                ) : (
+                  <span className="font-medium text-warn">pending approval</span>
+                )}
+              </p>
+              <div className="flex items-center gap-3 pt-2">
+                {!po.costingApprovedAt && can(role, "costing", "approve") && (
+                  <ApproveCostingButton poId={po.id} />
+                )}
                 <ConfirmButton poId={po.id} />
               </div>
             </div>

@@ -593,6 +593,14 @@ export async function closePurchaseOrder(actor: SessionUser, poId: string) {
 
 ---
 
+## Review Revisions (applied)
+
+1. **Payment over-pay race** — `recordPayment` runs at Serializable + maps P2034 to a friendly retry; after the write it re-reads all payments to set status. Concurrency test asserts Σpayments ≤ amount.
+2. **Realised margin implemented** — `financeSummary.realisedMargin`: per PO where every BUYER and every FACTORY invoice (≥1 of each) is PAID, `realised += Σ buyer − Σ factory` (cents). Test: both-settled vs one-settled.
+3. **Confirm gate AFTER cost/qty validation** (negative messages still surface); `updateMany` gains `costingApprovedAt: { not: null }`. Approve added at every successful confirm site + e2e.
+4. **ageBucket fixtures fixed**; **unapproveCosting** DRAFT-guarded; **close** allows SHIPPED or PARTLY_SHIPPED.
+5. **Invoices**: amount as string; require ≥1 of poId/shipmentId; verify link exists; inherit PO currency; P2002 mapped.
+
 ## Self-Review (plan author)
 
 **Spec coverage (§9③④ / §11 / §14):** costing approval gate → Task 2; buyer+factory invoices → Task 4; payments + status → Task 5; AR/AP + aging + realised → Task 6; SHIPPED→CLOSED → Task 7; RBAC `finance`/`costing` + audit. **Placeholder scan:** none. **Type consistency:** `outstanding`/`ageBucket` shared; `z.input`; P2002 mapped on invoice unique. **Deferred:** finance UI (4b), FX/multi-currency conversion, auto-invoice-on-ship, realised-margin-by-period dashboard (Phase 5).

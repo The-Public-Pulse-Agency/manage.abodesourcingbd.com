@@ -7,9 +7,11 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
+import { approveCosting } from "@/lib/orders/costing";
 import { seedTemplates, DEFAULT_TEMPLATES } from "@/lib/tna/templates";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 beforeEach(async () => {
@@ -39,6 +41,7 @@ describe("confirm hooks T&A instantiation", () => {
     });
 
     expect(await prisma.taMilestone.count({ where: { poId: po.id } })).toBe(0);
+    await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
     expect(await prisma.taMilestone.count({ where: { poId: po.id } })).toBe(DEFAULT_TEMPLATES.length);
 

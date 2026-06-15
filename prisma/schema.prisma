@@ -183,11 +183,14 @@ model PurchaseOrder {
   currency      String       @default("USD")
   status        OrderStatus  @default(DRAFT)
   notes         String?
+  costingApprovedById String?
+  costingApprovedAt   DateTime?
   lines          OrderLine[]
   milestones     TaMilestone[]
   sampleRequests SampleRequest[]
   production     ProductionRecord?
   inspections    Inspection[]
+  invoices       Invoice[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -388,10 +391,61 @@ model Shipment {
   portId        String?
   port          Port?          @relation(fields: [portId], references: [id], onDelete: SetNull)
   lines         ShipmentLine[]
+  invoices      Invoice[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([telexStatus])
+}
+
+enum InvoiceType {
+  BUYER
+  FACTORY
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+}
+
+enum PaymentMethod {
+  LC
+  TT
+  OTHER
+}
+
+model Invoice {
+  id         String         @id @default(cuid())
+  type       InvoiceType
+  number     String
+  poId       String?
+  po         PurchaseOrder? @relation(fields: [poId], references: [id], onDelete: SetNull)
+  shipmentId String?
+  shipment   Shipment?      @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  amount     Decimal        @db.Decimal(14, 2)
+  currency   String         @default("USD")
+  issueDate  DateTime
+  status     InvoiceStatus  @default(ISSUED)
+  payments   Payment[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([type, number])
+  @@index([status])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Decimal       @db.Decimal(14, 2)
+  date      DateTime
+  method    PaymentMethod @default(TT)
+  reference String?
+  createdAt DateTime      @default(now())
+
+  @@index([invoiceId])
 }
 
 model ShipmentLine {

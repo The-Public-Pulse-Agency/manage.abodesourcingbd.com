@@ -7,8 +7,10 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "./po";
 import { setOrderLine } from "./lines";
 import { confirmPurchaseOrder } from "./confirm";
+import { approveCosting } from "./costing";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 
 async function seedPo() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });
@@ -39,6 +41,7 @@ describe("confirmPurchaseOrder", () => {
   it("confirms a fully-costed, margin-positive PO", async () => {
     const { po, style } = await seedPo();
     await setLine(po.id, style.id, 100, 1.5, 2.0);
+    await approveCosting(accounts, po.id);
     const confirmed = await confirmPurchaseOrder(admin, po.id);
     expect(confirmed.status).toBe("CONFIRMED");
   });
@@ -66,6 +69,7 @@ describe("confirmPurchaseOrder", () => {
   it("refuses to confirm a non-DRAFT PO", async () => {
     const { po, style } = await seedPo();
     await setLine(po.id, style.id, 10, 1.5, 2.0);
+    await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
     await expect(confirmPurchaseOrder(admin, po.id)).rejects.toThrow(/draft/i);
   });

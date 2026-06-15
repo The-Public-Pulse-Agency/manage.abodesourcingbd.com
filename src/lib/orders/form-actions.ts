@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { createPurchaseOrder } from "./po";
 import { setOrderLine, removeOrderLine } from "./lines";
 import { confirmPurchaseOrder } from "./confirm";
+import { approveCosting } from "./costing";
 import { createLot, assignPoToLot } from "./lots";
 import type { CreatePoInput, SetLineInput } from "./schema";
 
@@ -64,6 +65,18 @@ export async function removeLineAction(poId: string, lineId: string): Promise<Ac
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to remove line" };
+  }
+}
+
+export async function approveCostingAction(poId: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await approveCosting(actor, poId);
+    revalidatePath(`/orders/${poId}`);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to approve costing" };
   }
 }
 

@@ -36,7 +36,9 @@ test("create an order, add a size-wise line, and confirm it", async ({ page }) =
   // The line + totals appear
   await expect(page.getByText("M·100")).toBeVisible();
 
-  // Confirm the order
+  // Approve costing, then confirm
+  await page.getByRole("button", { name: "Approve costing" }).click();
+  await expect(page.getByText("approved ✓")).toBeVisible();
   await page.getByRole("button", { name: "Confirm order" }).click();
   await expect(page.getByText("lines are locked")).toBeVisible();
 });

@@ -3,9 +3,8 @@ import { assertPermission, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { instantiateMilestones } from "@/lib/tna/milestones";
 
-// TODO (Phase 4): gate DRAFT->CONFIRMED behind an approved CostSheet (spec §9③ —
-// Accounts approves costing before confirm). For now confirm only enforces that the
-// order is fully and sanely costed.
+// Confirm requires costing approval (spec §9③, see costing.ts) in addition to a fully
+// and sanely costed order.
 
 export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
   assertPermission(actor, "orders", "edit");
@@ -42,16 +41,22 @@ export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
     }
   }
 
+  // Costing-approval gate (spec §9③): checked after cost/qty validation so those
+  // messages surface first; the updateMany below re-asserts it for race-safety.
+  if (!po.costingApprovedAt) {
+    throw new Error("Costing must be approved before the order can be confirmed");
+  }
+
   // Atomic: flip status, audit, and create T&A milestones together (spec §9②) so a PO
   // can never end up CONFIRMED without its critical path. The status filter on the
   // updateMany is the single race-safe serialization point.
   await prisma.$transaction(async (tx) => {
     const res = await tx.purchaseOrder.updateMany({
-      where: { id: poId, status: "DRAFT" },
+      where: { id: poId, status: "DRAFT", costingApprovedAt: { not: null } },
       data: { status: "CONFIRMED" },
     });
     if (res.count === 0) {
-      throw new Error("PO is no longer in DRAFT status");
+      throw new Error("PO is no longer in DRAFT status or costing is not approved");
     }
     await recordAudit(
       {

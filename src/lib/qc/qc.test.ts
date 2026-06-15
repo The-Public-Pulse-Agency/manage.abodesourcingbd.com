@@ -8,10 +8,12 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
+import { approveCosting } from "@/lib/orders/costing";
 import { addInspection, listInspections } from "./qc";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
 const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 async function confirmedPo() {
@@ -29,6 +31,7 @@ async function confirmedPo() {
     styleId: style.id,
     sizes: [{ label: "M", qty: 100, netFob: 1, sellFob: 2 }],
   });
+  await approveCosting(accounts, po.id);
   await confirmPurchaseOrder(admin, po.id);
   return po;
 }

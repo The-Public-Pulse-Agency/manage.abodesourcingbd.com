@@ -8,10 +8,12 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
+import { approveCosting } from "@/lib/orders/costing";
 import { upsertProduction, getProduction } from "./production";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
 const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 
 async function refs() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });
@@ -34,6 +36,7 @@ async function confirmedPo() {
     styleId: style.id,
     sizes: [{ label: "M", qty: 1000, netFob: 1, sellFob: 2 }],
   });
+  await approveCosting(accounts, po.id);
   await confirmPurchaseOrder(admin, po.id);
   return po;
 }
@@ -127,6 +130,7 @@ describe("getProduction", () => {
       styleId: b.id,
       sizes: [{ label: "L", qty: 300, netFob: 1, sellFob: 2 }],
     });
+    await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
     const got = await getProduction(admin, po.id);
     expect(got.orderedQty).toBe(1000);

@@ -8,11 +8,13 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
+import { approveCosting } from "@/lib/orders/costing";
 import { createShipment, updateShipment } from "./shipment";
 import { getPoBalance } from "./balance-db";
 
 const admin = { id: "admin-1", role: "ADMIN" as const };
 const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 async function refs() {
@@ -28,7 +30,10 @@ async function confirmedPo(r: Awaited<ReturnType<typeof refs>>, poNumber: string
     poNumber, buyerId: r.buyer.id, brandId: r.brand.id, factoryId: r.factory.id,
   });
   const line = await setOrderLine(admin, po.id, { styleId: r.style.id, sizes: [{ label: "M", qty, netFob: 1, sellFob: 2 }] });
-  if (confirm) await confirmPurchaseOrder(admin, po.id);
+  if (confirm) {
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+  }
   return { po, line };
 }
 

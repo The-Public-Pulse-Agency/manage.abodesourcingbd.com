@@ -4,9 +4,36 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   confirmAction,
+  approveCostingAction,
   removeLineAction,
   createAndAssignLotAction,
 } from "@/lib/orders/form-actions";
+
+export function ApproveCostingButton({ poId }: { poId: string }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        onClick={async () => {
+          setPending(true);
+          setError(null);
+          const r = await approveCostingAction(poId);
+          setPending(false);
+          if (r.error) setError(r.error);
+          else router.refresh();
+        }}
+        disabled={pending}
+        className="rounded-sm border border-ink px-3 py-2 text-sm font-medium transition-colors hover:bg-ink hover:text-white disabled:opacity-50"
+      >
+        {pending ? "Approving…" : "Approve costing"}
+      </button>
+      {error && <span className="text-sm text-bad">{error}</span>}
+    </span>
+  );
+}
 
 export function ConfirmButton({ poId }: { poId: string }) {
   const router = useRouter();

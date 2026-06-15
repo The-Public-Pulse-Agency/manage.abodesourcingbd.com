@@ -38,38 +38,40 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const canEdit = can(role, "orders", "edit") && isDraft;
   const canDelete = can(role, "orders", "delete") && isDraft;
 
-  const colours = await listColours(actor);
-  const [styles, sizeScales] = canEdit
-    ? await Promise.all([listStyles(actor, { brandId: po.brandId }), listSizeScales(actor)])
-    : [[], []];
-
   const canTna = can(role, "criticalPath", "view");
   const canSampling = can(role, "sampling", "view");
   const canPqc = can(role, "productionQc", "view");
-  const milestones = canTna ? await listPoMilestones(actor, po.id, new Date()) : [];
-  const samples = canSampling ? await listSampleRequests(actor, po.id) : [];
-  const production = canPqc ? await getProduction(actor, po.id) : null;
-  const inspections = canPqc ? await listInspections(actor, po.id) : [];
-
   const canShip = can(role, "shipment", "view");
   const canDocs = can(role, "documents", "view");
-  const balance = canShip && !isDraft ? await getPoBalance(actor, po.id) : [];
-  const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
-  const documents = canDocs ? await listDocuments(actor, "PurchaseOrder", po.id) : [];
-
   const canFinance = can(role, "finance", "view");
-  const invoiceRows: InvoiceRow[] = canFinance
-    ? (await listInvoices(actor, { poId: po.id })).map((inv) => ({
-        id: inv.id,
-        type: inv.type,
-        number: inv.number,
-        amount: Number(inv.amount),
-        outstanding: outstanding(inv.amount, inv.payments),
-        status: inv.status,
-        currency: inv.currency,
-        poId: inv.poId,
-      }))
-    : [];
+
+  // Every read below is independent — run them concurrently so the page waits on the
+  // single slowest query, not the sum of all of them.
+  const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices] =
+    await Promise.all([
+      listColours(actor),
+      canEdit ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
+      canEdit ? listSizeScales(actor) : Promise.resolve([]),
+      canTna ? listPoMilestones(actor, po.id, new Date()) : Promise.resolve([]),
+      canSampling ? listSampleRequests(actor, po.id) : Promise.resolve([]),
+      canPqc ? getProduction(actor, po.id) : Promise.resolve(null),
+      canPqc ? listInspections(actor, po.id) : Promise.resolve([]),
+      canShip && !isDraft ? getPoBalance(actor, po.id) : Promise.resolve([]),
+      canDocs ? listDocuments(actor, "PurchaseOrder", po.id) : Promise.resolve([]),
+      canFinance ? listInvoices(actor, { poId: po.id }) : Promise.resolve([]),
+    ]);
+
+  const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
+  const invoiceRows: InvoiceRow[] = invoices.map((inv) => ({
+    id: inv.id,
+    type: inv.type,
+    number: inv.number,
+    amount: Number(inv.amount),
+    outstanding: outstanding(inv.amount, inv.payments),
+    status: inv.status,
+    currency: inv.currency,
+    poId: inv.poId,
+  }));
   const canCloseStatus = po.status === "SHIPPED" || po.status === "PARTLY_SHIPPED";
 
   return (

@@ -463,6 +463,8 @@ model Invoice {
   @@unique([type, number])
   @@index([status])
   @@index([issueDate])
+  @@index([poId])
+  @@index([shipmentId])
 }
 
 model Payment {

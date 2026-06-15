@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         unread={unread}
       />
       <main className="min-w-0 flex-1 p-6">
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <div key="content" className="page-enter mx-auto max-w-7xl">{children}</div>
       </main>
     </div>
   );

@@ -1044,3 +1044,24 @@ git add -A && git commit -m "test: full Phase 1a verification" --allow-empty
 **Type consistency:** `SessionUser` reused; `Totals`/`SizeRow` defined in money.ts and consumed by po.ts; `CreatePoInput`/`SetLineInput`/`OpenOrderBookFilter` defined in schema.ts and consumed by po.ts/lines.ts; Prisma compound-unique `buyerId_factoryId_poNumber` matches `@@unique` in Task 1.
 
 **Deferred:** order UI (1b), costing approval + invoices (4), production/shipment status transitions beyond DRAFT→CONFIRMED (2/3).
+
+---
+
+## Review Revisions (applied after multi-agent adversarial review)
+
+The 6-lens review surfaced real defects; the implementation below incorporates these
+changes over the tasks as originally drafted:
+
+1. **PO uniqueness includes `channel`** → `@@unique([buyerId, factoryId, channel, poNumber])`; dup-check and Open Order Book filter take channel (RALAWISE/RALATEAM are channels of one buyer with independent PO sequences).
+2. **Add `crd DateTime?`** (Customer Requested Date) to PurchaseOrder + intake (spec §8; needed for OTD% later).
+3. **OrderLine nullable-safe uniqueness** → add `colourKey String @default("")` (= colourId ?? "") with `@@unique([poId, styleId, colourKey])`; `setOrderLine` uses `upsert` on it (no find-then-create race / duplicate lines).
+4. **OrderLine `sizeScaleId String?`** + **OrderLineSize `position Int`** for scale-ordered size grids (spec §8); labels validated against the scale when provided.
+5. **Money math in integer mills, rounded once** — `value`, `cost`, `margin` accumulate as mills across all sizes/lines and convert to 2dp exactly once; margin is `Σ qty*(sellMills−netMills)`, never `value−cost` of pre-rounded numbers. PO rollup sums mills, not pre-rounded line floats. Adversarial vectors added to tests.
+6. **Edit guards** — `setOrderLine`/`removeOrderLine` reject unless PO is `DRAFT`; `removeOrderLine` uses the `delete` action.
+7. **Confirm hardening** — also require `netFob>0` and `sellFob>=netFob` (no blank cost, no negative margin); transition is atomic via `updateMany({where:{id,status:'DRAFT'}})` (no TOCTOU race).
+8. **Duplicate size labels** rejected in `setLineSchema` (superRefine) with a clear message.
+9. **Decimal handling** — money passed to `createMany` as strings; tests assert via `Number(x)`/Decimal-equality, not `.toString()` formatting.
+10. **Audit `before`** recorded on edits/deletes (confirm: prior status; assignPoToLot: prior lotId; removeOrderLine: prior line snapshot).
+11. **P2002 → friendly error** in createPurchaseOrder; `@@index([factoryId])`; explicit `onDelete: SetNull` on `PurchaseOrder.lot`/`Lot.factory`; `assignPoToLot` validates lot existence + factory match; Open Order Book orders `exFactoryDate` nulls-last.
+
+**Documented deferrals:** DB CHECK constraints for qty/price ≥ 0 are deferred — Zod enforces non-negative at the boundary and `confirm` enforces positivity; the costing-approval precondition on confirm (spec §9③) lands in Phase 4 (a TODO marker is left in `confirm.ts`).

@@ -51,6 +51,7 @@ model Buyer {
   code      String   @unique
   active    Boolean  @default(true)
   brands    Brand[]
+  orders    PurchaseOrder[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -63,6 +64,7 @@ model Brand {
   code      String
   active    Boolean  @default(true)
   styles    Style[]
+  orders    PurchaseOrder[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -79,6 +81,8 @@ model Factory {
   contactEmail String?
   contactPhone String?
   active       Boolean     @default(true)
+  orders       PurchaseOrder[]
+  lots         Lot[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -89,6 +93,7 @@ model SizeScale {
   active    Boolean  @default(true)
   sizes     Size[]
   styles    Style[]
+  orderLines OrderLine[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -108,6 +113,7 @@ model Colour {
   name      String   @unique
   code      String?
   active    Boolean  @default(true)
+  orderLines OrderLine[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -124,8 +130,95 @@ model Style {
   defaultSizeScaleId String?
   defaultSizeScale   SizeScale? @relation(fields: [defaultSizeScaleId], references: [id])
   active             Boolean    @default(true)
+  orderLines         OrderLine[]
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
   @@unique([brandId, styleCode])
+}
+
+enum OrderChannel {
+  RALAWISE
+  RALATEAM
+  DIRECT
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PRODUCTION
+  PARTLY_SHIPPED
+  SHIPPED
+  CLOSED
+  CANCELLED
+  ON_HOLD
+}
+
+model Lot {
+  id        String          @id @default(cuid())
+  name      String
+  factoryId String?
+  factory   Factory?        @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+  orders    PurchaseOrder[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model PurchaseOrder {
+  id            String       @id @default(cuid())
+  poNumber      String
+  buyerId       String
+  buyer         Buyer        @relation(fields: [buyerId], references: [id])
+  brandId       String
+  brand         Brand        @relation(fields: [brandId], references: [id])
+  channel       OrderChannel @default(DIRECT)
+  factoryId     String
+  factory       Factory      @relation(fields: [factoryId], references: [id])
+  lotId         String?
+  lot           Lot?         @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  orderDate     DateTime?
+  crd           DateTime?
+  exFactoryDate DateTime?
+  currency      String       @default("USD")
+  status        OrderStatus  @default(DRAFT)
+  notes         String?
+  lines         OrderLine[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([buyerId, factoryId, channel, poNumber])
+  @@index([status])
+  @@index([exFactoryDate])
+  @@index([factoryId])
+}
+
+model OrderLine {
+  id          String          @id @default(cuid())
+  poId        String
+  po          PurchaseOrder   @relation(fields: [poId], references: [id], onDelete: Cascade)
+  styleId     String
+  style       Style           @relation(fields: [styleId], references: [id])
+  colourId    String?
+  colour      Colour?         @relation(fields: [colourId], references: [id])
+  colourKey   String          @default("")
+  sizeScaleId String?
+  sizeScale   SizeScale?      @relation(fields: [sizeScaleId], references: [id])
+  sizes       OrderLineSize[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([poId, styleId, colourKey])
+}
+
+model OrderLineSize {
+  id          String    @id @default(cuid())
+  orderLineId String
+  orderLine   OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  label       String
+  position    Int       @default(0)
+  qty         Int       @default(0)
+  netFob      Decimal   @default(0) @db.Decimal(12, 4)
+  sellFob     Decimal   @default(0) @db.Decimal(12, 4)
+
+  @@unique([orderLineId, label])
 }

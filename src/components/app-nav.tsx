@@ -17,7 +17,7 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1] }[
   { href: "/users", label: "Users", module: "users" },
 ];
 
-export function AppNav({ role, name }: { role: Role; name: string }) {
+export function AppNav({ role, name, unread = 0 }: { role: Role; name: string; unread?: number }) {
   const visible = ITEMS.filter((i) => can(role, i.module, "view"));
   return (
     <header className="border-b border-line bg-surface">
@@ -40,6 +40,18 @@ export function AppNav({ role, name }: { role: Role; name: string }) {
           </nav>
         </div>
         <div className="flex items-center gap-4 text-sm">
+          <Link
+            href="/notifications"
+            aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
+            className="relative text-ink-soft transition-colors hover:text-accent"
+          >
+            <span aria-hidden className="text-lg leading-none">🔔</span>
+            {unread > 0 && (
+              <span className="absolute -right-2 -top-1.5 inline-flex min-w-[1.05rem] items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-bold leading-tight text-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </Link>
           <span className="text-ink-soft">
             {name} · <span className="font-mono text-xs uppercase">{role}</span>
           </span>

@@ -15,14 +15,39 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role
+  active        Boolean        @default(true)
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+enum NotificationType {
+  MILESTONE_OVERDUE
+  EX_FACTORY_SOON
+  DOC_MISSING
+  PAYMENT_OVERDUE
+  SAMPLE_PENDING
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  link      String?
+  // Stable per (rule, entity, recipient) — create-once idempotency for the daily cron.
+  dedupKey  String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, dedupKey])
+  @@index([userId, read])
 }
 
 model AuditLog {
@@ -433,6 +458,7 @@ model Invoice {
 
   @@unique([type, number])
   @@index([status])
+  @@index([issueDate])
 }
 
 model Payment {

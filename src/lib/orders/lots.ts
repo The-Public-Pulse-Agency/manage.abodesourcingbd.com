@@ -29,7 +29,11 @@ export async function assignPoToLot(actor: SessionUser, poId: string, lotId: str
 
   if (lotId) {
     const lot = await prisma.lot.findUniqueOrThrow({ where: { id: lotId } });
-    if (lot.factoryId && lot.factoryId !== po.factoryId) {
+    if (lot.factoryId == null) {
+      // Fail-closed: a factoryless lot adopts the first assigned PO's factory,
+      // so it becomes factory-scoped and cannot later mix factories.
+      await prisma.lot.update({ where: { id: lotId }, data: { factoryId: po.factoryId } });
+    } else if (lot.factoryId !== po.factoryId) {
       throw new Error("Lot belongs to a different factory than this PO");
     }
   }

@@ -13,6 +13,11 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
     if (po.status !== "DRAFT") {
       throw new Error(`Only DRAFT orders can be edited (status: ${po.status})`);
     }
+    // Cross-entity integrity: the style must belong to this order's brand.
+    const style = await tx.style.findUniqueOrThrow({ where: { id: data.styleId } });
+    if (style.brandId !== po.brandId) {
+      throw new Error("Style does not belong to this order's brand");
+    }
     const ol = await tx.orderLine.upsert({
       where: {
         poId_styleId_colourKey: { poId, styleId: data.styleId, colourKey },

@@ -78,6 +78,19 @@ describe("createPurchaseOrder", () => {
       }),
     ).rejects.toThrow(ForbiddenError);
   });
+
+  it("rejects a brand that belongs to a different buyer", async () => {
+    const { brand, factory } = await refs(); // brand under Ralawise
+    const premier = await createBuyer(admin, { name: "Premier" });
+    await expect(
+      createPurchaseOrder(admin, {
+        poNumber: "Z1",
+        buyerId: premier.id,
+        brandId: brand.id, // belongs to Ralawise, not Premier
+        factoryId: factory.id,
+      }),
+    ).rejects.toThrow(/brand does not belong/i);
+  });
 });
 
 describe("listOpenOrderBook", () => {

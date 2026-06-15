@@ -92,6 +92,19 @@ describe("setOrderLine", () => {
     ).rejects.toThrow(/duplicate size label/i);
   });
 
+  it("rejects a style from a different brand", async () => {
+    const { po } = await seedPo();
+    const buyer2 = await createBuyer(admin, { name: "Premier" });
+    const brand2 = await createBrand(admin, { buyerId: buyer2.id, name: "Premier", code: "PR" });
+    const style2 = await createStyle(admin, { brandId: brand2.id, styleCode: "PR649", name: "Apron" });
+    await expect(
+      setOrderLine(admin, po.id, {
+        styleId: style2.id,
+        sizes: [{ label: "M", qty: 1, netFob: 1, sellFob: 2 }],
+      }),
+    ).rejects.toThrow(/style does not belong/i);
+  });
+
   it("refuses to edit lines once the PO is CONFIRMED", async () => {
     const { po, style } = await seedPo();
     await setOrderLine(admin, po.id, {

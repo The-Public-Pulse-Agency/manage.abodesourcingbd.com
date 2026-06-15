@@ -17,6 +17,11 @@ export async function createPurchaseOrder(actor: SessionUser, input: CreatePoInp
   assertPermission(actor, "orders", "create");
   const data = createPoSchema.parse(input);
   const poNumber = data.poNumber.trim();
+  // Cross-entity integrity: the brand must belong to the named buyer.
+  const brand = await prisma.brand.findUnique({ where: { id: data.brandId } });
+  if (!brand || brand.buyerId !== data.buyerId) {
+    throw new Error("Brand does not belong to the specified buyer");
+  }
   try {
     const po = await prisma.purchaseOrder.create({
       data: {

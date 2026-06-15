@@ -44,6 +44,30 @@ describe("lots", () => {
     expect(withOrders.orders).toHaveLength(2);
   });
 
+  it("auto-binds a factoryless lot to the first PO's factory, then rejects mixing", async () => {
+    const buyer = await createBuyer(admin, { name: "Ralawise" });
+    const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
+    const f1 = await createFactory(admin, { name: "Liz", type: "KNIT" });
+    const f2 = await createFactory(admin, { name: "UHM", type: "KNIT" });
+    const po1 = await createPurchaseOrder(admin, {
+      poNumber: "A1",
+      buyerId: buyer.id,
+      brandId: brand.id,
+      factoryId: f1.id,
+    });
+    const po2 = await createPurchaseOrder(admin, {
+      poNumber: "A2",
+      buyerId: buyer.id,
+      brandId: brand.id,
+      factoryId: f2.id,
+    });
+    const lot = await createLot(admin, { name: "OPEN-LOT" }); // no factory
+    await assignPoToLot(admin, po1.id, lot.id);
+    const bound = await prisma.lot.findUniqueOrThrow({ where: { id: lot.id } });
+    expect(bound.factoryId).toBe(f1.id);
+    await expect(assignPoToLot(admin, po2.id, lot.id)).rejects.toThrow(/different factory/i);
+  });
+
   it("rejects assigning a PO to a lot of a different factory", async () => {
     const buyer = await createBuyer(admin, { name: "Ralawise" });
     const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });

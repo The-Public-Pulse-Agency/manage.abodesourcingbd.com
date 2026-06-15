@@ -15,6 +15,6 @@ function dbSchema(): string {
 export async function resetDb() {
   const s = dbSchema();
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "${s}"."AuditLog", "${s}"."User" RESTART IDENTITY CASCADE`,
+    `TRUNCATE TABLE "${s}"."AuditLog", "${s}"."Style", "${s}"."Size", "${s}"."SizeScale", "${s}"."Colour", "${s}"."Brand", "${s}"."Buyer", "${s}"."Factory", "${s}"."User" RESTART IDENTITY CASCADE`,
   );
 }

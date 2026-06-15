@@ -37,3 +37,95 @@ model AuditLog {
 
   @@index([entityType, entityId])
 }
+
+enum FactoryType {
+  KNIT
+  WOVEN
+  SWEATER
+  OTHER
+}
+
+model Buyer {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  active    Boolean  @default(true)
+  brands    Brand[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  buyerId   String
+  buyer     Buyer    @relation(fields: [buyerId], references: [id])
+  name      String
+  code      String
+  active    Boolean  @default(true)
+  styles    Style[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([buyerId, code])
+}
+
+model Factory {
+  id           String      @id @default(cuid())
+  name         String
+  code         String      @unique
+  type         FactoryType @default(KNIT)
+  address      String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model SizeScale {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  sizes     Size[]
+  styles    Style[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Size {
+  id          String    @id @default(cuid())
+  sizeScaleId String
+  sizeScale   SizeScale @relation(fields: [sizeScaleId], references: [id], onDelete: Cascade)
+  label       String
+  position    Int
+
+  @@unique([sizeScaleId, label])
+}
+
+model Colour {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Style {
+  id                 String     @id @default(cuid())
+  brandId            String
+  brand              Brand      @relation(fields: [brandId], references: [id])
+  styleCode          String
+  name               String
+  description        String?
+  composition        String?
+  category           String?
+  defaultSizeScaleId String?
+  defaultSizeScale   SizeScale? @relation(fields: [defaultSizeScaleId], references: [id])
+  active             Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([brandId, styleCode])
+}

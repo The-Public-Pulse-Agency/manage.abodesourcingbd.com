@@ -9,5 +9,9 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     pool: "forks",
     fileParallelism: false,
+    // Integration tests hit a remote Neon DB (high round-trip latency), so allow
+    // generous per-test and hook timeouts.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

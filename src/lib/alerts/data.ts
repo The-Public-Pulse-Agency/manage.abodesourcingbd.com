@@ -79,6 +79,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
       poId: s.poId,
       poNumber: s.po.poNumber,
       type: s.type,
+      daysPending: Math.floor((today.getTime() - s.sentDate!.getTime()) / 86_400_000),
     })),
     docsMissing: exFtyPos
       .filter((p) => !haveDocs.has(p.id))

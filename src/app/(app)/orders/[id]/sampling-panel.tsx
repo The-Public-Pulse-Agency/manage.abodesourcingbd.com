@@ -10,7 +10,15 @@ type Sample = {
   colourId: string | null;
   status: string;
   approvedDate: string | Date | null;
+  sentDate: string | Date | null;
 };
+
+/** Days a sent sample has been awaiting approval (null if not sent or already decided). */
+function awaitingDays(s: Sample): number | null {
+  if (!s.sentDate || (s.status !== "PENDING" && s.status !== "SUBMITTED")) return null;
+  const sent = typeof s.sentDate === "string" ? new Date(s.sentDate) : s.sentDate;
+  return Math.max(0, Math.floor((Date.now() - sent.getTime()) / 86_400_000));
+}
 type Opt = { id: string; name: string };
 
 const NEXT: Record<string, { label: string; status: string }[]> = {
@@ -82,6 +90,15 @@ export function SamplingPanel({
                 <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[s.status] ?? ""}`}>
                   {s.status}
                 </span>
+                {(() => {
+                  const d = awaitingDays(s);
+                  if (d === null || d < 3) return null;
+                  return (
+                    <span className={`ml-2 inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold ${d >= 10 ? "bg-bad-soft text-bad" : d >= 5 ? "bg-warn-soft text-warn" : "text-ink-soft"}`}>
+                      awaiting {d}d
+                    </span>
+                  );
+                })()}
               </td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">

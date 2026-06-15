@@ -18,7 +18,7 @@ export type AlertData = {
   milestonesOverdue: { id: string; poId: string; poNumber: string; name: string }[];
   exFtySoon: { poId: string; poNumber: string; exFactoryDate: Date }[];
   paymentsOverdue: { invoiceId: string; number: string; poId: string | null }[];
-  samplesPending: { id: string; poId: string; poNumber: string; type: string }[];
+  samplesPending: { id: string; poId: string; poNumber: string; type: string; daysPending: number }[];
   docsMissing: { poId: string; poNumber: string }[];
 };
 
@@ -58,14 +58,28 @@ export function computeAlerts(d: AlertData): AlertDraft[] {
     });
   }
 
+  // Sample-approval SLA escalation ladder: warn the merchant at 5+ days awaiting
+  // approval; escalate to management as well at 10+ days. Separate dedup keys so the
+  // 10-day escalation still fires even though the 5-day warning already exists.
   for (const s of d.samplesPending) {
-    out.push({
-      type: "SAMPLE_PENDING",
-      message: `Sample awaiting approval: ${s.type} (PO ${s.poNumber})`,
-      link: `/orders/${s.poId}`,
-      dedupKey: `sample-pending:${s.id}`,
-      roles: MERCH,
-    });
+    if (s.daysPending >= 5) {
+      out.push({
+        type: "SAMPLE_PENDING",
+        message: `Sample awaiting approval ${s.daysPending}d: ${s.type} (PO ${s.poNumber})`,
+        link: `/orders/${s.poId}`,
+        dedupKey: `sample-pending:${s.id}`,
+        roles: MERCH,
+      });
+    }
+    if (s.daysPending >= 10) {
+      out.push({
+        type: "SAMPLE_PENDING",
+        message: `ESCALATION — sample stuck ${s.daysPending}d: ${s.type} (PO ${s.poNumber})`,
+        link: `/orders/${s.poId}`,
+        dedupKey: `sample-escalate:${s.id}`,
+        roles: [...MERCH, "MANAGEMENT"],
+      });
+    }
   }
 
   for (const p of d.docsMissing) {

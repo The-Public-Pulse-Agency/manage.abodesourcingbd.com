@@ -20,7 +20,7 @@ describe("computeAlerts", () => {
       milestonesOverdue: [{ id: "m1", poId: "po1", poNumber: "P-1", name: "PP sample" }],
       exFtySoon: [{ poId: "po2", poNumber: "P-2", exFactoryDate: new Date("2026-06-20T00:00:00Z") }],
       paymentsOverdue: [{ invoiceId: "inv1", number: "ABD-1", poId: "po3" }],
-      samplesPending: [{ id: "s1", poId: "po4", poNumber: "P-4", type: "PP" }],
+      samplesPending: [{ id: "s1", poId: "po4", poNumber: "P-4", type: "PP", daysPending: 6 }],
       docsMissing: [{ poId: "po5", poNumber: "P-5" }],
     });
 

@@ -12,6 +12,14 @@ function dateInput(d: Date | null): string {
   return d ? new Date(d).toISOString().slice(0, 10) : "";
 }
 
+// Documents a shipment should carry before it leaves the factory.
+const REQUIRED_DOCS = [
+  { type: "BL", label: "Bill of Lading" },
+  { type: "COMMERCIAL_INVOICE", label: "Commercial Invoice" },
+  { type: "PACKING_LIST", label: "Packing List" },
+  { type: "TEST_CERT", label: "Test Cert" },
+] as const;
+
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
@@ -22,6 +30,9 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   const canEdit = can(actor.role, "shipment", "edit");
   const canDocs = can(actor.role, "documents", "view");
   const documents = canDocs ? await listDocuments(actor, "Shipment", id) : [];
+  const haveDocTypes = new Set(documents.map((d) => d.type));
+  const docsPresent = REQUIRED_DOCS.filter((r) => haveDocTypes.has(r.type)).length;
+  const docsPct = Math.round((docsPresent / REQUIRED_DOCS.length) * 100);
 
   return (
     <div className="space-y-6">
@@ -96,6 +107,30 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           </tbody>
         </table>
       </div>
+
+      {canDocs && (
+        <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+          <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Document checklist</h3>
+            <span className="tnum text-xs text-ink-soft">{docsPresent}/{REQUIRED_DOCS.length} required</span>
+          </div>
+          <div className="p-4">
+            <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-line">
+              <div className={`h-full rounded-full ${docsPct === 100 ? "bg-ok" : "bg-accent"}`} style={{ width: `${docsPct}%` }} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {REQUIRED_DOCS.map((r) => {
+                const ok = haveDocTypes.has(r.type);
+                return (
+                  <span key={r.type} className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs ${ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>
+                    {ok ? "✓" : "✗"} {r.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {canDocs && (
         <DocumentsPanel

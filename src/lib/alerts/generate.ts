@@ -67,7 +67,7 @@ export async function generateAlerts(opts: { now: Date; notifier?: Notifier }): 
     const email = users.find((u) => u.id === userId)?.email;
     if (!email) continue;
     try {
-      await notifier.email(email, `ABD OMS — ${messages.length} new alert(s)`, messages.join("\n"));
+      await notifier.email(email, `Pulse OMS — ${messages.length} new alert(s)`, messages.join("\n"));
     } catch (err) {
       console.error(`[alerts] digest email failed for ${email}:`, err);
     }

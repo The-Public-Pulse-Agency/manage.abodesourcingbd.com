@@ -58,7 +58,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
 
   const brand = (
     <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-baseline gap-2 px-5 py-4">
-      <span className="font-mono text-base font-bold tracking-tight text-accent">ABD</span>
+      <span className="font-mono text-base font-bold tracking-tight text-accent">Pulse</span>
       <span className="text-sm font-semibold tracking-tight">OMS</span>
     </Link>
   );
@@ -138,7 +138,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
           ☰
         </button>
         <Link href="/dashboard" className="flex items-baseline gap-2">
-          <span className="font-mono text-sm font-bold tracking-tight text-accent">ABD</span>
+          <span className="font-mono text-sm font-bold tracking-tight text-accent">Pulse</span>
           <span className="text-sm font-semibold tracking-tight">OMS</span>
         </Link>
         <Link href="/notifications" aria-label="Notifications" className="relative text-ink-soft hover:text-accent">

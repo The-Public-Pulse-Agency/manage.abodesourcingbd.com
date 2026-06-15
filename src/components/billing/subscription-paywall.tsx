@@ -23,7 +23,7 @@ export function SubscriptionPaywall({
     <div className="flex min-h-screen items-center justify-center bg-paper p-6">
       <div className="w-full max-w-lg overflow-hidden rounded-md border border-line bg-surface elevate-lg">
         <div className="border-b border-line bg-paper px-6 py-4">
-          <span className="font-mono text-sm font-bold tracking-tight text-accent">ABD</span>
+          <span className="font-mono text-sm font-bold tracking-tight text-accent">Pulse</span>
           <span className="ml-2 text-sm font-semibold tracking-tight">OMS</span>
         </div>
         <div className="space-y-5 p-6">

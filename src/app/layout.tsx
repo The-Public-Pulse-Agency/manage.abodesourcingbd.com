@@ -15,8 +15,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ABD OMS — Order & Merchandising",
-  description: "RMG order & merchandising management system",
+  title: "Pulse OMS — Order & Merchandising SaaS",
+  description: "Multi-tenant RMG order & merchandising management platform",
 };
 
 export default function RootLayout({

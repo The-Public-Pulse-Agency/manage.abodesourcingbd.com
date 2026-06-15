@@ -208,7 +208,12 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
 export async function listShipments(actor: SessionUser) {
   assertPermission(actor, "shipment", "view");
   return prisma.shipment.findMany({
-    include: { forwarder: true, port: true, lines: { include: { sizes: true } } },
+    include: {
+      forwarder: true,
+      port: true,
+      invoices: true,
+      lines: { include: { sizes: true, orderLine: { include: { po: { include: { factory: true } } } } } },
+    },
     orderBy: { createdAt: "desc" },
   });
 }

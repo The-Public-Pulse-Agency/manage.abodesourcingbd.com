@@ -458,6 +458,7 @@ model Shipment {
   blNumber      String?        @unique
   blDate        DateTime?
   telexStatus   TelexStatus    @default(PENDING)
+  tcStatus      String?        // transaction-certificate status (free text: Working / NO TC / Send <date>)
   forwarderId   String?
   forwarder     Forwarder?     @relation(fields: [forwarderId], references: [id], onDelete: SetNull)
   portId        String?
@@ -498,6 +499,7 @@ model Invoice {
   amount     Decimal        @db.Decimal(14, 2)
   currency   String         @default("USD")
   issueDate  DateTime
+  dueDate    DateTime?      // payment due date (drives true past-due aging)
   status     InvoiceStatus  @default(ISSUED)
   payments   Payment[]
   createdAt  DateTime       @default(now())

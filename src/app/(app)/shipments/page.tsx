@@ -3,12 +3,17 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listShipments } from "@/lib/shipment/shipment";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 
 const TELEX_CLS: Record<string, string> = {
   PENDING: "bg-line text-ink-soft",
   RECEIVED: "bg-warn-soft text-warn",
   RELEASED: "bg-ok-soft text-ok",
+};
+const PAY_CLS: Record<string, string> = {
+  ISSUED: "bg-warn-soft text-warn",
+  PARTIALLY_PAID: "bg-warn-soft text-warn",
+  PAID: "bg-ok-soft text-ok",
 };
 
 export default async function ShipmentsPage() {
@@ -20,44 +25,60 @@ export default async function ShipmentsPage() {
     <div className="space-y-6">
       <div>
         <p className="eyebrow">Logistics</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Shipments</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Shipment Tracker</h1>
       </div>
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">
-              <th className="px-3 py-2 font-semibold">Reference</th>
-              <th className="px-3 py-2 font-semibold">Mode</th>
+              <th className="px-3 py-2 font-semibold">BL / Ref</th>
+              <th className="px-3 py-2 font-semibold">Factory</th>
               <th className="px-3 py-2 font-semibold">Container</th>
-              <th className="px-3 py-2 font-semibold">BL</th>
+              <th className="px-3 py-2 font-semibold">Invoice #</th>
+              <th className="px-3 py-2 text-right font-semibold">Inv value</th>
+              <th className="px-3 py-2 font-semibold">Due</th>
+              <th className="px-3 py-2 font-semibold">Payment</th>
+              <th className="px-3 py-2 font-semibold">TC</th>
               <th className="px-3 py-2 font-semibold">Telex</th>
               <th className="px-3 py-2 font-semibold">Ex-fty</th>
-              <th className="px-3 py-2 text-right font-semibold">Lines</th>
             </tr>
           </thead>
           <tbody>
             {shipments.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-10 text-center text-ink-soft">No shipments yet.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-10 text-center text-ink-soft">No shipments yet.</td></tr>
             )}
-            {shipments.map((s) => (
-              <tr key={s.id} className="border-b border-line last:border-0 hover:bg-paper">
-                <td className="px-3 py-2">
-                  <Link href={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">
-                    {s.reference}
-                  </Link>
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">{s.mode}</td>
-                <td className="px-3 py-2 font-mono text-xs">{s.containerNo ?? "—"}</td>
-                <td className="px-3 py-2 font-mono text-xs">{s.blNumber ?? "—"}</td>
-                <td className="px-3 py-2">
-                  <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${TELEX_CLS[s.telexStatus] ?? ""}`}>
-                    {s.telexStatus}
-                  </span>
-                </td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(s.exFactoryDate)}</td>
-                <td className="px-3 py-2 text-right tnum">{s.lines.length}</td>
-              </tr>
-            ))}
+            {shipments.map((s) => {
+              const factory = s.lines.find((l) => l.orderLine?.po?.factory)?.orderLine?.po?.factory?.name;
+              const invoice = s.invoices[0];
+              return (
+                <tr key={s.id} className="border-b border-line last:border-0">
+                  <td className="px-3 py-2">
+                    <Link href={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">
+                      {s.blNumber ?? s.reference}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2">{factory ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{s.containerNo ?? "—"}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{invoice?.number ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tnum">{invoice && Number(invoice.amount) > 0 ? formatMoney(Number(invoice.amount), invoice.currency) : "—"}</td>
+                  <td className="px-3 py-2 tnum text-xs">{invoice?.dueDate ? formatDate(invoice.dueDate) : "—"}</td>
+                  <td className="px-3 py-2">
+                    {invoice ? (
+                      <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${PAY_CLS[invoice.status] ?? ""}`}>
+                        {invoice.status === "PAID" ? "Paid" : "Due"}
+                      </span>
+                    ) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-xs">{s.tcStatus ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${TELEX_CLS[s.telexStatus] ?? ""}`}>
+                      {s.telexStatus}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 tnum text-xs">{formatDate(s.exFactoryDate)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

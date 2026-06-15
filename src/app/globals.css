@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
-/* ABD OMS — refined industrial / technical back-office theme.
-   Warm paper, near-black ink, a single ochre signal accent. */
+/* ABD OMS — TenderPulse palette: brand red (#D32F2F) signal accent on a slate-neutral
+   surface system (slate-800 ink, slate-200 lines, light-slate app background). */
 :root {
-  --paper: #f6f4ee;
+  --paper: #f4f6f9;
   --surface: #ffffff;
-  --ink: #1c1917;
-  --ink-soft: #6b6258;
-  --line: #e6e0d4;
-  --accent: #b45309;
-  --accent-soft: #fdf0d5;
+  --ink: #1e293b;
+  --ink-soft: #64748b;
+  --line: #e2e8f0;
+  --accent: #d32f2f;
+  --accent-soft: #fef2f2;
   --ok: #15803d;
   --ok-soft: #dcfce7;
-  --warn: #b45309;
-  --warn-soft: #fef3c7;
-  --bad: #b91c1c;
+  --warn: #d97706;
+  --warn-soft: #fffbeb;
+  --bad: #b71c1c;
   --bad-soft: #fee2e2;
 }
 

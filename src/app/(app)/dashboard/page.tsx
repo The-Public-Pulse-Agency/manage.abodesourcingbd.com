@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { dashboardSummary } from "@/lib/dashboard/summary";
 import { factoryLeagueTable } from "@/lib/dashboard/factories";
+import { enquiryPipelineKpis } from "@/lib/enquiries/enquiries";
 import { formatMoney, formatQty, formatDate } from "@/lib/format";
 
 export default async function DashboardPage() {
@@ -12,7 +13,11 @@ export default async function DashboardPage() {
   if (!can(actor.role, "dashboards", "view")) redirect("/orders");
 
   const now = new Date();
-  const [s, factories] = await Promise.all([dashboardSummary(actor, { now }), factoryLeagueTable(actor, { now })]);
+  const [s, factories, pipeline] = await Promise.all([
+    dashboardSummary(actor, { now }),
+    factoryLeagueTable(actor, { now }),
+    can(actor.role, "orders", "view") ? enquiryPipelineKpis(actor) : Promise.resolve(null),
+  ]);
   const e = s.exceptions;
 
   return (
@@ -28,6 +33,13 @@ export default async function DashboardPage() {
         <Stat label="On-time delivery" value={s.otd.pct === null ? "—" : `${s.otd.pct}%`} hint={`${s.otd.onTime}/${s.otd.completed} on time`} />
         <Stat label="Receivable (AR)" value={formatMoney(s.finance.receivable)} />
         <Stat label="Payable (AP)" value={formatMoney(s.finance.payable)} />
+        {pipeline && (
+          <Stat
+            label="Enquiry pipeline (USD)"
+            value={formatMoney(pipeline.openValueUsd)}
+            hint={`${pipeline.openCount} open · ${pipeline.wonRate === null ? "—" : `${pipeline.wonRate}%`} win`}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

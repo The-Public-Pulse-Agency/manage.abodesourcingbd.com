@@ -54,6 +54,37 @@ enum CostCategory {
   OTHER
 }
 
+enum EnquiryStatus {
+  NEW
+  QUOTING
+  QUOTED
+  WON
+  LOST
+  DROPPED
+}
+
+// Pre-order pipeline: buyer enquiry → quote → win/lose → convert to a draft PO.
+// Buyer/brand/factory are stored as ids (no relation) to keep this module isolated.
+model Enquiry {
+  id               String        @id @default(cuid())
+  buyerId          String
+  brandId          String
+  factoryId        String?
+  styleRef         String
+  targetQty        Int?
+  targetPriceUsd   Decimal?      @db.Decimal(12, 4)
+  quotedPriceUsd   Decimal?      @db.Decimal(12, 4)
+  requiredShipDate DateTime?
+  status           EnquiryStatus @default(NEW)
+  lostReason       String?
+  notes            String?
+  convertedPoId    String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([status])
+}
+
 // Per-PO cost build-up behind the sell FOB (reference + margin analysis).
 model CostItem {
   id            String        @id @default(cuid())

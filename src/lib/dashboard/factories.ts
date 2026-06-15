@@ -28,7 +28,7 @@ export async function factoryLeagueTable(actor: SessionUser, opts: { now?: Date 
       select: { factoryId: true, lines: { select: { sizes: true } } },
     }),
     prisma.taMilestone.findMany({
-      where: { key: "ex_factory", actualDate: { not: null } },
+      where: { key: "EX_FACTORY", actualDate: { not: null } },
       select: { plannedDate: true, actualDate: true, po: { select: { factoryId: true } } },
     }),
     prisma.inspection.findMany({

@@ -5,8 +5,10 @@ import { can } from "@/lib/auth/permissions";
 import { getPurchaseOrder } from "@/lib/orders/po";
 import { lineTotals, marginPct } from "@/lib/orders/money";
 import { listCostItems } from "@/lib/orders/cost-items";
+import { listMaterials } from "@/lib/materials/materials";
 import { getSubscription } from "@/lib/billing/subscription";
 import { CostingPanel } from "@/components/costing-panel";
+import { MaterialsPanel } from "@/components/materials-panel";
 import { listStyles } from "@/lib/masterdata/style";
 import { listColours, listSizeScales } from "@/lib/masterdata/sizescale";
 import { listPoMilestones } from "@/lib/tna/milestones";
@@ -51,7 +53,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   // Every read below is independent — run them concurrently so the page waits on the
   // single slowest query, not the sum of all of them.
-  const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices, costItems, sub] =
+  const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices, costItems, materials, sub] =
     await Promise.all([
       listColours(actor),
       canEdit ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
@@ -64,6 +66,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       canDocs ? listDocuments(actor, "PurchaseOrder", po.id) : Promise.resolve([]),
       canFinance ? listInvoices(actor, { poId: po.id }) : Promise.resolve([]),
       canCosting ? listCostItems(actor, po.id) : Promise.resolve([]),
+      canPqc && !isDraft ? listMaterials(actor, po.id) : Promise.resolve([]),
       getSubscription(),
     ]);
 
@@ -249,6 +252,26 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           poId={po.id}
           inspections={inspections}
           canCreate={can(role, "productionQc", "create") && isActive}
+        />
+      )}
+
+      {canPqc && !isDraft && (
+        <MaterialsPanel
+          poId={po.id}
+          materials={materials.map((m) => ({
+            id: m.id,
+            kind: m.kind,
+            description: m.description,
+            supplier: m.supplier,
+            bookedQty: m.bookedQty != null ? Number(m.bookedQty) : null,
+            unit: m.unit,
+            bookingRef: m.bookingRef,
+            etaDate: m.etaDate ? formatDate(m.etaDate) : null,
+            receivedQty: m.receivedQty != null ? Number(m.receivedQty) : null,
+            receivedDate: m.receivedDate ? formatDate(m.receivedDate) : null,
+            status: m.status,
+          }))}
+          canEdit={can(role, "productionQc", "edit") && isActive}
         />
       )}
 

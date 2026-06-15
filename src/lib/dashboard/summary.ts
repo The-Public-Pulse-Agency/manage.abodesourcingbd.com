@@ -49,7 +49,7 @@ export async function dashboardSummary(
       where: { status: { in: [...LIVE_STATUSES] } },
       include: { buyer: true, factory: true, lines: { include: { sizes: true } } },
     }),
-    prisma.taMilestone.findMany({ where: { key: "ex_factory", actualDate: { not: null } } }),
+    prisma.taMilestone.findMany({ where: { key: "EX_FACTORY", actualDate: { not: null } } }),
     financeSummary(actor, { now: today }),
     criticalPathBoard(actor, { now: today }),
   ]);

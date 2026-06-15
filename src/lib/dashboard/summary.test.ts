@@ -50,14 +50,14 @@ describe("dashboardSummary", () => {
     // ex-factory milestones (OTD): one on time, one late
     await prisma.taMilestone.createMany({
       data: [
-        { poId: live.id, key: "ex_factory", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-09") },
+        { poId: live.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-09") },
       ],
     });
     // a late ex-factory on another (closed) PO still counts for OTD history
     const done = await createPurchaseOrder(admin, { poNumber: "P-DONE", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
     await prisma.purchaseOrder.update({ where: { id: done.id }, data: { status: "CLOSED" } });
     await prisma.taMilestone.create({
-      data: { poId: done.id, key: "ex_factory", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-15") },
+      data: { poId: done.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-15") },
     });
 
     // Overdue + due-soon milestones on the live PO (board exception)

@@ -12,6 +12,26 @@ async function main() {
     create: { name: "Admin", email, role: "ADMIN", passwordHash },
   });
   console.log(`Seeded admin: ${email} / ChangeMe123!`);
+
+  // Default size scales (idempotent by unique name; sizes created only on insert).
+  const scales: Record<string, string[]> = {
+    "Adult XS-6XL": ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL"],
+    "Adult XS-2XL": ["XS", "S", "M", "L", "XL", "2XL"],
+    "Kids": ["3-4", "5-6", "7-8", "9-11", "12-13"],
+  };
+  for (const [name, sizes] of Object.entries(scales)) {
+    await prisma.sizeScale.upsert({
+      where: { name },
+      update: {},
+      create: { name, sizes: { create: sizes.map((label, position) => ({ label, position })) } },
+    });
+  }
+
+  // Default colours.
+  for (const name of ["Black", "White", "Navy", "Royal", "Red", "Bottle Green"]) {
+    await prisma.colour.upsert({ where: { name }, update: {}, create: { name } });
+  }
+  console.log("Seeded default size scales + colours");
 }
 
 main()

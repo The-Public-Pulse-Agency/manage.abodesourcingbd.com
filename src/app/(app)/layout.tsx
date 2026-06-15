@@ -6,9 +6,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
   if (!session?.user) redirect("/login");
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-paper">
       <AppNav role={session.user.role} name={session.user.name ?? session.user.email ?? ""} />
-      <main className="mx-auto max-w-6xl p-6">{children}</main>
+      <main className="mx-auto max-w-7xl p-6">{children}</main>
     </div>
   );
 }

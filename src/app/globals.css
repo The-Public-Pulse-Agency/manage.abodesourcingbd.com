@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
+/* ABD OMS — refined industrial / technical back-office theme.
+   Warm paper, near-black ink, a single ochre signal accent. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f6f4ee;
+  --surface: #ffffff;
+  --ink: #1c1917;
+  --ink-soft: #6b6258;
+  --line: #e6e0d4;
+  --accent: #b45309;
+  --accent-soft: #fdf0d5;
+  --ok: #15803d;
+  --ok-soft: #dcfce7;
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --bad: #b91c1c;
+  --bad-soft: #fee2e2;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), system-ui, sans-serif;
+}
+
+/* Tabular, monospaced numerals for money / quantities so columns align. */
+.tnum {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section / eyebrow label */
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* Shared form controls */
+.select,
+.input {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 2px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+.select:focus,
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.input::placeholder {
+  color: var(--ink-soft);
 }

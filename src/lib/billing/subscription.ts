@@ -40,7 +40,7 @@ export async function listSubscriptionPayments() {
 /** Admin edits the plan — amount/period/name/notes are dynamic, not hardcoded. */
 export async function updatePlan(
   actor: SessionUser,
-  input: { amountBdt?: number; periodDays?: number; planName?: string; planNotes?: string },
+  input: { amountBdt?: number; periodDays?: number; planName?: string; planNotes?: string; minMarginPct?: number },
 ): Promise<Subscription> {
   assertBillingAdmin(actor);
   await getSubscription();
@@ -49,6 +49,7 @@ export async function updatePlan(
   if (input.periodDays !== undefined && input.periodDays > 0) data.periodDays = Math.round(input.periodDays);
   if (input.planName) data.planName = input.planName.trim();
   if (input.planNotes !== undefined) data.planNotes = input.planNotes.trim();
+  if (input.minMarginPct !== undefined && input.minMarginPct >= 0) data.minMarginPct = Math.round(input.minMarginPct);
   return prisma.subscription.update({ where: { id: SUB_ID }, data });
 }
 

@@ -9,11 +9,13 @@ export function PlanForm({
   periodDays,
   planName,
   planNotes,
+  minMarginPct,
 }: {
   amountBdt: number;
   periodDays: number;
   planName: string;
   planNotes: string;
+  minMarginPct: number;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,6 +39,10 @@ export function PlanForm({
         <label className="flex flex-col gap-1">
           <span className="eyebrow">Period (days)</span>
           <input name="periodDays" type="number" min="1" defaultValue={periodDays} className="input tnum w-28" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="eyebrow">Margin floor %</span>
+          <input name="minMarginPct" type="number" min="0" defaultValue={minMarginPct} className="input tnum w-28" title="Block costing approval below this margin %" />
         </label>
         <label className="flex flex-1 flex-col gap-1" style={{ minWidth: 200 }}>
           <span className="eyebrow">Plan name</span>

@@ -44,6 +44,30 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum CostCategory {
+  FABRIC
+  CM
+  TRIMS
+  TEST
+  FREIGHT
+  COMMISSION
+  OTHER
+}
+
+// Per-PO cost build-up behind the sell FOB (reference + margin analysis).
+model CostItem {
+  id            String        @id @default(cuid())
+  poId          String
+  po            PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  category      CostCategory
+  label         String
+  amountPerUnit Decimal       @db.Decimal(12, 4)
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  @@index([poId])
+}
+
 enum SubPaymentStatus {
   PENDING
   PAID
@@ -58,6 +82,7 @@ model Subscription {
   status           SubscriptionStatus    @default(TRIAL)
   amountBdt        Int                   @default(3333) // monthly fee in BDT (whole taka)
   periodDays       Int                   @default(30)
+  minMarginPct     Int                   @default(0) // org margin floor — confirm/costing-approval gate
   planName         String                @default("ABD OMS — Managed SaaS")
   planNotes        String                @default("Full SLA, all modifications & upgrades included.")
   currentPeriodEnd DateTime
@@ -263,6 +288,7 @@ model PurchaseOrder {
   production     ProductionRecord?
   inspections    Inspection[]
   invoices       Invoice[]
+  costItems      CostItem[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

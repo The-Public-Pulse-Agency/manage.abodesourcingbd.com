@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { getPurchaseOrder } from "@/lib/orders/po";
 import { lineTotals, marginPct } from "@/lib/orders/money";
+import { listCostItems } from "@/lib/orders/cost-items";
+import { getSubscription } from "@/lib/billing/subscription";
+import { CostingPanel } from "@/components/costing-panel";
 import { listStyles } from "@/lib/masterdata/style";
 import { listColours, listSizeScales } from "@/lib/masterdata/sizescale";
 import { listPoMilestones } from "@/lib/tna/milestones";
@@ -44,10 +47,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const canShip = can(role, "shipment", "view");
   const canDocs = can(role, "documents", "view");
   const canFinance = can(role, "finance", "view");
+  const canCosting = can(role, "costing", "view");
 
   // Every read below is independent — run them concurrently so the page waits on the
   // single slowest query, not the sum of all of them.
-  const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices] =
+  const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices, costItems, sub] =
     await Promise.all([
       listColours(actor),
       canEdit ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
@@ -59,6 +63,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       canShip && !isDraft ? getPoBalance(actor, po.id) : Promise.resolve([]),
       canDocs ? listDocuments(actor, "PurchaseOrder", po.id) : Promise.resolve([]),
       canFinance ? listInvoices(actor, { poId: po.id }) : Promise.resolve([]),
+      canCosting ? listCostItems(actor, po.id) : Promise.resolve([]),
+      getSubscription(),
     ]);
 
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
@@ -159,6 +165,18 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </tbody>
         </table>
       </div>
+
+      {canCosting && (
+        <CostingPanel
+          poId={po.id}
+          items={costItems.map((c) => ({ id: c.id, category: c.category, label: c.label, amountPerUnit: Number(c.amountPerUnit), note: c.note }))}
+          netPerUnit={po.totals.qty > 0 ? po.totals.cost / po.totals.qty : 0}
+          sellPerUnit={po.totals.qty > 0 ? po.totals.value / po.totals.qty : 0}
+          marginPct={marginPct(po.totals)}
+          minMarginPct={sub.minMarginPct}
+          canEdit={can(role, "costing", "edit") && isDraft}
+        />
+      )}
 
       {canEdit ? (
         <>

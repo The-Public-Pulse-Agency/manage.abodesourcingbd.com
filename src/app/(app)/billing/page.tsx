@@ -75,7 +75,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       </div>
 
       {isAdmin && (
-        <PlanForm amountBdt={sub.amountBdt} periodDays={sub.periodDays} planName={sub.planName} planNotes={sub.planNotes} />
+        <PlanForm amountBdt={sub.amountBdt} periodDays={sub.periodDays} planName={sub.planName} planNotes={sub.planNotes} minMarginPct={sub.minMarginPct} />
       )}
 
       <div className="overflow-hidden rounded-md border border-line bg-surface elevate">

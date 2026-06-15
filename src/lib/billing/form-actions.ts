@@ -15,6 +15,7 @@ export async function updatePlanAction(fd: FormData): Promise<ActionResult> {
       periodDays: Number(fd.get("periodDays")) || undefined,
       planName: String(fd.get("planName") || "") || undefined,
       planNotes: String(fd.get("planNotes") ?? ""),
+      minMarginPct: fd.get("minMarginPct") !== null ? Number(fd.get("minMarginPct")) : undefined,
     });
     revalidatePath("/billing");
     return { ok: true };

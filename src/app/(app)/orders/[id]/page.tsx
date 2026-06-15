@@ -10,7 +10,10 @@ import { listPoMilestones } from "@/lib/tna/milestones";
 import { listSampleRequests } from "@/lib/sampling/sampling";
 import { getProduction } from "@/lib/production/production";
 import { listInspections } from "@/lib/qc/qc";
+import { getPoBalance } from "@/lib/shipment/balance-db";
+import { listDocuments } from "@/lib/documents/documents";
 import { StatusPill } from "@/components/status-pill";
+import { DocumentsPanel } from "@/components/documents-panel";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { SizeGridForm } from "./size-grid-form";
 import { ConfirmButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
@@ -44,6 +47,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const samples = canSampling ? await listSampleRequests(actor, po.id) : [];
   const production = canPqc ? await getProduction(actor, po.id) : null;
   const inspections = canPqc ? await listInspections(actor, po.id) : [];
+
+  const canShip = can(role, "shipment", "view");
+  const canDocs = can(role, "documents", "view");
+  const balance = canShip && !isDraft ? await getPoBalance(actor, po.id) : [];
+  const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
+  const documents = canDocs ? await listDocuments(actor, "PurchaseOrder", po.id) : [];
 
   return (
     <div className="space-y-6">
@@ -191,6 +200,60 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           poId={po.id}
           inspections={inspections}
           canCreate={can(role, "productionQc", "create") && isActive}
+        />
+      )}
+
+      {canShip && !isDraft && (
+        <div className="overflow-hidden rounded-sm border border-line bg-surface">
+          <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Shipping balance</h3>
+            {can(role, "shipment", "create") && isActive && hasBalance && (
+              <Link
+                href={`/shipments/new?poId=${po.id}`}
+                className="rounded-sm bg-accent px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
+              >
+                + New shipment
+              </Link>
+            )}
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
+                <th className="px-3 py-1.5 font-semibold">Style</th>
+                <th className="px-3 py-1.5 font-semibold">Colour</th>
+                <th className="px-3 py-1.5 font-semibold">Remaining by size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {balance.map((l) => (
+                <tr key={l.orderLineId} className="border-b border-line last:border-0">
+                  <td className="px-3 py-1.5 font-mono text-xs">{l.styleCode}</td>
+                  <td className="px-3 py-1.5">{l.colour ?? "—"}</td>
+                  <td className="px-3 py-1.5">
+                    <div className="flex flex-wrap gap-1">
+                      {l.sizes.map((s) => (
+                        <span
+                          key={s.label}
+                          className={`tnum rounded-sm px-1.5 py-0.5 text-xs ${s.balance > 0 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}
+                        >
+                          {s.label}·{s.balance}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {canDocs && (
+        <DocumentsPanel
+          entityType="PurchaseOrder"
+          entityId={po.id}
+          documents={documents}
+          canCreate={can(role, "documents", "create") && isActive}
         />
       )}
     </div>

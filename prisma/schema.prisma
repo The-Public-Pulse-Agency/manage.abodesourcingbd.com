@@ -12,10 +12,39 @@ datasource db {
 }
 
 enum Role {
+  SUPERADMIN
   ADMIN
   MERCHANDISER
   ACCOUNTS
   MANAGEMENT
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// A tenant. Every operational row carries a companyId; queries are scoped to the
+// signed-in user's company. The platform SUPERADMIN has no company (companyId null).
+model Company {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  status    CompanyStatus @default(ACTIVE)
+  packageId String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+// SuperAdmin-defined subscription package (price + billing period only, per decision).
+model Package {
+  id         String   @id @default(cuid())
+  name       String
+  priceBdt   Int      @default(0)
+  periodDays Int      @default(30)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model User {
@@ -25,9 +54,12 @@ model User {
   passwordHash  String
   role          Role
   active        Boolean        @default(true)
+  companyId     String?        // tenant; null only for the platform SUPERADMIN
   notifications Notification[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+
+  @@index([companyId])
 }
 
 enum NotificationType {

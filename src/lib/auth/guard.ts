@@ -7,7 +7,7 @@ export class ForbiddenError extends Error {
   }
 }
 
-export type SessionUser = { id: string; role: Role };
+export type SessionUser = { id: string; role: Role; companyId?: string | null };
 
 /** Pure authorization check — throws if the user may not perform the action. */
 export function assertPermission(
@@ -31,7 +31,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const { auth } = await import("@/auth");
   const session = await auth();
   if (!session?.user) return null;
-  return { id: session.user.id, role: session.user.role };
+  return { id: session.user.id, role: session.user.role, companyId: session.user.companyId ?? null };
 }
 
 /** Session-aware guard for server actions: loads the user and asserts. */

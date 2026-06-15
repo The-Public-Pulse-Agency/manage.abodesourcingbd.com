@@ -1,4 +1,5 @@
-export const ROLES = ["ADMIN", "MERCHANDISER", "ACCOUNTS", "MANAGEMENT"] as const;
+// SUPERADMIN is the platform operator (no company); the rest are company-scoped roles.
+export const ROLES = ["SUPERADMIN", "ADMIN", "MERCHANDISER", "ACCOUNTS", "MANAGEMENT"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ACTIONS = ["view", "create", "edit", "delete", "approve"] as const;
@@ -17,6 +18,9 @@ export const MODULES = [
   "finance",
   "dashboards",
   "auditLog",
+  // Platform (SUPERADMIN only):
+  "companies",
+  "packages",
 ] as const;
 export type Module = (typeof MODULES)[number];
 
@@ -28,6 +32,10 @@ type Matrix = Record<Role, Partial<Record<Module, Action[]>>>;
 
 // Mirrors spec §7. Anything absent = no access.
 export const PERMISSIONS: Matrix = {
+  SUPERADMIN: {
+    companies: CRUD,
+    packages: CRUD,
+  },
   ADMIN: {
     users: CRUD,
     masterData: CRUD,

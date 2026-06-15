@@ -48,6 +48,11 @@ export async function listFactories(
   });
 }
 
+export async function getFactory(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "view");
+  return prisma.factory.findUnique({ where: { id } });
+}
+
 export async function updateFactory(
   actor: SessionUser,
   id: string,
@@ -55,7 +60,20 @@ export async function updateFactory(
 ) {
   assertPermission(actor, "masterData", "edit");
   const data = updateFactorySchema.parse(input);
-  const factory = await prisma.factory.update({ where: { id }, data });
+  let factory;
+  try {
+    factory = await prisma.factory.update({ where: { id }, data });
+  } catch (e) {
+    if (
+      e &&
+      typeof e === "object" &&
+      "code" in e &&
+      (e as { code?: string }).code === "P2002"
+    ) {
+      throw new Error("A factory with these details already exists");
+    }
+    throw e;
+  }
   await recordAudit({
     userId: actor.id,
     entityType: "Factory",

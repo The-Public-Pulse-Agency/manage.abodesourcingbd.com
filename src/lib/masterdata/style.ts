@@ -14,6 +14,9 @@ export const createStyleSchema = z.object({
 });
 export type CreateStyleInput = z.infer<typeof createStyleSchema>;
 
+export const updateStyleSchema = createStyleSchema.partial();
+export type UpdateStyleInput = z.infer<typeof updateStyleSchema>;
+
 export async function createStyle(actor: SessionUser, input: CreateStyleInput) {
   assertPermission(actor, "masterData", "create");
   const data = createStyleSchema.parse(input);
@@ -30,6 +33,41 @@ export async function createStyle(actor: SessionUser, input: CreateStyleInput) {
     after: { styleCode: style.styleCode, name: style.name, brandId: style.brandId },
   });
   return style;
+}
+
+export async function getStyle(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "view");
+  return prisma.style.findUnique({ where: { id } });
+}
+
+export async function updateStyle(
+  actor: SessionUser,
+  id: string,
+  input: UpdateStyleInput,
+) {
+  assertPermission(actor, "masterData", "edit");
+  const data = updateStyleSchema.parse(input);
+  try {
+    const style = await prisma.style.update({ where: { id }, data });
+    await recordAudit({
+      userId: actor.id,
+      entityType: "Style",
+      entityId: id,
+      action: "edit",
+      after: data,
+    });
+    return style;
+  } catch (e) {
+    if (
+      e &&
+      typeof e === "object" &&
+      "code" in e &&
+      (e as { code?: string }).code === "P2002"
+    ) {
+      throw new Error("Style code already exists for this brand");
+    }
+    throw e;
+  }
 }
 
 export async function listStyles(

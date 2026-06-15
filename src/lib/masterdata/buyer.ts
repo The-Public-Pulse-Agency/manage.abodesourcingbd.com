@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
@@ -7,12 +8,18 @@ import { slugCode } from "@/lib/text";
 export const createBuyerSchema = z.object({ name: z.string().min(1) });
 export type CreateBuyerInput = z.infer<typeof createBuyerSchema>;
 
+export const updateBuyerSchema = createBuyerSchema.partial();
+export type UpdateBuyerInput = z.infer<typeof updateBuyerSchema>;
+
 export const createBrandSchema = z.object({
   buyerId: z.string().min(1),
   name: z.string().min(1),
   code: z.string().min(1),
 });
 export type CreateBrandInput = z.infer<typeof createBrandSchema>;
+
+export const updateBrandSchema = createBrandSchema.partial();
+export type UpdateBrandInput = z.infer<typeof updateBrandSchema>;
 
 export async function createBuyer(actor: SessionUser, input: CreateBuyerInput) {
   assertPermission(actor, "masterData", "create");
@@ -38,6 +45,35 @@ export async function listBuyers(actor: SessionUser, opts: { includeInactive?: b
     where: opts.includeInactive ? {} : { active: true },
     orderBy: { name: "asc" },
   });
+}
+
+export async function getBuyer(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "view");
+  return prisma.buyer.findUnique({ where: { id } });
+}
+
+export async function updateBuyer(actor: SessionUser, id: string, input: UpdateBuyerInput) {
+  assertPermission(actor, "masterData", "edit");
+  const data = updateBuyerSchema.parse(input);
+  // `code` is derived from the buyer name, so re-derive it when the name changes.
+  const patch: { name?: string; code?: string } =
+    data.name !== undefined ? { name: data.name, code: slugCode(data.name) } : {};
+  try {
+    const buyer = await prisma.buyer.update({ where: { id }, data: patch });
+    await recordAudit({
+      userId: actor.id,
+      entityType: "Buyer",
+      entityId: id,
+      action: "edit",
+      after: patch,
+    });
+    return buyer;
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new Error("A buyer with that code already exists");
+    }
+    throw e;
+  }
 }
 
 export async function createBrand(actor: SessionUser, input: CreateBrandInput) {
@@ -67,4 +103,39 @@ export async function listBrands(actor: SessionUser, buyerId?: string) {
     where: { active: true, ...(buyerId ? { buyerId } : {}) },
     orderBy: { name: "asc" },
   });
+}
+
+export async function getBrand(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "view");
+  return prisma.brand.findUnique({ where: { id } });
+}
+
+export async function updateBrand(actor: SessionUser, id: string, input: UpdateBrandInput) {
+  assertPermission(actor, "masterData", "edit");
+  const data = updateBrandSchema.parse(input);
+  const patch: Prisma.BrandUpdateInput = {
+    ...(data.name !== undefined ? { name: data.name } : {}),
+    ...(data.code !== undefined ? { code: slugCode(data.code) } : {}),
+    ...(data.buyerId !== undefined ? { buyer: { connect: { id: data.buyerId } } } : {}),
+  };
+  try {
+    const brand = await prisma.brand.update({ where: { id }, data: patch });
+    await recordAudit({
+      userId: actor.id,
+      entityType: "Brand",
+      entityId: id,
+      action: "edit",
+      after: {
+        ...(data.name !== undefined ? { name: brand.name } : {}),
+        ...(data.code !== undefined ? { code: brand.code } : {}),
+        ...(data.buyerId !== undefined ? { buyerId: brand.buyerId } : {}),
+      },
+    });
+    return brand;
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new Error("A brand with that code already exists for this buyer");
+    }
+    throw e;
+  }
 }

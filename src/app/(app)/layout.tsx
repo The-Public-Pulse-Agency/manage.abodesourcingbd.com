@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { AppNav } from "@/components/app-nav";
+import { AppSidebar } from "@/components/app-sidebar";
 import { unreadCount } from "@/lib/notifications/notifications";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -8,13 +8,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session?.user) redirect("/login");
   const unread = await unreadCount({ id: session.user.id, role: session.user.role });
   return (
-    <div className="min-h-screen bg-paper">
-      <AppNav
+    <div className="flex min-h-screen bg-paper">
+      <AppSidebar
         role={session.user.role}
         name={session.user.name ?? session.user.email ?? ""}
         unread={unread}
       />
-      <main className="mx-auto max-w-7xl p-6">{children}</main>
+      <main className="min-w-0 flex-1 p-6">
+        <div className="mx-auto max-w-7xl">{children}</div>
+      </main>
     </div>
   );
 }

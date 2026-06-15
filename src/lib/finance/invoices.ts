@@ -79,3 +79,25 @@ export async function listInvoices(
     orderBy: { issueDate: "desc" },
   });
 }
+
+/** Server-side paginated invoice list (for the finance all-invoices view at scale). */
+export async function listInvoicesPaged(
+  actor: SessionUser,
+  filter: { type?: "BUYER" | "FACTORY"; poId?: string },
+  opts: { page?: number; pageSize?: number } = {},
+) {
+  assertPermission(actor, "finance", "view");
+  const where = { ...(filter.type ? { type: filter.type } : {}), ...(filter.poId ? { poId: filter.poId } : {}) };
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
+  const total = await prisma.invoice.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
+  const rows = await prisma.invoice.findMany({
+    where,
+    include: { payments: true, po: true },
+    orderBy: { issueDate: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  return { rows, total, page, pageSize, totalPages };
+}

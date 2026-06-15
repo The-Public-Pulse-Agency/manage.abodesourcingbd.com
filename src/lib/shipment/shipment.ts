@@ -219,6 +219,27 @@ export async function listShipments(actor: SessionUser) {
   });
 }
 
+/** Server-side paginated shipment tracker. */
+export async function listShipmentsPaged(actor: SessionUser, opts: { page?: number; pageSize?: number } = {}) {
+  assertPermission(actor, "shipment", "view");
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
+  const total = await prisma.shipment.count();
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
+  const rows = await prisma.shipment.findMany({
+    include: {
+      forwarder: true,
+      port: true,
+      invoices: true,
+      lines: { include: { sizes: true, orderLine: { include: { po: { include: { factory: true } } } } } },
+    },
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  return { rows, total, page, pageSize, totalPages };
+}
+
 export async function getShipment(actor: SessionUser, id: string) {
   assertPermission(actor, "shipment", "view");
   return prisma.shipment.findUnique({

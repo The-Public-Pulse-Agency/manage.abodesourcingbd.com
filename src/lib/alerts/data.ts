@@ -34,7 +34,13 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
       orderBy: { exFactoryDate: "asc" },
     }),
     prisma.invoice.findMany({
-      where: { issueDate: { lt: paymentCutoff } },
+      // Overdue = past its due date, or (no due date set) aged >30d since issue.
+      where: {
+        OR: [
+          { dueDate: { lt: today } },
+          { dueDate: null, issueDate: { lt: paymentCutoff } },
+        ],
+      },
       include: { payments: true },
     }),
     prisma.sampleRequest.findMany({

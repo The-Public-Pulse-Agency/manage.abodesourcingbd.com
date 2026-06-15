@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { listShipments } from "@/lib/shipment/shipment";
+import { listShipmentsPaged } from "@/lib/shipment/shipment";
+import { Pagination } from "@/components/pagination";
 import { formatDate, formatMoney } from "@/lib/format";
 
 const TELEX_CLS: Record<string, string> = {
@@ -16,10 +17,12 @@ const PAY_CLS: Record<string, string> = {
   PAID: "bg-ok-soft text-ok",
 };
 
-export default async function ShipmentsPage() {
+export default async function ShipmentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
-  const shipments = await listShipments(actor);
+  const sp = await searchParams;
+  const book = await listShipmentsPaged(actor, { page: Math.max(1, Number(sp.page) || 1) });
+  const shipments = book.rows;
 
   return (
     <div className="space-y-6">
@@ -82,6 +85,7 @@ export default async function ShipmentsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination page={book.page} totalPages={book.totalPages} total={book.total} pageSize={book.pageSize} params={sp} />
     </div>
   );
 }

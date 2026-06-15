@@ -9,6 +9,7 @@ export type AgingRow = {
   number: string;
   outstanding: number;
   bucket: AgeBucketKey;
+  dueDate: Date | null;
 };
 
 export type FinanceSummary = {
@@ -41,7 +42,9 @@ export async function financeSummary(actor: SessionUser, opts: { now: Date }): P
         type: inv.type,
         number: inv.number,
         outstanding: out,
-        bucket: ageBucket(inv.issueDate, opts.now),
+        // Age off the payment due date when set (true past-due); fall back to issue date.
+        bucket: ageBucket(inv.dueDate ?? inv.issueDate, opts.now),
+        dueDate: inv.dueDate,
       });
     }
     if (inv.poId) {

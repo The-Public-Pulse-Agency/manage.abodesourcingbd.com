@@ -17,6 +17,10 @@
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "postcss": "^8.5.10"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",

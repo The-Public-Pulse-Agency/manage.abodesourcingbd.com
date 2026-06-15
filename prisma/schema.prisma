@@ -209,6 +209,7 @@ model OrderLine {
   sizeScaleId String?
   sizeScale   SizeScale?      @relation(fields: [sizeScaleId], references: [id])
   sizes       OrderLineSize[]
+  shipmentLines ShipmentLine[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -330,4 +331,101 @@ model Inspection {
   updatedAt DateTime         @updatedAt
 
   @@index([poId])
+}
+
+enum ShipmentMode {
+  SEA
+  AIR
+}
+
+enum TelexStatus {
+  PENDING
+  RECEIVED
+  RELEASED
+}
+
+enum DocumentType {
+  BL
+  COMMERCIAL_INVOICE
+  PACKING_LIST
+  TEST_CERT
+  SAMPLE_PHOTO
+  OTHER
+}
+
+model Port {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  country   String?
+  active    Boolean    @default(true)
+  shipments Shipment[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Forwarder {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  contact   String?
+  active    Boolean    @default(true)
+  shipments Shipment[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Shipment {
+  id            String         @id @default(cuid())
+  reference     String         @unique
+  mode          ShipmentMode   @default(SEA)
+  containerNo   String?
+  cartons       Int?
+  exFactoryDate DateTime?
+  blNumber      String?        @unique
+  blDate        DateTime?
+  telexStatus   TelexStatus    @default(PENDING)
+  forwarderId   String?
+  forwarder     Forwarder?     @relation(fields: [forwarderId], references: [id], onDelete: SetNull)
+  portId        String?
+  port          Port?          @relation(fields: [portId], references: [id], onDelete: SetNull)
+  lines         ShipmentLine[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([telexStatus])
+}
+
+model ShipmentLine {
+  id          String             @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment           @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderLineId String
+  orderLine   OrderLine          @relation(fields: [orderLineId], references: [id])
+  sizes       ShipmentLineSize[]
+  createdAt   DateTime           @default(now())
+
+  @@unique([shipmentId, orderLineId])
+  @@index([orderLineId])
+}
+
+model ShipmentLineSize {
+  id             String       @id @default(cuid())
+  shipmentLineId String
+  shipmentLine   ShipmentLine @relation(fields: [shipmentLineId], references: [id], onDelete: Cascade)
+  label          String
+  qty            Int
+
+  @@unique([shipmentLineId, label])
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  entityType   String
+  entityId     String
+  type         DocumentType
+  fileName     String
+  fileUrl      String?
+  uploadedById String?
+  createdAt    DateTime     @default(now())
+
+  @@index([entityType, entityId])
 }

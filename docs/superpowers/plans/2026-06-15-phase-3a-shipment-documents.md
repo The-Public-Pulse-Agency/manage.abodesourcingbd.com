@@ -743,4 +743,17 @@ export async function listDocuments(actor: SessionUser, entityType: string, enti
 
 **Placeholder scan:** none. **Type consistency:** `SizeQty`/`SizeBalance` shared `balance.ts`→`balance-db.ts`→`shipment.ts`; `z.input` for inputs; reference unique → P2002 mapped.
 
-**Deferred:** shipment UI (3b), real S3 upload, invoices/finance (Phase 4), milestone auto-complete on ex-factory (future).
+**Deferred:** shipment UI (3b), real S3 upload, invoices/finance (Phase 4), milestone auto-complete on ex-factory (future), SHIPPED→CLOSED auto-close, shipment deletion + status-restore.
+
+---
+
+## Review Revisions (applied)
+
+1. **Over-ship serialized** — `createShipment` tx runs at Serializable; P2034 → friendly retry error; concurrency test asserts total shipped ≤ ordered.
+2. **Duplicate order-line guard** — schema refine rejects repeated `orderLineId`; `@@unique([shipmentId, orderLineId])` + `@@unique([shipmentLineId, label])`.
+3. **Conditional PO status** — `updateMany({where:{id, status:{in:SHIPPABLE}}})`; `fullyShipped` requires ≥1 line & every line ≥1 size.
+4. **Audit inside tx** — shipment create + each PO status change recorded before→after via `recordAudit(input, tx)`.
+5. **Document existence check** — verify target PO/Shipment exists (no orphans); shared `DOCUMENT_ENTITY_TYPES`.
+6. **BL uniqueness + telex workflow** — `blNumber @unique` (P2002 mapped); `updateShipment` enforces forward-only telex, RELEASED needs a BL.
+7. **Accounts → finance docs only** (spec §7).
+8. **Tests** — multi-PO consolidation, balance-across-shipments, non-shippable statuses, duplicate-line, concurrency invariant.

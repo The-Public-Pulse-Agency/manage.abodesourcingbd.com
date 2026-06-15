@@ -6,8 +6,9 @@ import { businessToday, addDaysUtc } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 import { otdPercent, type OtdResult } from "./kpi";
 
-// Live = on the Open Order Book (excludes draft/closed/cancelled/on-hold).
-const LIVE_STATUSES = ["CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"] as const;
+// Live = active pipeline shown on the Open Order Book (everything not finished/cancelled).
+// Includes DRAFT so newly-imported/negotiating orders count toward the pipeline.
+const LIVE_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"] as const;
 
 export type ExFtyDueItem = {
   poId: string;

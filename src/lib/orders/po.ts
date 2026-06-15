@@ -93,3 +93,50 @@ export async function listOpenOrderBook(actor: SessionUser, filter: OpenOrderBoo
   });
   return pos.map((po) => ({ ...po, totals: totalsForLines(po.lines) }));
 }
+
+/** Shared WHERE for the Open Order Book (non-closed POs + optional filters). */
+function bookWhere(filter: OpenOrderBookFilter) {
+  return {
+    status: { notIn: [...CLOSED_STATUSES] },
+    ...(filter.factoryId ? { factoryId: filter.factoryId } : {}),
+    ...(filter.buyerId ? { buyerId: filter.buyerId } : {}),
+    ...(filter.channel ? { channel: filter.channel } : {}),
+    ...(filter.exFactoryBefore ? { exFactoryDate: { lte: filter.exFactoryBefore } } : {}),
+  };
+}
+
+/** Server-side paginated Open Order Book — bounds rows loaded per request at scale. */
+export async function listOpenOrderBookPaged(
+  actor: SessionUser,
+  filter: OpenOrderBookFilter,
+  opts: { page?: number; pageSize?: number } = {},
+) {
+  assertPermission(actor, "orders", "view");
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
+  const where = bookWhere(filter);
+  const total = await prisma.purchaseOrder.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
+  const pos = await prisma.purchaseOrder.findMany({
+    where,
+    include: { buyer: true, brand: true, factory: true, lines: { include: { sizes: true } } },
+    orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  return { rows: pos.map((po) => ({ ...po, totals: totalsForLines(po.lines) })), total, page, pageSize, totalPages };
+}
+
+/**
+ * Grand totals across ALL filtered orders (not just the visible page) — a flat size
+ * query (no nested includes) summed once via the mills lib, so the footer stays
+ * accurate under pagination without loading every order's full object graph.
+ */
+export async function openOrderBookTotals(actor: SessionUser, filter: OpenOrderBookFilter): Promise<Totals> {
+  assertPermission(actor, "orders", "view");
+  const sizes = await prisma.orderLineSize.findMany({
+    where: { orderLine: { po: bookWhere(filter) } },
+    select: { qty: true, netFob: true, sellFob: true },
+  });
+  return rollup([lineMills(sizes)]);
+}

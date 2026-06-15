@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { listOpenOrderBook } from "@/lib/orders/po";
+import { listOpenOrderBookPaged, openOrderBookTotals } from "@/lib/orders/po";
 import { listBuyers } from "@/lib/masterdata/buyer";
 import { listFactories } from "@/lib/masterdata/factory";
 import { orderChannels } from "@/lib/orders/schema";
 import { StatusPill } from "@/components/status-pill";
+import { Pagination } from "@/components/pagination";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 
 type SP = Record<string, string | undefined>;
@@ -20,24 +21,20 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       ? (sp.channel as (typeof orderChannels)[number])
       : undefined;
 
-  const [orders, buyers, factories] = await Promise.all([
-    listOpenOrderBook(actor, {
-      factoryId: sp.factoryId || undefined,
-      buyerId: sp.buyerId || undefined,
-      channel,
-    }),
+  const filter = {
+    factoryId: sp.factoryId || undefined,
+    buyerId: sp.buyerId || undefined,
+    channel,
+  };
+  const page = Math.max(1, Number(sp.page) || 1);
+
+  const [book, footer, buyers, factories] = await Promise.all([
+    listOpenOrderBookPaged(actor, filter, { page }),
+    openOrderBookTotals(actor, filter),
     listBuyers(actor),
     listFactories(actor),
   ]);
-
-  const footer = orders.reduce(
-    (a, o) => ({
-      qty: a.qty + o.totals.qty,
-      value: Math.round((a.value + o.totals.value) * 100) / 100,
-      margin: Math.round((a.margin + o.totals.margin) * 100) / 100,
-    }),
-    { qty: 0, value: 0, margin: 0 },
-  );
+  const orders = book.rows;
 
   return (
     <div className="space-y-6">
@@ -136,7 +133,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           {orders.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-ink bg-paper font-semibold">
-                <td className="px-3 py-2" colSpan={6}>{orders.length} orders</td>
+                <td className="px-3 py-2" colSpan={6}>{book.total.toLocaleString()} orders (all pages)</td>
                 <td className="px-3 py-2 text-right tnum">{formatQty(footer.qty)}</td>
                 <td className="px-3 py-2 text-right tnum">{formatMoney(footer.value)}</td>
                 <td className="px-3 py-2 text-right tnum">{formatMoney(footer.margin)}</td>
@@ -145,6 +142,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           )}
         </table>
       </div>
+
+      <Pagination
+        page={book.page}
+        totalPages={book.totalPages}
+        total={book.total}
+        pageSize={book.pageSize}
+        params={sp}
+      />
     </div>
   );
 }

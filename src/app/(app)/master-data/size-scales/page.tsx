@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listSizeScales } from "@/lib/masterdata/sizescale";
 import { MasterDataTable } from "@/components/master-data-table";
+import { SizeScaleForm } from "./size-scale-form";
 
 export default async function SizeScalesPage() {
   const actor = await getCurrentUser();
@@ -11,6 +12,7 @@ export default async function SizeScalesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Size scales</h1>
+      {can(actor.role, "masterData", "create") && <SizeScaleForm />}
       <MasterDataTable
         rows={scales}
         columns={[

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listColours } from "@/lib/masterdata/sizescale";
 import { MasterDataTable } from "@/components/master-data-table";
+import { ColourForm } from "./colour-form";
 
 export default async function ColoursPage() {
   const actor = await getCurrentUser();
@@ -11,6 +12,7 @@ export default async function ColoursPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Colours</h1>
+      {can(actor.role, "masterData", "create") && <ColourForm />}
       <MasterDataTable
         rows={colours}
         columns={[

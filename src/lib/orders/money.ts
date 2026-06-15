@@ -60,3 +60,8 @@ export function rollup(parts: LineMills[]): Totals {
 export function lineTotals(sizes: SizeRow[]): Totals {
   return rollup([lineMills(sizes)]);
 }
+
+/** Buying-house margin as a percentage of sell value (2dp); null when value is 0. */
+export function marginPct(t: { value: number; margin: number }): number | null {
+  return t.value > 0 ? Math.round((t.margin / t.value) * 10000) / 100 : null;
+}

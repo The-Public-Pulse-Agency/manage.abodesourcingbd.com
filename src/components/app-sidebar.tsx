@@ -14,9 +14,12 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; i
   { href: "/finance", label: "Finance", module: "finance", icon: "₿" },
   { href: "/master-data/factories", label: "Factories", module: "masterData", icon: "⌂" },
   { href: "/master-data/buyers", label: "Buyers", module: "masterData", icon: "◑" },
+  { href: "/master-data/brands", label: "Brands", module: "masterData", icon: "✦" },
   { href: "/master-data/styles", label: "Styles", module: "masterData", icon: "✂" },
   { href: "/master-data/colours", label: "Colours", module: "masterData", icon: "◐" },
   { href: "/master-data/size-scales", label: "Sizes", module: "masterData", icon: "↔" },
+  { href: "/master-data/ports", label: "Ports", module: "masterData", icon: "⚓" },
+  { href: "/master-data/forwarders", label: "Forwarders", module: "masterData", icon: "✈" },
   { href: "/master-data/import", label: "Import", module: "masterData", icon: "⇪" },
   { href: "/users", label: "Users", module: "users", icon: "◍" },
 ];

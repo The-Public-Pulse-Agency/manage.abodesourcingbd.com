@@ -9,3 +9,10 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  role: z.enum(ROLES),
+});
+
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

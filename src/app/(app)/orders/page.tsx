@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listOpenOrderBookPaged, openOrderBookTotals } from "@/lib/orders/po";
+import { marginPct } from "@/lib/orders/money";
 import { listBuyers } from "@/lib/masterdata/buyer";
 import { listFactories } from "@/lib/masterdata/factory";
 import { orderChannels } from "@/lib/orders/schema";
@@ -55,7 +56,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-sm border border-line bg-surface p-4">
         <Field label="Buyer">
-          <select name="buyerId" defaultValue={sp.buyerId ?? ""} className="select">
+          <select name="buyerId" aria-label="Filter by buyer" defaultValue={sp.buyerId ?? ""} className="select">
             <option value="">All buyers</option>
             {buyers.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -63,7 +64,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </select>
         </Field>
         <Field label="Factory">
-          <select name="factoryId" defaultValue={sp.factoryId ?? ""} className="select">
+          <select name="factoryId" aria-label="Filter by factory" defaultValue={sp.factoryId ?? ""} className="select">
             <option value="">All factories</option>
             {factories.map((f) => (
               <option key={f.id} value={f.id}>{f.name}</option>
@@ -71,7 +72,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </select>
         </Field>
         <Field label="Channel">
-          <select name="channel" defaultValue={sp.channel ?? ""} className="select">
+          <select name="channel" aria-label="Filter by channel" defaultValue={sp.channel ?? ""} className="select">
             <option value="">All channels</option>
             {orderChannels.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -126,7 +127,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <td className="px-3 py-2 tnum text-xs">{formatDate(o.exFactoryDate)}</td>
                 <td className="px-3 py-2 text-right tnum">{formatQty(o.totals.qty)}</td>
                 <td className="px-3 py-2 text-right tnum">{formatMoney(o.totals.value, o.currency)}</td>
-                <td className="px-3 py-2 text-right tnum font-medium">{formatMoney(o.totals.margin, o.currency)}</td>
+                <td className="px-3 py-2 text-right tnum font-medium">
+                  {formatMoney(o.totals.margin, o.currency)}
+                  <span className="ml-1 text-xs font-normal text-ink-soft">{marginPct(o.totals) ?? "—"}%</span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -136,7 +140,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <td className="px-3 py-2" colSpan={6}>{book.total.toLocaleString()} orders (all pages)</td>
                 <td className="px-3 py-2 text-right tnum">{formatQty(footer.qty)}</td>
                 <td className="px-3 py-2 text-right tnum">{formatMoney(footer.value)}</td>
-                <td className="px-3 py-2 text-right tnum">{formatMoney(footer.margin)}</td>
+                <td className="px-3 py-2 text-right tnum">
+                  {formatMoney(footer.margin)}
+                  <span className="ml-1 text-xs font-normal text-ink-soft">{marginPct(footer) ?? "—"}%</span>
+                </td>
               </tr>
             </tfoot>
           )}

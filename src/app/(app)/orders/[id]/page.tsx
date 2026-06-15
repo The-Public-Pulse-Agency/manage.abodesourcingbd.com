@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { getPurchaseOrder } from "@/lib/orders/po";
-import { lineTotals } from "@/lib/orders/money";
+import { lineTotals, marginPct } from "@/lib/orders/money";
 import { listStyles } from "@/lib/masterdata/style";
 import { listColours, listSizeScales } from "@/lib/masterdata/sizescale";
 import { listPoMilestones } from "@/lib/tna/milestones";
@@ -102,7 +102,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <Stat label="Total qty" value={formatQty(po.totals.qty)} />
           <Stat label="Value" value={formatMoney(po.totals.value, po.currency)} />
           <Stat label="Cost" value={formatMoney(po.totals.cost, po.currency)} />
-          <Stat label="Margin" value={formatMoney(po.totals.margin, po.currency)} accent />
+          <Stat label="Margin" value={`${formatMoney(po.totals.margin, po.currency)} · ${marginPct(po.totals) ?? "—"}%`} accent />
         </div>
       </div>
 

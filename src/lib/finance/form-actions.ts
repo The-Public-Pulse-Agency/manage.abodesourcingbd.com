@@ -16,6 +16,7 @@ export async function createInvoiceAction(poId: string, fd: FormData): Promise<A
       poId,
       amount: Number(fd.get("amount")) || 0,
       issueDate: String(fd.get("issueDate") || new Date().toISOString().slice(0, 10)),
+      dueDate: String(fd.get("dueDate") || "") || undefined,
     });
     return {};
   } catch (e) {

@@ -126,7 +126,8 @@ export function InvoicesPanel({
           </select>
           <input name="number" placeholder="Invoice number" required className="input text-xs" />
           <input name="amount" inputMode="decimal" placeholder="Amount" required className="input tnum w-28 text-right text-xs" />
-          <input name="issueDate" type="date" defaultValue={TODAY} required className="input text-xs" aria-label="Issue date" />
+          <input name="issueDate" type="date" defaultValue={TODAY} required className="input text-xs" aria-label="Issue date" title="Issue date" />
+          <input name="dueDate" type="date" className="input text-xs" aria-label="Payment due date" title="Payment due date" />
           <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Add invoice</button>
         </form>
       )}

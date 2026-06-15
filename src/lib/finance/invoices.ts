@@ -15,6 +15,7 @@ export const createInvoiceSchema = z
     amount: z.number().positive(),
     currency: z.string().default("USD"),
     issueDate: z.coerce.date(),
+    dueDate: z.coerce.date().optional(),
   })
   .refine((d) => d.poId || d.shipmentId, {
     message: "An invoice must link to a purchase order or a shipment",
@@ -48,6 +49,7 @@ export async function createInvoice(actor: SessionUser, input: CreateInvoiceInpu
         amount: String(data.amount),
         currency,
         issueDate: data.issueDate,
+        dueDate: data.dueDate,
       },
     });
     await recordAudit({

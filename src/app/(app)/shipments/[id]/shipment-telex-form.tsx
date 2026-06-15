@@ -9,7 +9,7 @@ export function ShipmentTelexForm({
   current,
 }: {
   shipmentId: string;
-  current: { containerNo: string; cartons: string; blNumber: string; blDate: string; telexStatus: string };
+  current: { containerNo: string; cartons: string; blNumber: string; blDate: string; telexStatus: string; tcStatus: string };
 }) {
   const router = useRouter();
   const [f, setF] = useState(current);
@@ -26,6 +26,7 @@ export function ShipmentTelexForm({
       blNumber: f.blNumber || undefined,
       blDate: f.blDate || undefined,
       telexStatus: f.telexStatus as "PENDING" | "RECEIVED" | "RELEASED",
+      tcStatus: f.tcStatus || undefined,
     });
     setPending(false);
     if (res.error) setMsg(res.error);
@@ -45,6 +46,7 @@ export function ShipmentTelexForm({
           <option value="RELEASED">RELEASED</option>
         </select>
       </F>
+      <F label="TC status"><input value={f.tcStatus} onChange={(e) => set("tcStatus", e.target.value)} placeholder="Working / NO TC / Send…" className="input" /></F>
       <button type="button" onClick={save} disabled={pending} className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
         {pending ? "Saving…" : "Save"}
       </button>

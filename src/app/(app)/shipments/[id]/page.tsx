@@ -42,6 +42,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         <Meta label="BL date" value={formatDate(shp.blDate)} />
         <Meta label="Forwarder" value={shp.forwarder?.name ?? "—"} />
         <Meta label="Port" value={shp.port?.name ?? "—"} />
+        <Meta label="TC status" value={shp.tcStatus ?? "—"} />
       </dl>
 
       {canEdit && (
@@ -53,6 +54,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             blNumber: shp.blNumber ?? "",
             blDate: dateInput(shp.blDate),
             telexStatus: shp.telexStatus,
+            tcStatus: shp.tcStatus ?? "",
           }}
         />
       )}

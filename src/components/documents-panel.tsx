@@ -46,12 +46,15 @@ export function DocumentsPanel({
           {documents.length === 0 && (
             <tr><td colSpan={3} className="px-3 py-4 text-center text-ink-soft">No documents yet.</td></tr>
           )}
-          {documents.map((doc) => (
+          {documents.map((doc) => {
+            // Defensive: only link http(s) URLs (blocks javascript:/data: URIs).
+            const safeHref = doc.fileUrl && /^https?:\/\//i.test(doc.fileUrl) ? doc.fileUrl : undefined;
+            return (
             <tr key={doc.id} className="border-b border-line last:border-0">
               <td className="px-3 py-1.5 font-mono text-xs">{doc.type.replace(/_/g, " ")}</td>
               <td className="px-3 py-1.5">
-                {doc.fileUrl ? (
-                  <a href={doc.fileUrl} className="text-accent hover:underline" target="_blank" rel="noreferrer">
+                {safeHref ? (
+                  <a href={safeHref} className="text-accent hover:underline" target="_blank" rel="noreferrer">
                     {doc.fileName}
                   </a>
                 ) : (
@@ -60,7 +63,8 @@ export function DocumentsPanel({
               </td>
               <td className="px-3 py-1.5 tnum text-xs">{fmt(doc.createdAt)}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       {canCreate && (

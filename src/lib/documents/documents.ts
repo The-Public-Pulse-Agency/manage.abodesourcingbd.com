@@ -14,7 +14,11 @@ export const createDocumentSchema = z.object({
   entityId: z.string().min(1),
   type: z.enum(documentTypes),
   fileName: z.string().min(1),
-  fileUrl: z.string().optional(), // metadata-only; real S3 upload deferred to infra
+  // Only http(s) URLs — blocks javascript:/data: URI XSS in the rendered link.
+  fileUrl: z
+    .string()
+    .regex(/^https?:\/\//i, "Only http(s) URLs are allowed")
+    .optional(),
 });
 export type CreateDocumentInput = z.input<typeof createDocumentSchema>;
 

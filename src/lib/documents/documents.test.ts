@@ -44,6 +44,13 @@ describe("documents", () => {
     ).rejects.toThrow(/finance documents/i);
   });
 
+  it("rejects a non-http(s) fileUrl (javascript: XSS)", async () => {
+    const po = await seedPo();
+    await expect(
+      createDocument(admin, { entityType: "PurchaseOrder", entityId: po.id, type: "BL", fileName: "x", fileUrl: "javascript:alert(1)" }),
+    ).rejects.toThrow(/http\(s\)/i);
+  });
+
   it("forbids a view-only role from uploading", async () => {
     const po = await seedPo();
     await expect(

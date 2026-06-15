@@ -6,10 +6,18 @@ import { getPurchaseOrder } from "@/lib/orders/po";
 import { lineTotals } from "@/lib/orders/money";
 import { listStyles } from "@/lib/masterdata/style";
 import { listColours, listSizeScales } from "@/lib/masterdata/sizescale";
+import { listPoMilestones } from "@/lib/tna/milestones";
+import { listSampleRequests } from "@/lib/sampling/sampling";
+import { getProduction } from "@/lib/production/production";
+import { listInspections } from "@/lib/qc/qc";
 import { StatusPill } from "@/components/status-pill";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { SizeGridForm } from "./size-grid-form";
 import { ConfirmButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
+import { TnaTimeline } from "./tna-timeline";
+import { SamplingPanel } from "./sampling-panel";
+import { ProductionPanel } from "./production-panel";
+import { QcPanel } from "./qc-panel";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentUser();
@@ -18,16 +26,24 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const po = await getPurchaseOrder(actor, id);
   if (!po) notFound();
 
-  const canEdit = can(actor.role, "orders", "edit") && po.status === "DRAFT";
-  const canDelete = can(actor.role, "orders", "delete") && po.status === "DRAFT";
+  const role = actor.role;
+  const isDraft = po.status === "DRAFT";
+  const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
+  const canEdit = can(role, "orders", "edit") && isDraft;
+  const canDelete = can(role, "orders", "delete") && isDraft;
 
-  const [styles, colours, sizeScales] = canEdit
-    ? await Promise.all([
-        listStyles(actor, { brandId: po.brandId }),
-        listColours(actor),
-        listSizeScales(actor),
-      ])
-    : [[], [], []];
+  const colours = await listColours(actor);
+  const [styles, sizeScales] = canEdit
+    ? await Promise.all([listStyles(actor, { brandId: po.brandId }), listSizeScales(actor)])
+    : [[], []];
+
+  const canTna = can(role, "criticalPath", "view");
+  const canSampling = can(role, "sampling", "view");
+  const canPqc = can(role, "productionQc", "view");
+  const milestones = canTna ? await listPoMilestones(actor, po.id, new Date()) : [];
+  const samples = canSampling ? await listSampleRequests(actor, po.id) : [];
+  const production = canPqc ? await getProduction(actor, po.id) : null;
+  const inspections = canPqc ? await listInspections(actor, po.id) : [];
 
   return (
     <div className="space-y-6">
@@ -42,7 +58,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Meta + totals */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <dl className="lg:col-span-2 grid grid-cols-2 gap-x-6 gap-y-3 rounded-sm border border-line bg-surface p-5 sm:grid-cols-3">
           <Meta label="Buyer" value={po.buyer.name} />
@@ -62,7 +77,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Lines */}
       <div className="overflow-hidden rounded-sm border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
@@ -133,7 +147,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div className="space-y-1">
               <p className="eyebrow">Confirm</p>
               <p className="text-sm text-ink-soft">
-                Locks the order. Requires every size to have qty &gt; 0 and sell ≥ cost.
+                Locks the order &amp; builds the critical path. Requires every size to have qty &gt; 0 and sell ≥ cost.
               </p>
               <div className="pt-2">
                 <ConfirmButton poId={po.id} />
@@ -144,8 +158,40 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </>
       ) : (
         <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-ink-soft">
-          This order is <span className="font-semibold">{po.status}</span> — lines are locked.
+          This order is <span className="font-semibold">{po.status}</span> — order lines are locked.
         </p>
+      )}
+
+      {/* Critical Path + execution panels */}
+      {milestones.length > 0 && (
+        <TnaTimeline
+          poId={po.id}
+          milestones={milestones}
+          canEdit={can(role, "criticalPath", "edit") && isActive}
+        />
+      )}
+      {canSampling && (
+        <SamplingPanel
+          poId={po.id}
+          samples={samples}
+          colours={colours.map((c) => ({ id: c.id, name: c.name }))}
+          canCreate={can(role, "sampling", "create") && isActive}
+          canEdit={can(role, "sampling", "edit") && isActive}
+        />
+      )}
+      {canPqc && !isDraft && production && (
+        <ProductionPanel
+          poId={po.id}
+          production={production}
+          canEdit={can(role, "productionQc", "edit") && isActive}
+        />
+      )}
+      {canPqc && !isDraft && (
+        <QcPanel
+          poId={po.id}
+          inspections={inspections}
+          canCreate={can(role, "productionQc", "create") && isActive}
+        />
       )}
     </div>
   );

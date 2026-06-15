@@ -5,6 +5,7 @@ import { logoutAction } from "@/lib/auth/actions";
 const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1] }[] = [
   { href: "/dashboard", label: "Dashboard", module: "dashboards" },
   { href: "/orders", label: "Orders", module: "orders" },
+  { href: "/critical-path", label: "Critical Path", module: "criticalPath" },
   { href: "/master-data/factories", label: "Factories", module: "masterData" },
   { href: "/master-data/buyers", label: "Buyers", module: "masterData" },
   { href: "/master-data/styles", label: "Styles", module: "masterData" },

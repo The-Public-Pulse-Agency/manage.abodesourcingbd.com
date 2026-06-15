@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { dashboardSummary } from "@/lib/dashboard/summary";
+import { factoryLeagueTable } from "@/lib/dashboard/factories";
 import { formatMoney, formatQty, formatDate } from "@/lib/format";
 
 export default async function DashboardPage() {
@@ -10,7 +11,8 @@ export default async function DashboardPage() {
   if (!actor) redirect("/login");
   if (!can(actor.role, "dashboards", "view")) redirect("/orders");
 
-  const s = await dashboardSummary(actor, { now: new Date() });
+  const now = new Date();
+  const [s, factories] = await Promise.all([dashboardSummary(actor, { now }), factoryLeagueTable(actor, { now })]);
   const e = s.exceptions;
 
   return (
@@ -67,6 +69,39 @@ export default async function DashboardPage() {
         <Exception label="Milestones due soon" count={e.dueSoonMilestones} href="/critical-path" tone="warn" />
         <Exception label="Payments overdue (>30d)" count={e.paymentOverdue} href="/finance" tone="warn" />
       </div>
+
+      {factories.length > 0 && (
+        <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+          <div className="border-b border-line bg-paper px-4 py-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Factory performance</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
+                <th className="px-3 py-1.5 font-semibold">Factory</th>
+                <th className="px-3 py-1.5 text-right font-semibold">Open orders</th>
+                <th className="px-3 py-1.5 text-right font-semibold">Open value (USD)</th>
+                <th className="px-3 py-1.5 text-right font-semibold">OTD %</th>
+                <th className="px-3 py-1.5 text-right font-semibold">AQL pass %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {factories.map((f) => (
+                <tr key={f.factoryId} className="border-b border-line last:border-0">
+                  <td className="px-3 py-1.5">
+                    <span className="font-medium">{f.name}</span>
+                    <span className="ml-1 font-mono text-xs text-ink-soft">{f.type}</span>
+                  </td>
+                  <td className="px-3 py-1.5 text-right tnum">{formatQty(f.openOrders)}</td>
+                  <td className="px-3 py-1.5 text-right tnum">{formatMoney(f.openValueUsd)}</td>
+                  <td className="px-3 py-1.5 text-right tnum">{f.otdPct === null ? "—" : `${f.otdPct}%`}</td>
+                  <td className="px-3 py-1.5 text-right tnum">{f.aqlPct === null ? "—" : `${f.aqlPct}%`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,12 @@ import { logoutAction } from "@/lib/auth/actions";
 
 const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1] }[] = [
   { href: "/dashboard", label: "Dashboard", module: "dashboards" },
+  { href: "/master-data/factories", label: "Factories", module: "masterData" },
+  { href: "/master-data/buyers", label: "Buyers", module: "masterData" },
+  { href: "/master-data/styles", label: "Styles", module: "masterData" },
+  { href: "/master-data/colours", label: "Colours", module: "masterData" },
+  { href: "/master-data/size-scales", label: "Sizes", module: "masterData" },
+  { href: "/master-data/import", label: "Import", module: "masterData" },
   { href: "/users", label: "Users", module: "users" },
 ];
 

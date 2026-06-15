@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { assertPermission, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
+import { instantiateMilestones } from "@/lib/tna/milestones";
 
 // TODO (Phase 4): gate DRAFT->CONFIRMED behind an approved CostSheet (spec §9③ —
 // Accounts approves costing before confirm). For now confirm only enforces that the
@@ -41,21 +42,30 @@ export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
     }
   }
 
-  // Atomic, race-safe transition: only flips a still-DRAFT row.
-  const res = await prisma.purchaseOrder.updateMany({
-    where: { id: poId, status: "DRAFT" },
-    data: { status: "CONFIRMED" },
+  // Atomic: flip status, audit, and create T&A milestones together (spec §9②) so a PO
+  // can never end up CONFIRMED without its critical path. The status filter on the
+  // updateMany is the single race-safe serialization point.
+  await prisma.$transaction(async (tx) => {
+    const res = await tx.purchaseOrder.updateMany({
+      where: { id: poId, status: "DRAFT" },
+      data: { status: "CONFIRMED" },
+    });
+    if (res.count === 0) {
+      throw new Error("PO is no longer in DRAFT status");
+    }
+    await recordAudit(
+      {
+        userId: actor.id,
+        entityType: "PurchaseOrder",
+        entityId: poId,
+        action: "edit",
+        before: { status: "DRAFT" },
+        after: { status: "CONFIRMED" },
+      },
+      tx,
+    );
+    await instantiateMilestones(poId, tx);
   });
-  if (res.count === 0) {
-    throw new Error("PO is no longer in DRAFT status");
-  }
-  await recordAudit({
-    userId: actor.id,
-    entityType: "PurchaseOrder",
-    entityId: poId,
-    action: "edit",
-    before: { status: "DRAFT" },
-    after: { status: "CONFIRMED" },
-  });
+
   return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId } });
 }

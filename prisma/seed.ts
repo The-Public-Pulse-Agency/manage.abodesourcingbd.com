@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DEFAULT_TEMPLATES } from "../src/lib/tna/template-data";
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,12 @@ async function main() {
     await prisma.colour.upsert({ where: { name }, update: {}, create: { name } });
   }
   console.log("Seeded default size scales + colours");
+
+  // Default T&A milestone templates (pure data import — single Prisma client).
+  for (const t of DEFAULT_TEMPLATES) {
+    await prisma.taMilestoneTemplate.upsert({ where: { key: t.key }, update: {}, create: t });
+  }
+  console.log("Seeded T&A milestone templates");
 }
 
 main()

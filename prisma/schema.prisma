@@ -183,6 +183,7 @@ model PurchaseOrder {
   status        OrderStatus  @default(DRAFT)
   notes         String?
   lines         OrderLine[]
+  milestones    TaMilestone[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -221,4 +222,41 @@ model OrderLineSize {
   sellFob     Decimal   @default(0) @db.Decimal(12, 4)
 
   @@unique([orderLineId, label])
+}
+
+enum TaStage {
+  PRE_PRODUCTION
+  SAMPLING
+  PRODUCTION_QC
+  SHIPPING
+}
+
+model TaMilestoneTemplate {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  name       String
+  stage      TaStage
+  offsetDays Int?
+  position   Int
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model TaMilestone {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  stage       TaStage
+  position    Int
+  offsetDays  Int?
+  plannedDate DateTime?
+  actualDate  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([poId, key])
+  @@index([plannedDate])
 }

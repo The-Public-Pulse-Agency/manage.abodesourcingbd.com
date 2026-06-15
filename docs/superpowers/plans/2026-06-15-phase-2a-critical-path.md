@@ -869,3 +869,17 @@ git add -A && git commit -m "chore(tna): seed default milestone templates" --all
 **Type consistency:** `Rag` defined in schedule.ts and reused in milestones.ts/board.ts; `TemplateDef`/`DEFAULT_TEMPLATES` in templates.ts; `TaStage` from Prisma; `instantiateMilestones(poId)` signature matches the confirm call site.
 
 **Deferred:** sampling + production/QC records (2b), T&A board + per-order timeline UI (2c), scheduled daily alert job + notifications (Phase 5), template-editing UI.
+
+---
+
+## Review Revisions (applied after multi-agent adversarial review)
+
+1. **Enforce UTC-day floor** — add `startOfUtcDay()` + `DUE_SOON_DAYS` to `schedule.ts`; `plannedDateFor` floors `exFactoryDate` before adding the offset (so a non-midnight ex-fty can't shift every milestone by a day); `completeMilestone`/`rescheduleMilestone` floor their date inputs.
+2. **Board window = RAG window** — `criticalPathBoard` floors `now`, uses a day-aligned exclusive horizon (`startOfUtcDay(now) + (DUE_SOON_DAYS+1)`), computes RAG with `DUE_SOON_DAYS`, then **filters to OVERDUE/DUE_SOON** so the SQL candidate set and the displayed RAG can never disagree.
+3. **Transactional confirm** — `confirmPurchaseOrder` wraps status-flip + audit + `instantiateMilestones` in one `prisma.$transaction`; `instantiateMilestones(poId, client = prisma)` and `recordAudit(input, client = prisma)` accept a tx client. No more CONFIRMED-without-milestones state.
+4. **Snapshot `offsetDays` + rebase** — `TaMilestone` gains `offsetDays Int?` (copied at instantiation); add `rebaseMilestones(actor, poId)` that recomputes planned dates for **un-actualed** milestones from the snapshot offset (for when ex-factory slips). Completed milestones are never moved.
+5. **Single DUE_SOON source of truth** — `listPoMilestones` and the board both use `DUE_SOON_DAYS`; board `withinDays` is only a fetch widener.
+6. **Exclude ON_HOLD from the attention board** (paused orders aren't actionable); board filter intentionally differs from the full order book.
+7. **Seed cleanly** — split pure data into `src/lib/tna/template-data.ts` (no `@/` / no Prisma client); `seed.ts` imports `DEFAULT_TEMPLATES` from there and upserts with its own single client (no dual-client hang).
+
+**Documented:** `now` is treated as a UTC-day boundary; a ~6h Asia/Dhaka skew near UTC midnight is a known limitation to revisit when the Phase 5 alert job lands (comment left in `schedule.ts`).

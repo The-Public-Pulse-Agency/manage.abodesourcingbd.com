@@ -61,6 +61,19 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
 
   const footer = (
     <div className="border-t border-line px-3 py-3">
+      {role === "ADMIN" && (
+        <Link
+          href="/billing"
+          onClick={() => setOpen(false)}
+          aria-current={isActive("/billing") ? "page" : undefined}
+          className={`mb-2 flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors ${
+            isActive("/billing") ? "bg-accent-soft font-semibold text-accent" : "text-ink-soft hover:bg-paper hover:text-ink"
+          }`}
+        >
+          <span aria-hidden className="w-4 text-center leading-none">₿</span>
+          <span>Billing</span>
+        </Link>
+      )}
       <Link
         href="/notifications"
         onClick={() => setOpen(false)}

@@ -38,6 +38,49 @@ enum NotificationType {
   SAMPLE_PENDING
 }
 
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+}
+
+enum SubPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  BLOCKED
+}
+
+// Platform licensing/subscription — single org-level row (id = "singleton").
+// Amount + period are admin-editable (dynamic), not hardcoded.
+model Subscription {
+  id               String                @id
+  status           SubscriptionStatus    @default(TRIAL)
+  amountBdt        Int                   @default(3333) // monthly fee in BDT (whole taka)
+  periodDays       Int                   @default(30)
+  planName         String                @default("ABD OMS — Managed SaaS")
+  planNotes        String                @default("Full SLA, all modifications & upgrades included.")
+  currentPeriodEnd DateTime
+  lastPaymentAt    DateTime?
+  payments         SubscriptionPayment[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+}
+
+model SubscriptionPayment {
+  id             String           @id @default(cuid())
+  orderId        String           @unique
+  subscriptionId String
+  subscription   Subscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amountBdt      Int
+  status         SubPaymentStatus @default(PENDING)
+  epsRef         String?
+  createdAt      DateTime         @default(now())
+  paidAt         DateTime?
+
+  @@index([subscriptionId])
+}
+
 model Notification {
   id        String           @id @default(cuid())
   userId    String

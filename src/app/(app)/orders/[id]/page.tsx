@@ -12,11 +12,14 @@ import { getProduction } from "@/lib/production/production";
 import { listInspections } from "@/lib/qc/qc";
 import { getPoBalance } from "@/lib/shipment/balance-db";
 import { listDocuments } from "@/lib/documents/documents";
+import { listInvoices } from "@/lib/finance/invoices";
+import { outstanding } from "@/lib/finance/money";
 import { StatusPill } from "@/components/status-pill";
 import { DocumentsPanel } from "@/components/documents-panel";
+import { InvoicesPanel, type InvoiceRow } from "@/components/invoices-panel";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { SizeGridForm } from "./size-grid-form";
-import { ConfirmButton, ApproveCostingButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
+import { ConfirmButton, ApproveCostingButton, CloseButton, RemoveLineButton, LotWidget } from "./order-detail-actions";
 import { TnaTimeline } from "./tna-timeline";
 import { SamplingPanel } from "./sampling-panel";
 import { ProductionPanel } from "./production-panel";
@@ -53,6 +56,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const balance = canShip && !isDraft ? await getPoBalance(actor, po.id) : [];
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
   const documents = canDocs ? await listDocuments(actor, "PurchaseOrder", po.id) : [];
+
+  const canFinance = can(role, "finance", "view");
+  const invoiceRows: InvoiceRow[] = canFinance
+    ? (await listInvoices(actor, { poId: po.id })).map((inv) => ({
+        id: inv.id,
+        type: inv.type,
+        number: inv.number,
+        amount: Number(inv.amount),
+        outstanding: outstanding(inv.amount, inv.payments),
+        status: inv.status,
+        currency: inv.currency,
+        poId: inv.poId,
+      }))
+    : [];
+  const canCloseStatus = po.status === "SHIPPED" || po.status === "PARTLY_SHIPPED";
 
   return (
     <div className="space-y-6">
@@ -266,6 +284,24 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           documents={documents}
           canCreate={can(role, "documents", "create") && isActive}
         />
+      )}
+
+      {canFinance && (
+        <InvoicesPanel
+          invoices={invoiceRows}
+          poId={po.id}
+          canManage={can(role, "finance", "create")}
+        />
+      )}
+
+      {canCloseStatus && can(role, "orders", "edit") && (
+        <div className="flex items-center gap-3 rounded-sm border border-line bg-surface p-5">
+          <div className="space-y-0.5">
+            <p className="eyebrow">Close</p>
+            <p className="text-sm text-ink-soft">Mark this order complete (closes the back-to-back loop).</p>
+          </div>
+          <CloseButton poId={po.id} />
+        </div>
       )}
     </div>
   );

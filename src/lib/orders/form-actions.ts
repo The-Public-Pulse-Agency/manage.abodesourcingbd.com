@@ -7,6 +7,7 @@ import { createPurchaseOrder } from "./po";
 import { setOrderLine, removeOrderLine } from "./lines";
 import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
+import { closePurchaseOrder } from "./close";
 import { createLot, assignPoToLot } from "./lots";
 import type { CreatePoInput, SetLineInput } from "./schema";
 
@@ -77,6 +78,18 @@ export async function approveCostingAction(poId: string): Promise<ActionResult> 
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to approve costing" };
+  }
+}
+
+export async function closeAction(poId: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await closePurchaseOrder(actor, poId);
+    revalidatePath(`/orders/${poId}`);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to close order" };
   }
 }
 

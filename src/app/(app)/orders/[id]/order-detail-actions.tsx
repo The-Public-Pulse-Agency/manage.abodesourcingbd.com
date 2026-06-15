@@ -5,9 +5,36 @@ import { useRouter } from "next/navigation";
 import {
   confirmAction,
   approveCostingAction,
+  closeAction,
   removeLineAction,
   createAndAssignLotAction,
 } from "@/lib/orders/form-actions";
+
+export function CloseButton({ poId }: { poId: string }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        onClick={async () => {
+          setPending(true);
+          setError(null);
+          const r = await closeAction(poId);
+          setPending(false);
+          if (r.error) setError(r.error);
+          else router.refresh();
+        }}
+        disabled={pending}
+        className="rounded-sm border border-line px-3 py-2 text-sm font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        {pending ? "Closing…" : "Close order"}
+      </button>
+      {error && <span className="text-sm text-bad">{error}</span>}
+    </span>
+  );
+}
 
 export function ApproveCostingButton({ poId }: { poId: string }) {
   const router = useRouter();

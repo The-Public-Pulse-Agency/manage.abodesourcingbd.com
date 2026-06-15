@@ -73,7 +73,7 @@ export async function listInvoices(
   assertPermission(actor, "finance", "view");
   return prisma.invoice.findMany({
     where: { ...(filter.type ? { type: filter.type } : {}), ...(filter.poId ? { poId: filter.poId } : {}) },
-    include: { payments: true },
+    include: { payments: true, po: true },
     orderBy: { issueDate: "desc" },
   });
 }

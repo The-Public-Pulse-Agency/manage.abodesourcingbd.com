@@ -19,6 +19,7 @@ export type OpenOrderRow = {
   sizes: string;
   colours: string;
   confirmedShipDate: Date | null;
+  crd: Date | null;
   qty: number;
   pricePerUnit: number;
   totalValue: number;
@@ -114,6 +115,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     sizes: sizes || "—",
     colours: colours || "—",
     confirmedShipDate: po.exFactoryDate,
+    crd: po.crd,
     qty: totals.qty,
     pricePerUnit: totals.qty > 0 ? Math.round((totals.value / totals.qty) * 10000) / 10000 : 0,
     totalValue: totals.value,

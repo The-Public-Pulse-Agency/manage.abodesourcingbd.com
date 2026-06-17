@@ -40,6 +40,10 @@ export async function setOrderRemarks(poId: string, value: string): Promise<Res>
   return run((a) => updateOrderSchedule(a, poId, { notes: value }));
 }
 
+export async function setOrderCrd(poId: string, value: string): Promise<Res> {
+  return run((a) => updateOrderSchedule(a, poId, { crd: parseDate(value) }));
+}
+
 export async function setShipmentRemarks(id: string, value: string): Promise<Res> {
   return run((a) => updateShipment(a, id, { remarks: value }).then(() => undefined));
 }

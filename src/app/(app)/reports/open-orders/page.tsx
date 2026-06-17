@@ -12,11 +12,11 @@ import { EditableCell } from "@/components/reports/editable-cell";
 import { ExportButton } from "@/components/reports/export-button";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { Pagination } from "@/components/pagination";
-import { setOrderShipDate, setOrderRecvDate, setOrderRemarks, deleteOrderAction } from "@/lib/reports/inline-actions";
+import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, deleteOrderAction } from "@/lib/reports/inline-actions";
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Print/Emb", "TOP sample", "Final inspection", "Remarks"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Print/Emb", "TOP sample", "Final inspection", "Remarks"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 function Cell({ c }: { c: StatusCell }) {
@@ -91,7 +91,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
                 <th className="px-3 py-2.5 font-semibold">PO</th><th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">PO recvd</th>
                 <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Size</th>
-                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
+                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">CRD</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Dyeing</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
                 <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Print/Emb</th>
@@ -99,7 +99,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               </tr>
             </thead>
             <tbody>
-              {book.rows.length === 0 && <tr><td colSpan={23} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.length === 0 && <tr><td colSpan={24} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
               {book.rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
@@ -110,6 +110,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2 text-xs">{r.sizes}</td>
                   <td className="px-3 py-2 text-xs">{r.colours}</td>
                   <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell></td>
+                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell></td>
                   <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
                   <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
                   <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>

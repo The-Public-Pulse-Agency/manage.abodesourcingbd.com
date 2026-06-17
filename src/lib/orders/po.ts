@@ -166,15 +166,16 @@ export async function deletePurchaseOrder(actor: SessionUser, poId: string): Pro
 export async function updateOrderSchedule(
   actor: SessionUser,
   poId: string,
-  input: { orderDate?: Date | null; exFactoryDate?: Date | null; notes?: string },
+  input: { orderDate?: Date | null; exFactoryDate?: Date | null; crd?: Date | null; notes?: string },
 ) {
   assertPermission(actor, "orders", "edit");
   const cid = tenantId(actor);
   const existing = await prisma.purchaseOrder.findFirst({ where: { id: poId, companyId: cid }, select: { id: true } });
   if (!existing) throw new Error("Order not found");
-  const data: { orderDate?: Date | null; exFactoryDate?: Date | null; notes?: string | null } = {};
+  const data: { orderDate?: Date | null; exFactoryDate?: Date | null; crd?: Date | null; notes?: string | null } = {};
   if (input.orderDate !== undefined) data.orderDate = input.orderDate;
   if (input.exFactoryDate !== undefined) data.exFactoryDate = input.exFactoryDate;
+  if (input.crd !== undefined) data.crd = input.crd;
   if (input.notes !== undefined) data.notes = input.notes || null;
   await prisma.purchaseOrder.update({ where: { id: poId }, data });
   await recordAudit({ userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "edit", after: data });

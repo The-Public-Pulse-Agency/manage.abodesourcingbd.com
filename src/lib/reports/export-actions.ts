@@ -15,6 +15,6 @@ export async function openOrdersExportAction(filter: OpenOrdersFilter): Promise<
     formatDate(r.confirmedShipDate), r.qty, r.totalValue || 0,
     cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample),
     cellText(r.cutting), cellText(r.bulkSewing), cellText(r.printEmb), cellText(r.topSample),
-    formatDate(r.finalInspectionDate),
+    formatDate(r.finalInspectionDate), r.remarks,
   ]);
 }

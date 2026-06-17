@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
@@ -35,9 +36,14 @@ export default async function ShippedReportPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Shipped Goods</h1>
           <p className="mt-1 text-sm text-ink-soft">Shipped register — invoice, payment &amp; transaction-certificate status.</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-ink-soft">
-          <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
-          {rows.length} shipments
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-2 text-xs text-ink-soft">
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
+            {rows.length} shipments
+          </span>
+          {can(actor.role, "shipment", "create") && (
+            <Link href="/shipments/new" className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90">+ New shipment</Link>
+          )}
         </div>
       </div>
 

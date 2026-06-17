@@ -36,6 +36,14 @@ export async function setOrderRecvDate(poId: string, value: string): Promise<Res
   return run((a) => updateOrderSchedule(a, poId, { orderDate: parseDate(value) }));
 }
 
+export async function setOrderRemarks(poId: string, value: string): Promise<Res> {
+  return run((a) => updateOrderSchedule(a, poId, { notes: value }));
+}
+
+export async function setShipmentRemarks(id: string, value: string): Promise<Res> {
+  return run((a) => updateShipment(a, id, { remarks: value }).then(() => undefined));
+}
+
 export async function setShipmentTc(id: string, value: string): Promise<Res> {
   return run((a) => updateShipment(a, id, { tcStatus: value }).then(() => undefined));
 }

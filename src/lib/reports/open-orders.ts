@@ -39,6 +39,7 @@ export type OpenOrderRow = {
   printEmb: StatusCell;
   topSample: StatusCell;
   finalInspectionDate: Date | null;
+  remarks: string;
 };
 
 export type OpenOrdersFilter = { status?: string; factoryId?: string; buyerId?: string; q?: string };
@@ -133,6 +134,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     printEmb: cell(KEY.printEmb),
     topSample: cell(KEY.topSample),
     finalInspectionDate: byKey.get("FINAL_AQL")?.actualDate ?? null,
+    remarks: po.notes ?? "",
   };
 }
 

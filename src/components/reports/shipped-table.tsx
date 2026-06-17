@@ -7,12 +7,12 @@ import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
 import { ExportButton } from "./export-button";
 import { RowDeleteButton } from "./row-delete-button";
-import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, deleteShipmentAction } from "@/lib/reports/inline-actions";
+import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
 
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Size", "Colour", "Qty", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Size", "Colour", "Qty", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -66,7 +66,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.sizes, r.colours, r.qty, formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? ""])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.sizes, r.colours, r.qty, formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -91,12 +91,13 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
               <th className="px-3 py-2.5 font-semibold">Payment</th>
               <th className="px-3 py-2.5 font-semibold">Container</th>
               <th className="px-3 py-2.5 font-semibold">TC status</th>
+              <th className="px-3 py-2.5 font-semibold">Remarks</th>
               <th className="px-3 py-2.5 font-semibold">Edit</th>
               <th className="px-3 py-2.5 font-semibold">Delete</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={17} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={18} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
@@ -128,6 +129,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 </td>
                 <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell></td>
                 <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell></td>
+                <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell></td>
                 <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
                 <td className="px-3 py-2"><RowDeleteButton action={deleteShipmentAction} id={r.id} /></td>
               </tr>
@@ -140,7 +142,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2.5 text-right tnum">{formatQty(totalQty)}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>
-                <td colSpan={6} />
+                <td colSpan={7} />
               </tr>
             </tfoot>
           )}

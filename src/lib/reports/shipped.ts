@@ -20,6 +20,7 @@ export type ShippedRow = {
   paymentStatus: string | null;
   containerNo: string | null;
   tcStatus: string | null;
+  remarks: string;
 };
 
 /** Shipped-goods register: each shipment with buyer/factory/size/colour + invoice + TC. */
@@ -65,6 +66,7 @@ export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow
       paymentStatus: inv?.status ?? null,
       containerNo: s.containerNo,
       tcStatus: s.tcStatus,
+      remarks: s.remarks ?? "",
     };
   });
 }

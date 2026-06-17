@@ -156,6 +156,27 @@ model Enquiry {
   @@index([status])
 }
 
+// Standalone sample-development tracker (separate from orders). Buyer/factory stored as
+// ids (no relation) to keep the module isolated; sample stages are free-text statuses.
+model DevelopmentItem {
+  id              String    @id @default(cuid())
+  companyId       String?
+  buyerId         String?
+  factoryId       String?
+  styleRef        String
+  colour          String?
+  labDip          String?
+  knitting        String?
+  firstSample     String?
+  secondSample    String?
+  finalSampleDate DateTime?
+  remarks         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
 // Per-PO cost build-up behind the sell FOB (reference + margin analysis).
 model CostItem {
   id            String        @id @default(cuid())
@@ -638,6 +659,7 @@ model Shipment {
   blNumber      String?
   blDate        DateTime?
   etaDestination DateTime?     // estimated arrival at destination port
+  remarks       String?        // free-text remarks
   telexStatus   TelexStatus    @default(PENDING)
   tcStatus      String?        // transaction-certificate status (free text: Working / NO TC / Send <date>)
   forwarderId   String?

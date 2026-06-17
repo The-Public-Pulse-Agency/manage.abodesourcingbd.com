@@ -17,6 +17,7 @@ export type OpenOrderRow = {
   sizes: string;
   colours: string;
   confirmedShipDate: Date | null;
+  qty: number;
   pricePerUnit: number;
   totalValue: number;
   currency: string;
@@ -78,6 +79,7 @@ export async function openOrdersReport(actor: SessionUser, opts: { now?: Date } 
       sizes: sizes || "—",
       colours: colours || "—",
       confirmedShipDate: po.exFactoryDate,
+      qty: totals.qty,
       pricePerUnit: totals.qty > 0 ? Math.round((totals.value / totals.qty) * 10000) / 10000 : 0,
       totalValue: totals.value,
       currency: po.currency,

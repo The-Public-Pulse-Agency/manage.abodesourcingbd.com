@@ -54,12 +54,24 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
     f.status && (OPEN_STATUSES as readonly string[]).includes(f.status)
       ? { equals: f.status as (typeof OPEN_STATUSES)[number] }
       : { in: [...OPEN_STATUSES] };
+  const q = f.q?.trim();
+  const ci = (s: string) => ({ contains: s, mode: "insensitive" as const });
   return {
     companyId: tenantId(actor),
     status,
     ...(f.factoryId ? { factoryId: f.factoryId } : {}),
     ...(f.buyerId ? { buyerId: f.buyerId } : {}),
-    ...(f.q ? { poNumber: { contains: f.q, mode: "insensitive" } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { poNumber: ci(q) },
+            { factory: { name: ci(q) } },
+            { buyer: { name: ci(q) } },
+            { lines: { some: { style: { OR: [{ styleCode: ci(q) }, { name: ci(q) }] } } } },
+            { lines: { some: { colour: { name: ci(q) } } } },
+          ],
+        }
+      : {}),
   };
 }
 

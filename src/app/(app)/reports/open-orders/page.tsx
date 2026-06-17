@@ -73,7 +73,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-[15rem] flex-1">
             <ReportFilters
-              searchPlaceholder="Search PO number…"
+              searchPlaceholder="Search PO, style, colour, factory, buyer…"
               resultLabel={`${book.rows.length} on this page · ${book.total} total`}
               selects={[
                 { param: "status", allLabel: "All statuses", options: ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"].map((s) => ({ value: s, label: s.replace("_", " ").toLowerCase() })) },

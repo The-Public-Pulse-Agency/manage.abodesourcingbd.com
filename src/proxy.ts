@@ -7,6 +7,7 @@ export default auth((req) => {
   // session redirect so a session-less scheduler reaches the handler.
   const isPublic =
     pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/cron");
   if (!isLoggedIn && !isPublic) {

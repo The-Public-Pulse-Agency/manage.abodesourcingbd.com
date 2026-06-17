@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/guard";
+import { getCurrentUser, tenantId } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { getPurchaseOrder } from "@/lib/orders/po";
 import { lineTotals, marginPct } from "@/lib/orders/money";
@@ -67,7 +67,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       canFinance ? listInvoices(actor, { poId: po.id }) : Promise.resolve([]),
       canCosting ? listCostItems(actor, po.id) : Promise.resolve([]),
       canPqc && !isDraft ? listMaterials(actor, po.id) : Promise.resolve([]),
-      getSubscription(),
+      getSubscription(tenantId(actor)),
     ]);
 
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));

@@ -15,8 +15,8 @@ export async function approveCosting(actor: SessionUser, poId: string) {
   if (po.status !== "DRAFT") {
     throw new Error("Costing can only be approved while the order is DRAFT");
   }
-  // Margin-floor gate: block approval when the order's margin is below the org floor.
-  const sub = await getSubscription();
+  // Margin-floor gate: block approval when the order's margin is below the company floor.
+  const sub = await getSubscription(tenantId(actor));
   if (sub.minMarginPct > 0) {
     const lines = await prisma.orderLine.findMany({
       where: { poId, companyId: tenantId(actor) },

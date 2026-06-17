@@ -13,10 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The platform SUPERADMIN doesn't belong to a tenant — send them to the console.
   if (session.user.role === "SUPERADMIN") redirect("/admin");
 
-  // Licence gate — when the subscription lapses, the whole app is locked behind a
-  // renewal screen (admins can pay via EPS; others are told to contact their admin).
-  const sub = await getSubscription();
-  if (!isActive(sub)) {
+  // Per-company licence gate — when the company's subscription lapses, the app is
+  // locked behind a renewal screen (admins can pay via EPS; others contact their admin).
+  const companyId = session.user.companyId;
+  const sub = companyId ? await getSubscription(companyId) : null;
+  if (sub && !isActive(sub)) {
     return (
       <SubscriptionPaywall
         planName={sub.planName}

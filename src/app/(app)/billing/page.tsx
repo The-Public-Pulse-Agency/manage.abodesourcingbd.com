@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/guard";
+import { getCurrentUser, tenantId } from "@/lib/auth/guard";
 import { getSubscription, isActive, daysLeft, listSubscriptionPayments } from "@/lib/billing/subscription";
 import { isPaymentBlocked, epsConfigured } from "@/lib/eps";
 import { RenewButton } from "@/components/billing/renew-button";
@@ -18,7 +18,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const isAdmin = actor.role === "ADMIN";
 
   const now = new Date();
-  const [sub, payments, sp] = await Promise.all([getSubscription({ now }), listSubscriptionPayments(), searchParams]);
+  const companyId = tenantId(actor);
+  const [sub, payments, sp] = await Promise.all([
+    getSubscription(companyId, { now }),
+    listSubscriptionPayments(companyId),
+    searchParams,
+  ]);
   const active = isActive(sub, now);
   const left = daysLeft(sub, now);
   const banner = sp.result ? RESULT_MSG[sp.result] : null;

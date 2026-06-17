@@ -38,20 +38,20 @@ describe("fetchAlertData", () => {
     await prisma.purchaseOrder.update({ where: { id: live.id }, data: { status: "CONFIRMED" } });
 
     // overdue milestone (planned in the past, no actual) + a closed PO milestone (excluded)
-    await prisma.taMilestone.create({ data: { poId: live.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
+    await prisma.taMilestone.create({ data: { companyId: "test-co", poId: live.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
     const closed = await createPurchaseOrder(admin, { poNumber: "P-CLOSED", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
     await prisma.purchaseOrder.update({ where: { id: closed.id }, data: { status: "CLOSED" } });
-    await prisma.taMilestone.create({ data: { poId: closed.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
+    await prisma.taMilestone.create({ data: { companyId: "test-co", poId: closed.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
 
     // pending sample that was sent (alertable) + a never-sent draft (not alertable)
-    await prisma.sampleRequest.create({ data: { poId: live.id, type: "PP", status: "PENDING", sentDate: d("2026-06-01") } });
-    await prisma.sampleRequest.create({ data: { poId: live.id, type: "FIT", status: "PENDING", sentDate: null } });
+    await prisma.sampleRequest.create({ data: { companyId: "test-co", poId: live.id, type: "PP", status: "PENDING", sentDate: d("2026-06-01") } });
+    await prisma.sampleRequest.create({ data: { companyId: "test-co", poId: live.id, type: "FIT", status: "PENDING", sentDate: null } });
 
     // overdue invoice (issued 100d ago, unpaid) + a current one
     await createInvoice(accounts, { type: "BUYER", number: "ABD-1", poId: live.id, amount: 200, issueDate: d("2026-03-07") });
     await createInvoice(accounts, { type: "FACTORY", number: "LFI-1", poId: live.id, amount: 150, issueDate: d("2026-06-10") });
 
-    const data = await fetchAlertData(NOW);
+    const data = await fetchAlertData(NOW, "test-co");
 
     expect(data.milestonesOverdue.map((m) => m.poNumber)).toEqual(["P-LIVE"]); // closed excluded
     expect(data.exFtySoon.map((p) => p.poNumber)).toEqual(["P-LIVE"]);
@@ -66,7 +66,7 @@ describe("fetchAlertData", () => {
     const po = await createPurchaseOrder(admin, { poNumber: "P-1", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
     await createInvoice(accounts, { type: "BUYER", number: "AGE-30", poId: po.id, amount: 100, issueDate: d("2026-05-16") }); // 30d before 6-15
     await createInvoice(accounts, { type: "BUYER", number: "AGE-31", poId: po.id, amount: 100, issueDate: d("2026-05-15") }); // 31d before
-    const data = await fetchAlertData(NOW);
+    const data = await fetchAlertData(NOW, "test-co");
     expect(data.paymentsOverdue.map((p) => p.number)).toEqual(["AGE-31"]);
   });
 
@@ -75,7 +75,7 @@ describe("fetchAlertData", () => {
     const po = await createPurchaseOrder(admin, { poNumber: "P-1", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
     const inv = await createInvoice(accounts, { type: "BUYER", number: "PAID-1", poId: po.id, amount: 100, issueDate: d("2026-03-01") });
     await recordPayment(accounts, inv.id, { amount: 100, date: d("2026-03-05"), method: "TT" });
-    const data = await fetchAlertData(NOW);
+    const data = await fetchAlertData(NOW, "test-co");
     expect(data.paymentsOverdue).toHaveLength(0);
   });
 });

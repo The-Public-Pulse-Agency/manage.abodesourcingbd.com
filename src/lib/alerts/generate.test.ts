@@ -24,7 +24,7 @@ function capturingNotifier() {
 }
 
 async function user(email: string, role: "MERCHANDISER" | "ACCOUNTS" | "ADMIN", active = true) {
-  return prisma.user.create({ data: { name: email, email, passwordHash: "x", role, active } });
+  return prisma.user.create({ data: { name: email, email, passwordHash: "x", role, active, companyId: "test-co" } });
 }
 
 async function seedSources() {
@@ -36,7 +36,7 @@ async function seedSources() {
   });
   await prisma.purchaseOrder.update({ where: { id: live.id }, data: { status: "CONFIRMED" } });
   // overdue milestone (merch) + the live PO is also ex-fty-soon AND doc-missing (merch x2)
-  await prisma.taMilestone.create({ data: { poId: live.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
+  await prisma.taMilestone.create({ data: { companyId: "test-co", poId: live.id, key: "pp_sample", name: "PP sample", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") } });
   // overdue invoice (accounts)
   await createInvoice(accounts, { type: "BUYER", number: "ABD-1", poId: live.id, amount: 200, issueDate: d("2026-03-07") });
   return live;

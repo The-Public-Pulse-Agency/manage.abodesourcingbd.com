@@ -10,8 +10,8 @@ const BOARD_EXCLUDED = ["CLOSED", "CANCELLED", "ON_HOLD"] as const;
 const DOC_TYPES = ["BL", "COMMERCIAL_INVOICE", "PACKING_LIST"] as const;
 const PAYMENT_OVERDUE_DAYS = 30; // issue-age proxy; aligns with ageBucket (overdue at age >=31)
 
-/** Fetch everything the alert rules need, windowed on the Dhaka business day. */
-export async function fetchAlertData(now: Date): Promise<AlertData> {
+/** Fetch everything the alert rules need for ONE company, windowed on the Dhaka day. */
+export async function fetchAlertData(now: Date, companyId: string): Promise<AlertData> {
   const today = businessToday(now);
   const windowEnd = addDaysUtc(today, 8); // [today, today+8) = today..+7 inclusive
   const paymentCutoff = addDaysUtc(today, -PAYMENT_OVERDUE_DAYS); // issueDate < cutoff => age >= 31
@@ -19,6 +19,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
   const [milestones, exFtyPos, agedInvoices, samples] = await Promise.all([
     prisma.taMilestone.findMany({
       where: {
+        companyId,
         actualDate: null,
         plannedDate: { not: null, lt: today },
         po: { status: { notIn: [...BOARD_EXCLUDED] } },
@@ -28,6 +29,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
     }),
     prisma.purchaseOrder.findMany({
       where: {
+        companyId,
         status: { in: [...LIVE_STATUSES] },
         exFactoryDate: { gte: today, lt: windowEnd },
       },
@@ -36,6 +38,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
     prisma.invoice.findMany({
       // Overdue = past its due date, or (no due date set) aged >30d since issue.
       where: {
+        companyId,
         OR: [
           { dueDate: { lt: today } },
           { dueDate: null, issueDate: { lt: paymentCutoff } },
@@ -44,7 +47,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
       include: { payments: true },
     }),
     prisma.sampleRequest.findMany({
-      where: { status: "PENDING", sentDate: { not: null } },
+      where: { companyId, status: "PENDING", sentDate: { not: null } },
       include: { po: true },
     }),
   ]);
@@ -53,7 +56,7 @@ export async function fetchAlertData(now: Date): Promise<AlertData> {
   const poIds = exFtyPos.map((p) => p.id);
   const docs = poIds.length
     ? await prisma.document.findMany({
-        where: { entityType: "PurchaseOrder", type: { in: [...DOC_TYPES] }, entityId: { in: poIds } },
+        where: { companyId, entityType: "PurchaseOrder", type: { in: [...DOC_TYPES] }, entityId: { in: poIds } },
         select: { entityId: true },
       })
     : [];

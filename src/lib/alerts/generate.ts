@@ -4,22 +4,33 @@ import { fetchAlertData } from "./data";
 import { computeAlerts } from "./rules";
 import { getNotifier, type Notifier } from "./notifier";
 
-type Row = { userId: string; type: ReturnType<typeof computeAlerts>[number]["type"]; message: string; link: string; dedupKey: string };
+type Row = { companyId: string; userId: string; type: ReturnType<typeof computeAlerts>[number]["type"]; message: string; link: string; dedupKey: string };
 
 /**
  * Daily alert run (system actor — bypasses RBAC; the cron route is secret-guarded).
- * Idempotent: `@@unique([userId, dedupKey])` + skipDuplicates means re-running never
- * duplicates rows. Email digests go ONLY to recipients with at least one genuinely new
- * row (determined by diffing against pre-existing keys, not a wall-clock boundary).
+ * Runs PER COMPANY so alerts + recipients never cross tenants. Idempotent:
+ * @@unique([userId, dedupKey]) + skipDuplicates means re-running never duplicates;
+ * email digests go only to recipients with a genuinely new row.
  */
 export async function generateAlerts(opts: { now: Date; notifier?: Notifier }): Promise<{ created: number }> {
   const notifier = opts.notifier ?? getNotifier();
-  const drafts = computeAlerts(await fetchAlertData(opts.now));
-  if (drafts.length === 0) return { created: 0 };
+  // Companies in play = those with active users (works without a Company row in tests).
+  const groups = await prisma.user.groupBy({ by: ["companyId"], where: { active: true, companyId: { not: null } } });
+  let created = 0;
+  for (const g of groups) {
+    if (!g.companyId) continue;
+    created += await generateForCompany(g.companyId, opts.now, notifier);
+  }
+  return { created };
+}
+
+async function generateForCompany(companyId: string, now: Date, notifier: Notifier): Promise<number> {
+  const drafts = computeAlerts(await fetchAlertData(now, companyId));
+  if (drafts.length === 0) return 0;
 
   const roles = [...new Set(drafts.flatMap((d) => d.roles))] as Role[];
   const users = await prisma.user.findMany({
-    where: { active: true, role: { in: roles } },
+    where: { active: true, companyId, role: { in: roles } },
     select: { id: true, email: true, role: true },
   });
   const byRole = new Map<Role, typeof users>();
@@ -37,11 +48,11 @@ export async function generateAlerts(opts: { now: Date; notifier?: Notifier }): 
       for (const u of byRole.get(r) ?? []) {
         if (seen.has(u.id)) continue;
         seen.add(u.id);
-        rows.push({ userId: u.id, type: d.type, message: d.message, link: d.link, dedupKey: d.dedupKey });
+        rows.push({ companyId, userId: u.id, type: d.type, message: d.message, link: d.link, dedupKey: d.dedupKey });
       }
     }
   }
-  if (rows.length === 0) return { created: 0 };
+  if (rows.length === 0) return 0;
 
   // Which (userId,dedupKey) already exist? Everything else is genuinely new.
   const userIds = [...new Set(rows.map((r) => r.userId))];
@@ -55,8 +66,7 @@ export async function generateAlerts(opts: { now: Date; notifier?: Notifier }): 
 
   const { count } = await prisma.notification.createMany({ data: rows, skipDuplicates: true });
 
-  // Best-effort per-user digest — DB rows already persisted; isolate each send so one
-  // failure (e.g. Resend down) neither aborts the run nor skips other recipients.
+  // Best-effort per-user digest — DB rows already persisted; isolate each send.
   const freshByUser = new Map<string, string[]>();
   for (const r of freshRows) {
     const list = freshByUser.get(r.userId) ?? [];
@@ -73,5 +83,5 @@ export async function generateAlerts(opts: { now: Date; notifier?: Notifier }): 
     }
   }
 
-  return { created: count };
+  return count;
 }

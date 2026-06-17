@@ -14,9 +14,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (session.user.role === "SUPERADMIN") redirect("/admin");
 
   // Per-company licence gate — when the company's subscription lapses, the app is
-  // locked behind a renewal screen (admins can pay via EPS; others contact their admin).
+  // locked behind a renewal screen. Off by default (BILLING_ENABLED!="1") so trials
+  // never lock anyone out until payments are switched on.
   const companyId = session.user.companyId;
-  const sub = companyId ? await getSubscription(companyId) : null;
+  const billingOn = process.env.BILLING_ENABLED === "1";
+  const sub = billingOn && companyId ? await getSubscription(companyId) : null;
   if (sub && !isActive(sub)) {
     return (
       <SubscriptionPaywall

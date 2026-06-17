@@ -38,6 +38,9 @@ export async function setDevSecondSample(id: string, value: string): Promise<Res
 export async function setDevFinalSample(id: string, value: string): Promise<Res> { return setField(id, "finalSampleDate", value); }
 export async function setDevRemarks(id: string, value: string): Promise<Res> { return setField(id, "remarks", value); }
 export async function setDevColour(id: string, value: string): Promise<Res> { return setField(id, "colour", value); }
+export async function setDevStyleRef(id: string, value: string): Promise<Res> { return setField(id, "styleRef", value); }
+export async function setDevFactory(id: string, value: string): Promise<Res> { return setField(id, "factoryId", value); }
+export async function setDevBuyer(id: string, value: string): Promise<Res> { return setField(id, "buyerId", value); }
 
 export async function deleteDevelopmentAction(id: string): Promise<Res> {
   return run((a) => deleteDevelopment(a, id));

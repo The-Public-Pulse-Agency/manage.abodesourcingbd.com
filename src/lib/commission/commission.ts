@@ -37,7 +37,8 @@ export async function createCommission(actor: SessionUser, input: CreateCommissi
 const TEXT = ["factoryInvoiceNo", "ownInvoiceNo", "paymentStatus", "remarks"] as const;
 const NUM = ["factoryInvoiceValue", "commissionPct"] as const;
 const DATE = ["issueDate", "dueDate"] as const;
-export type CommissionField = (typeof TEXT)[number] | (typeof NUM)[number] | (typeof DATE)[number];
+const ID = ["factoryId", "buyerId"] as const;
+export type CommissionField = (typeof TEXT)[number] | (typeof NUM)[number] | (typeof DATE)[number] | (typeof ID)[number];
 
 export async function updateCommissionField(actor: SessionUser, id: string, field: CommissionField, value: string) {
   assertPermission(actor, "finance", "edit");
@@ -45,7 +46,8 @@ export async function updateCommissionField(actor: SessionUser, id: string, fiel
   const existing = await prisma.commissionEntry.findFirst({ where: { id, companyId: cid }, select: { id: true } });
   if (!existing) throw new Error("Commission entry not found");
   const data: Record<string, string | number | Date | null> = {};
-  if ((TEXT as readonly string[]).includes(field)) data[field] = value.trim() || null;
+  if ((ID as readonly string[]).includes(field)) data[field] = value || null;
+  else if ((TEXT as readonly string[]).includes(field)) data[field] = value.trim() || null;
   else if ((NUM as readonly string[]).includes(field)) data[field] = value ? String(Math.max(0, Number(value) || 0)) : null;
   else if ((DATE as readonly string[]).includes(field)) data[field] = value ? new Date(`${value}T00:00:00.000Z`) : null;
   else throw new Error("Invalid field");

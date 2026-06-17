@@ -7,11 +7,12 @@ import { RowDeleteButton } from "./row-delete-button";
 import {
   createCommissionAction, deleteCommissionAction,
   setCommFactoryInvNo, setCommFactoryValue, setCommPct, setCommOwnInvNo, setCommIssueDate, setCommDueDate, setCommPaymentStatus, setCommRemarks,
+  setCommFactory, setCommBuyer,
 } from "@/lib/commission/form-actions";
 import { formatMoney } from "@/lib/format";
 
 export type CommRow = {
-  id: string; factory: string; buyer: string;
+  id: string; factory: string; buyer: string; factoryId: string; buyerId: string;
   factoryInvoiceNo: string; factoryInvoiceValue: number | null; factoryInvoiceValueRaw: string;
   commissionPct: number | null; commissionPctRaw: string; commissionAmount: number | null;
   ownInvoiceNo: string; issueRaw: string; issueDisplay: string; dueRaw: string; dueDisplay: string;
@@ -25,6 +26,8 @@ export function CommissionTable({ rows, canEdit, factories, buyers }: { rows: Co
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const t = (v: string) => (v ? v : "—");
+  const facOpts = [{ value: "", label: "—" }, ...factories];
+  const buyOpts = [{ value: "", label: "—" }, ...buyers];
 
   return (
     <div className="space-y-3">
@@ -60,9 +63,9 @@ export function CommissionTable({ rows, canEdit, factories, buyers }: { rows: Co
             {rows.length === 0 && <tr><td colSpan={canEdit ? 12 : 11} className="px-3 py-10 text-center text-ink-soft">No commission entries yet{canEdit ? " — add one above." : "."}</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
-                <td className="px-3 py-2">{r.factory}</td>
-                <td className="px-3 py-2">{r.buyer}</td>
                 {canEdit ? <>
+                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.factoryId} type="select" options={facOpts} action={setCommFactory}>{r.factory}</EditableCell></td>
+                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.buyerId} type="select" options={buyOpts} action={setCommBuyer}>{r.buyer}</EditableCell></td>
                   <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.factoryInvoiceNo} type="text" action={setCommFactoryInvNo}>{t(r.factoryInvoiceNo)}</EditableCell></td>
                   <td className="px-3 py-2 text-right tnum"><EditableCell id={r.id} raw={r.factoryInvoiceValueRaw} type="number" align="right" action={setCommFactoryValue}>{r.factoryInvoiceValue != null ? formatMoney(r.factoryInvoiceValue) : "—"}</EditableCell></td>
                   <td className="px-3 py-2 text-right tnum"><EditableCell id={r.id} raw={r.commissionPctRaw} type="number" align="right" action={setCommPct}>{r.commissionPct != null ? `${r.commissionPct}%` : "—"}</EditableCell></td>
@@ -74,6 +77,8 @@ export function CommissionTable({ rows, canEdit, factories, buyers }: { rows: Co
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setCommRemarks}>{t(r.remarks)}</EditableCell></td>
                   <td className="px-3 py-2"><RowDeleteButton action={deleteCommissionAction} id={r.id} /></td>
                 </> : <>
+                  <td className="px-3 py-2">{r.factory}</td>
+                  <td className="px-3 py-2">{r.buyer}</td>
                   <td className="px-3 py-2 font-mono text-xs">{t(r.factoryInvoiceNo)}</td>
                   <td className="px-3 py-2 text-right tnum">{r.factoryInvoiceValue != null ? formatMoney(r.factoryInvoiceValue) : "—"}</td>
                   <td className="px-3 py-2 text-right tnum">{r.commissionPct != null ? `${r.commissionPct}%` : "—"}</td>

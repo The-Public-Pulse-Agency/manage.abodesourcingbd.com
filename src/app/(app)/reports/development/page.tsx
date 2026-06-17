@@ -21,6 +21,8 @@ export default async function DevelopmentReportPage() {
     id: i.id,
     factory: i.factoryId ? facName.get(i.factoryId) ?? "—" : "—",
     buyer: i.buyerId ? buyName.get(i.buyerId) ?? "—" : "—",
+    factoryId: i.factoryId ?? "",
+    buyerId: i.buyerId ?? "",
     styleRef: i.styleRef,
     colour: i.colour ?? "",
     labDip: i.labDip ?? "",

@@ -27,6 +27,8 @@ export default async function CommissionReportPage() {
       id: i.id,
       factory: i.factoryId ? facName.get(i.factoryId) ?? "—" : "—",
       buyer: i.buyerId ? buyName.get(i.buyerId) ?? "—" : "—",
+      factoryId: i.factoryId ?? "",
+      buyerId: i.buyerId ?? "",
       factoryInvoiceNo: i.factoryInvoiceNo ?? "",
       factoryInvoiceValue: fv,
       factoryInvoiceValueRaw: fv != null ? String(fv) : "",

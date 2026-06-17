@@ -7,10 +7,11 @@ import { RowDeleteButton } from "./row-delete-button";
 import {
   createDevelopmentAction, deleteDevelopmentAction,
   setDevLabDip, setDevKnitting, setDevFirstSample, setDevSecondSample, setDevFinalSample, setDevRemarks, setDevColour,
+  setDevStyleRef, setDevFactory, setDevBuyer,
 } from "@/lib/development/form-actions";
 
 export type DevRow = {
-  id: string; factory: string; buyer: string; styleRef: string; colour: string;
+  id: string; factory: string; buyer: string; factoryId: string; buyerId: string; styleRef: string; colour: string;
   labDip: string; knitting: string; firstSample: string; secondSample: string;
   finalSampleRaw: string; finalSampleDisplay: string; remarks: string;
 };
@@ -21,6 +22,8 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const txt = (v: string) => (v ? v : "—");
+  const facOpts = [{ value: "", label: "—" }, ...factories];
+  const buyOpts = [{ value: "", label: "—" }, ...buyers];
 
   return (
     <div className="space-y-3">
@@ -53,10 +56,10 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
             {rows.length === 0 && <tr><td colSpan={canEdit ? 11 : 10} className="px-3 py-10 text-center text-ink-soft">No development items yet{canEdit ? " — add one above." : "."}</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
-                <td className="px-3 py-2">{r.factory}</td>
-                <td className="px-3 py-2">{r.buyer}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.styleRef}</td>
                 {canEdit ? <>
+                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.factoryId} type="select" options={facOpts} action={setDevFactory}>{r.factory}</EditableCell></td>
+                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.buyerId} type="select" options={buyOpts} action={setDevBuyer}>{r.buyer}</EditableCell></td>
+                  <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.styleRef} type="text" action={setDevStyleRef}>{r.styleRef}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.colour} type="text" action={setDevColour}>{txt(r.colour)}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.labDip} type="text" action={setDevLabDip}>{txt(r.labDip)}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.knitting} type="text" action={setDevKnitting}>{txt(r.knitting)}</EditableCell></td>
@@ -66,6 +69,9 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setDevRemarks}>{txt(r.remarks)}</EditableCell></td>
                   <td className="px-3 py-2"><RowDeleteButton action={deleteDevelopmentAction} id={r.id} /></td>
                 </> : <>
+                  <td className="px-3 py-2">{r.factory}</td>
+                  <td className="px-3 py-2">{r.buyer}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.styleRef}</td>
                   <td className="px-3 py-2 text-xs">{txt(r.colour)}</td><td className="px-3 py-2 text-xs">{txt(r.labDip)}</td><td className="px-3 py-2 text-xs">{txt(r.knitting)}</td>
                   <td className="px-3 py-2 text-xs">{txt(r.firstSample)}</td><td className="px-3 py-2 text-xs">{txt(r.secondSample)}</td>
                   <td className="px-3 py-2 tnum text-xs">{r.finalSampleDisplay}</td><td className="px-3 py-2 text-xs">{txt(r.remarks)}</td>

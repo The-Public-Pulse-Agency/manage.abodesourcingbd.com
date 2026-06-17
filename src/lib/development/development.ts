@@ -33,7 +33,8 @@ export async function createDevelopment(actor: SessionUser, input: CreateDevInpu
 }
 
 const TEXT_FIELDS = ["labDip", "knitting", "firstSample", "secondSample", "remarks", "colour", "styleRef"] as const;
-export type DevField = (typeof TEXT_FIELDS)[number] | "finalSampleDate";
+const ID_FIELDS = ["factoryId", "buyerId"] as const;
+export type DevField = (typeof TEXT_FIELDS)[number] | (typeof ID_FIELDS)[number] | "finalSampleDate";
 
 export async function updateDevelopmentField(actor: SessionUser, id: string, field: DevField, value: string) {
   assertPermission(actor, "orders", "edit");
@@ -42,6 +43,7 @@ export async function updateDevelopmentField(actor: SessionUser, id: string, fie
   if (!existing) throw new Error("Development item not found");
   const data: Record<string, string | Date | null> = {};
   if (field === "finalSampleDate") data.finalSampleDate = value ? new Date(`${value}T00:00:00.000Z`) : null;
+  else if ((ID_FIELDS as readonly string[]).includes(field)) data[field] = value || null;
   else if ((TEXT_FIELDS as readonly string[]).includes(field)) data[field] = value.trim() || null;
   else throw new Error("Invalid field");
   await prisma.developmentItem.update({ where: { id }, data });

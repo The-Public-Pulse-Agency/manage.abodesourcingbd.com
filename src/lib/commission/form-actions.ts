@@ -39,6 +39,8 @@ export async function setCommIssueDate(id: string, v: string): Promise<Res> { re
 export async function setCommDueDate(id: string, v: string): Promise<Res> { return set(id, "dueDate", v); }
 export async function setCommPaymentStatus(id: string, v: string): Promise<Res> { return set(id, "paymentStatus", v); }
 export async function setCommRemarks(id: string, v: string): Promise<Res> { return set(id, "remarks", v); }
+export async function setCommFactory(id: string, v: string): Promise<Res> { return set(id, "factoryId", v); }
+export async function setCommBuyer(id: string, v: string): Promise<Res> { return set(id, "buyerId", v); }
 
 export async function deleteCommissionAction(id: string): Promise<Res> {
   return run((a) => deleteCommission(a, id));

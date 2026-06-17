@@ -2,28 +2,50 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { criticalPathBoard } from "@/lib/tna/board";
+import { criticalPathBoard, criticalPathSummary, type StageProgress } from "@/lib/tna/board";
 import { RagChip } from "@/components/rag-chip";
+import { CountUp } from "@/components/dashboard/count-up";
 import { formatDate } from "@/lib/format";
 
 export default async function CriticalPathPage() {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "criticalPath", "view")) redirect("/dashboard");
-  const items = await criticalPathBoard(actor, { now: new Date() });
+  const now = new Date();
+  const [items, summary] = await Promise.all([
+    criticalPathBoard(actor, { now }),
+    criticalPathSummary(actor, { now }),
+  ]);
   const overdue = items.filter((i) => i.rag === "OVERDUE").length;
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rise">
         <p className="eyebrow">Merchandising</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Critical Path — attention this week</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          {items.length} milestone{items.length === 1 ? "" : "s"} due soon or overdue
-          {overdue > 0 && <span className="text-bad"> · {overdue} overdue</span>}.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Critical Path</h1>
+        <p className="mt-1 text-sm text-ink-soft">Time &amp; action across all live orders — overall progress and what needs attention this week.</p>
       </div>
 
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-5" style={{ animationDelay: "60ms" }}>
+        <Kpi label="Milestones" rail="var(--ink)"><CountUp value={summary.total} format="qty" /></Kpi>
+        <Kpi label="Complete" rail="var(--ok)"><CountUp value={summary.pctComplete ?? 0} format="pct" /></Kpi>
+        <Kpi label="Overdue" rail="var(--bad)"><CountUp value={summary.overdue} format="qty" /></Kpi>
+        <Kpi label="Due ≤ 7 days" rail="var(--warn)"><CountUp value={summary.dueSoon} format="qty" /></Kpi>
+        <Kpi label="Pending" rail="var(--accent)"><CountUp value={summary.pending} format="qty" /></Kpi>
+      </div>
+
+      {summary.byStage.length > 0 && (
+        <div className="rise rounded-lg border border-line bg-surface p-4 elevate" style={{ animationDelay: "120ms" }}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-soft">Progress by stage</h3>
+          <div className="space-y-2.5">{summary.byStage.map((s) => <StageBar key={s.stage} s={s} />)}</div>
+        </div>
+      )}
+
+      <p className="rise text-sm font-semibold" style={{ animationDelay: "180ms" }}>
+        Attention this week — {items.length} due soon or overdue
+        {overdue > 0 && <span className="text-bad"> · {overdue} overdue</span>}.
+      </p>
+
+      <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">
@@ -62,6 +84,30 @@ export default async function CriticalPathPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function Kpi({ label, rail, children }: { label: string; rail: string; children: React.ReactNode }) {
+  return (
+    <div className="kpi rounded-lg border border-line bg-surface p-4 elevate" style={{ "--kpi-rail": rail } as React.CSSProperties}>
+      <p className="eyebrow">{label}</p>
+      <p className="tnum mt-1 text-xl font-semibold">{children}</p>
+    </div>
+  );
+}
+
+function StageBar({ s }: { s: StageProgress }) {
+  const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+  return (
+    <div className="grid grid-cols-[9rem_1fr_5rem] items-center gap-3 text-sm">
+      <span className="truncate text-ink-soft">{s.stage.replace(/_/g, " ").toLowerCase()}</span>
+      <div className="h-2.5 overflow-hidden rounded-full bg-paper">
+        <div className="bar-fill h-full rounded-full bg-ok" style={{ width: `${Math.max(2, pct)}%` }} />
+      </div>
+      <span className="tnum text-right text-xs font-semibold">
+        {s.done}/{s.total}{s.overdue > 0 && <span className="ml-1 text-bad">· {s.overdue}!</span>}
+      </span>
     </div>
   );
 }

@@ -23,6 +23,12 @@ export type OpenOrderRow = {
   pricePerUnit: number;
   totalValue: number;
   currency: string;
+  styles: string;
+  labDip: StatusCell;
+  knitting: StatusCell;
+  firstSample: StatusCell;
+  secondSample: StatusCell;
+  finalSampleDate: Date | null;
   trims: StatusCell;
   yarn: StatusCell;
   dyeing: StatusCell;
@@ -47,6 +53,10 @@ const KEY = {
   bulkSewing: "SEWING",
   printEmb: "PRINT_EMB",
   topSample: "TOP_SAMPLE",
+  labDip: "LAB_DIP",
+  knitting: "KNITTING",
+  firstSample: "FIRST_SAMPLE",
+  secondSample: "SECOND_SAMPLE",
 } as const;
 
 function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrderWhereInput {
@@ -76,7 +86,7 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
 }
 
 type PoForRow = Prisma.PurchaseOrderGetPayload<{
-  include: { buyer: true; factory: true; lines: { include: { sizes: true; colour: true } }; milestones: { select: { key: true; plannedDate: true; actualDate: true } } };
+  include: { buyer: true; factory: true; lines: { include: { sizes: true; colour: true; style: true } }; milestones: { select: { key: true; plannedDate: true; actualDate: true } } };
 }>;
 
 function mapRow(po: PoForRow, today: Date): OpenOrderRow {
@@ -91,6 +101,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
   };
   const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
   const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
+  const styles = [...new Set(po.lines.map((l) => l.style?.styleCode).filter(Boolean) as string[])].join(", ");
   const totals = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
   return {
     id: po.id,
@@ -106,6 +117,12 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     pricePerUnit: totals.qty > 0 ? Math.round((totals.value / totals.qty) * 10000) / 10000 : 0,
     totalValue: totals.value,
     currency: po.currency,
+    styles: styles || "—",
+    labDip: cell(KEY.labDip),
+    knitting: cell(KEY.knitting),
+    firstSample: cell(KEY.firstSample),
+    secondSample: cell(KEY.secondSample),
+    finalSampleDate: byKey.get("FINAL_SAMPLE")?.actualDate ?? null,
     trims: cell(KEY.trims),
     yarn: cell(KEY.yarn),
     dyeing: cell(KEY.dyeing),
@@ -134,7 +151,7 @@ export async function listOpenOrders(
   const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
   const pos = await prisma.purchaseOrder.findMany({
     where,
-    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
+    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true, style: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     skip: (page - 1) * pageSize,
     take: pageSize,
@@ -180,7 +197,7 @@ export async function openOrdersForExport(actor: SessionUser, filter: OpenOrders
   const today = businessToday(new Date());
   const pos = await prisma.purchaseOrder.findMany({
     where: whereFor(actor, filter),
-    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
+    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true, style: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     take: 5_000,
   });

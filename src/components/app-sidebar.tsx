@@ -11,6 +11,7 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; i
   { href: "/reports/open-orders", label: "Running Orders", module: "orders", icon: "▥" },
   { href: "/reports/shipped", label: "Shipped Goods", module: "shipment", icon: "✔" },
   { href: "/reports/factories", label: "Factory Info", module: "masterData", icon: "❖" },
+  { href: "/reports/development", label: "Development", module: "orders", icon: "⚗" },
   { href: "/enquiries", label: "Enquiries", module: "orders", icon: "✎" },
   { href: "/orders", label: "Orders", module: "orders", icon: "▤" },
   { href: "/critical-path", label: "Critical Path", module: "criticalPath", icon: "◷" },

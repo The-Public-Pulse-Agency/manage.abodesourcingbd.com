@@ -76,8 +76,9 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick reports */}
-      <div className="rise grid grid-cols-1 gap-4 sm:grid-cols-3" style={{ animationDelay: "120ms" }}>
+      <div className="rise grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: "120ms" }}>
         <ReportCard href="/reports/open-orders" icon={<IconBox />} title="Open / Running Orders" desc="PO → ship status across the critical path" />
+        <ReportCard href="/reports/development" icon={<IconTarget />} title="Development Program" desc="Lab dip, knitting & sample approvals" />
         <ReportCard href="/reports/shipped" icon={<IconShip />} title="Shipped Goods" desc="Invoices, payments, container & TC status" />
         <ReportCard href="/reports/factories" icon={<IconCert />} title="Factory Information" desc="Compliance certificates & validity" />
       </div>

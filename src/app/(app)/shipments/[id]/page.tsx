@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { getShipment } from "@/lib/shipment/shipment";
 import { listDocuments } from "@/lib/documents/documents";
+import { listForwarders, listPorts } from "@/lib/masterdata/logistics";
 import { formatDate, formatQty } from "@/lib/format";
 import { ShipmentTelexForm } from "./shipment-telex-form";
 import { DocumentsPanel } from "@/components/documents-panel";
@@ -28,6 +29,10 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   if (!shp) notFound();
 
   const canEdit = can(actor.role, "shipment", "edit");
+  const [forwarders, ports] = canEdit
+    ? await Promise.all([listForwarders(actor), listPorts(actor)])
+    : [[], []];
+  const inv = shp.invoices.find((i) => i.type === "FACTORY") ?? shp.invoices[0];
   const canDocs = can(actor.role, "documents", "view");
   const documents = canDocs ? await listDocuments(actor, "Shipment", id) : [];
   const haveDocTypes = new Set(documents.map((d) => d.type));
@@ -53,19 +58,32 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         <Meta label="BL date" value={formatDate(shp.blDate)} />
         <Meta label="Forwarder" value={shp.forwarder?.name ?? "—"} />
         <Meta label="Port" value={shp.port?.name ?? "—"} />
+        <Meta label="ETA destination" value={formatDate(shp.etaDestination)} />
         <Meta label="TC status" value={shp.tcStatus ?? "—"} />
+        <Meta label="Payment" value={inv ? (inv.status === "PAID" ? "Paid" : inv.status === "PARTIALLY_PAID" ? "Partial" : "Due") : "—"} />
+        <Meta label="Remarks" value={shp.remarks ?? "—"} />
       </dl>
 
       {canEdit && (
         <ShipmentTelexForm
           shipmentId={shp.id}
+          forwarders={forwarders.map((x) => ({ id: x.id, name: x.name }))}
+          ports={ports.map((x) => ({ id: x.id, name: x.name }))}
           current={{
             containerNo: shp.containerNo ?? "",
             cartons: shp.cartons?.toString() ?? "",
+            mode: shp.mode,
+            exFactoryDate: dateInput(shp.exFactoryDate),
             blNumber: shp.blNumber ?? "",
             blDate: dateInput(shp.blDate),
+            etaDestination: dateInput(shp.etaDestination),
             telexStatus: shp.telexStatus,
             tcStatus: shp.tcStatus ?? "",
+            forwarderId: shp.forwarderId ?? "",
+            portId: shp.portId ?? "",
+            remarks: shp.remarks ?? "",
+            invoiceId: inv?.id ?? null,
+            paymentStatus: inv?.status ?? "ISSUED",
           }}
         />
       )}

@@ -163,14 +163,16 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
 export const updateShipmentSchema = z.object({
   containerNo: z.string().optional(),
   cartons: z.number().int().nonnegative().optional(),
+  mode: z.enum(shipmentModes).optional(),
+  exFactoryDate: z.coerce.date().nullish(),
   blNumber: z.string().optional(),
-  blDate: z.coerce.date().optional(),
+  blDate: z.coerce.date().nullish(),
   etaDestination: z.coerce.date().nullish(),
   remarks: z.string().optional(),
   telexStatus: z.enum(telexStatuses).optional(),
   tcStatus: z.string().optional(),
-  forwarderId: z.string().optional(),
-  portId: z.string().optional(),
+  forwarderId: z.string().nullish(),
+  portId: z.string().nullish(),
 });
 export type UpdateShipmentInput = z.input<typeof updateShipmentSchema>;
 
@@ -299,6 +301,7 @@ export async function getShipment(actor: SessionUser, id: string) {
     include: {
       forwarder: true,
       port: true,
+      invoices: true,
       lines: { include: { sizes: true, orderLine: { include: { style: true, colour: true, po: true } } } },
     },
   });

@@ -5,8 +5,8 @@ import { ForbiddenError } from "@/lib/auth/guard";
 import { verifyPassword } from "@/lib/auth/password";
 import { createUser, listUsers, setUserActive } from "./actions";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const merch = { id: "merch-1", role: "MERCHANDISER" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const merch = { id: "merch-1", role: "MERCHANDISER" as const, companyId: "test-co" };
 
 beforeEach(async () => {
   await resetDb();

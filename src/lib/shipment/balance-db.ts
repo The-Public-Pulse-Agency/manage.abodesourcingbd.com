@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { remainingBySize, type SizeBalance } from "./balance";
 
 export type LineBalance = {
@@ -12,7 +12,7 @@ export type LineBalance = {
 export async function getPoBalance(actor: SessionUser, poId: string): Promise<LineBalance[]> {
   assertPermission(actor, "shipment", "view");
   const lines = await prisma.orderLine.findMany({
-    where: { poId },
+    where: { poId, companyId: tenantId(actor) },
     include: {
       style: true,
       colour: true,

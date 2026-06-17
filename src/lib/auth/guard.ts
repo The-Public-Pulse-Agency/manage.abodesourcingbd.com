@@ -9,6 +9,17 @@ export class ForbiddenError extends Error {
 
 export type SessionUser = { id: string; role: Role; companyId?: string | null };
 
+/**
+ * The tenant a query must be scoped to. Every OMS lib operation runs in a company
+ * context; throws if there is none (the platform SUPERADMIN never runs OMS queries).
+ * Use in EVERY query: `where: { companyId: tenantId(actor), ... }` and on create
+ * `data: { companyId: tenantId(actor), ... }`.
+ */
+export function tenantId(actor: SessionUser): string {
+  if (!actor.companyId) throw new ForbiddenError("No company context for this operation");
+  return actor.companyId;
+}
+
 /** Pure authorization check — throws if the user may not perform the action. */
 export function assertPermission(
   user: SessionUser | null | undefined,

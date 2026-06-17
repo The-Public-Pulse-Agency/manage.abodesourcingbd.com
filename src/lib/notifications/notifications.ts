@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
-import type { SessionUser } from "@/lib/auth/guard";
+import { type SessionUser } from "@/lib/auth/guard";
 
-// Notifications are personal: every query is scoped to the actor's own userId, so no
-// module permission is needed — a user can only ever see/mutate their own feed.
+// Notifications are personal: every query is scoped to the actor's own userId. Since a
+// user belongs to exactly one company, userId scoping is already strictly tenant-tight
+// (no companyId needed — and the app layout calls unreadCount without a company context).
 
 export function listNotifications(actor: SessionUser, opts?: { limit?: number }) {
   return prisma.notification.findMany({

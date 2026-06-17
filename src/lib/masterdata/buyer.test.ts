@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { resetDb } from "@/test/db";
 import { createBuyer, listBuyers, createBrand, listBrands } from "./buyer";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 
 beforeEach(async () => {
   await resetDb();

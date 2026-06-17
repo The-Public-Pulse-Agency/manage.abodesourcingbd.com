@@ -8,7 +8,7 @@ import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { getPoBalance } from "./balance-db";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 
 beforeEach(async () => { await resetDb(); });
 afterAll(async () => { await prisma.$disconnect(); });

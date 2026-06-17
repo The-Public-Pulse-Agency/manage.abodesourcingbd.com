@@ -9,8 +9,8 @@ import { setOrderLine } from "@/lib/orders/lines";
 import { createInvoice } from "@/lib/finance/invoices";
 import { dashboardSummary } from "./summary";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 const NOW = new Date("2026-06-15T03:00:00.000Z"); // businessToday = 2026-06-15
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
@@ -50,27 +50,27 @@ describe("dashboardSummary", () => {
     // ex-factory milestones (OTD): one on time, one late
     await prisma.taMilestone.createMany({
       data: [
-        { poId: live.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-09") },
+        { companyId: "test-co", poId: live.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-09") },
       ],
     });
     // a late ex-factory on another (closed) PO still counts for OTD history
     const done = await createPurchaseOrder(admin, { poNumber: "P-DONE", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
     await prisma.purchaseOrder.update({ where: { id: done.id }, data: { status: "CLOSED" } });
     await prisma.taMilestone.create({
-      data: { poId: done.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-15") },
+      data: { companyId: "test-co", poId: done.id, key: "EX_FACTORY", name: "Ex-factory", stage: "SHIPPING", position: 12, plannedDate: d("2026-05-10"), actualDate: d("2026-05-15") },
     });
 
     // Overdue + due-soon milestones on the live PO (board exception)
     await prisma.taMilestone.createMany({
       data: [
-        { poId: live.id, key: "pp_sample", name: "PP sample approved", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") }, // overdue
-        { poId: live.id, key: "fabric_in", name: "Bulk fabric in-house", stage: "PRODUCTION_QC", position: 7, plannedDate: d("2026-06-18") }, // due-soon
+        { companyId: "test-co", poId: live.id, key: "pp_sample", name: "PP sample approved", stage: "SAMPLING", position: 6, plannedDate: d("2026-06-10") }, // overdue
+        { companyId: "test-co", poId: live.id, key: "fabric_in", name: "Bulk fabric in-house", stage: "PRODUCTION_QC", position: 7, plannedDate: d("2026-06-18") }, // due-soon
       ],
     });
 
     // Shipment with BL issued but telex pending (cash stuck)
     await prisma.shipment.create({
-      data: { reference: "SHP-1", blNumber: "BL-1", telexStatus: "PENDING" },
+      data: { companyId: "test-co", reference: "SHP-1", blNumber: "BL-1", telexStatus: "PENDING" },
     });
 
     // Overdue invoice (issued 100d ago) + a current one

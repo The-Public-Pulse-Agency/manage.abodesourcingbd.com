@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { remainingBySize, assertWithinBalance, type SizeQty } from "./balance";
 
@@ -61,8 +61,8 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
       async (tx) => {
         const affectedPoIds = new Set<string>();
         for (const l of data.lines) {
-          const ol = await tx.orderLine.findUnique({
-            where: { id: l.orderLineId },
+          const ol = await tx.orderLine.findFirst({
+            where: { id: l.orderLineId, companyId: tenantId(actor) },
             include: { sizes: true, shipmentLines: { include: { sizes: true } }, po: true },
           });
           if (!ol) throw new Error(`Order line ${l.orderLineId} not found`);
@@ -79,6 +79,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
 
         const created = await tx.shipment.create({
           data: {
+            companyId: tenantId(actor),
             reference: data.reference,
             mode: data.mode,
             containerNo: data.containerNo,
@@ -91,23 +92,27 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
             portId: data.portId,
             lines: {
               create: data.lines.map((l) => ({
+                companyId: tenantId(actor),
                 orderLineId: l.orderLineId,
-                sizes: { create: l.sizes.map((s) => ({ label: s.label, qty: s.qty })) },
+                sizes: {
+                  create: l.sizes.map((s) => ({ companyId: tenantId(actor), label: s.label, qty: s.qty })),
+                },
               })),
             },
           },
         });
 
         for (const poId of affectedPoIds) {
-          const po = await tx.purchaseOrder.findUniqueOrThrow({ where: { id: poId } });
+          const po = await tx.purchaseOrder.findFirst({ where: { id: poId, companyId: tenantId(actor) } });
+          if (!po) throw new Error(`Purchase order ${poId} not found`);
           const lines = await tx.orderLine.findMany({
-            where: { poId },
+            where: { poId, companyId: tenantId(actor) },
             include: { sizes: true, shipmentLines: { include: { sizes: true } } },
           });
           const newStatus = isFullyShipped(lines) ? "SHIPPED" : "PARTLY_SHIPPED";
           if (po.status !== newStatus) {
             const res = await tx.purchaseOrder.updateMany({
-              where: { id: poId, status: { in: [...SHIPPABLE] } },
+              where: { id: poId, companyId: tenantId(actor), status: { in: [...SHIPPABLE] } },
               data: { status: newStatus },
             });
             if (res.count > 0) {
@@ -170,7 +175,8 @@ export type UpdateShipmentInput = z.input<typeof updateShipmentSchema>;
 export async function updateShipment(actor: SessionUser, id: string, input: UpdateShipmentInput) {
   assertPermission(actor, "shipment", "edit");
   const data = updateShipmentSchema.parse(input);
-  const before = await prisma.shipment.findUniqueOrThrow({ where: { id } });
+  const before = await prisma.shipment.findFirst({ where: { id, companyId: tenantId(actor) } });
+  if (!before) throw new Error(`Shipment ${id} not found`);
 
   if (data.telexStatus) {
     if (TELEX_ORDER.indexOf(data.telexStatus) < TELEX_ORDER.indexOf(before.telexStatus)) {
@@ -182,7 +188,9 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
   }
 
   try {
-    const shipment = await prisma.shipment.update({ where: { id }, data });
+    await prisma.shipment.updateMany({ where: { id, companyId: tenantId(actor) }, data });
+    const shipment = await prisma.shipment.findFirst({ where: { id, companyId: tenantId(actor) } });
+    if (!shipment) throw new Error(`Shipment ${id} not found`);
     await recordAudit({
       userId: actor.id,
       entityType: "Shipment",
@@ -209,6 +217,7 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
 export async function listShipments(actor: SessionUser) {
   assertPermission(actor, "shipment", "view");
   return prisma.shipment.findMany({
+    where: { companyId: tenantId(actor) },
     include: {
       forwarder: true,
       port: true,
@@ -223,10 +232,11 @@ export async function listShipments(actor: SessionUser) {
 export async function listShipmentsPaged(actor: SessionUser, opts: { page?: number; pageSize?: number } = {}) {
   assertPermission(actor, "shipment", "view");
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
-  const total = await prisma.shipment.count();
+  const total = await prisma.shipment.count({ where: { companyId: tenantId(actor) } });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
   const rows = await prisma.shipment.findMany({
+    where: { companyId: tenantId(actor) },
     include: {
       forwarder: true,
       port: true,
@@ -242,8 +252,8 @@ export async function listShipmentsPaged(actor: SessionUser, opts: { page?: numb
 
 export async function getShipment(actor: SessionUser, id: string) {
   assertPermission(actor, "shipment", "view");
-  return prisma.shipment.findUnique({
-    where: { id },
+  return prisma.shipment.findFirst({
+    where: { id, companyId: tenantId(actor) },
     include: {
       forwarder: true,
       port: true,

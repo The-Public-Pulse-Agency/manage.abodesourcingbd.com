@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { outstanding } from "./money";
 
@@ -21,16 +21,18 @@ export async function recordPayment(actor: SessionUser, invoiceId: string, input
   try {
     return await prisma.$transaction(
       async (tx) => {
-        const invoice = await tx.invoice.findUniqueOrThrow({
-          where: { id: invoiceId },
+        const invoice = await tx.invoice.findFirst({
+          where: { id: invoiceId, companyId: tenantId(actor) },
           include: { payments: true },
         });
+        if (!invoice) throw new Error("Invoice not found");
         const out = outstanding(invoice.amount, invoice.payments);
         if (data.amount > out + 1e-9) {
           throw new Error(`Payment ${data.amount} exceeds outstanding ${out}`);
         }
         const payment = await tx.payment.create({
           data: {
+            companyId: tenantId(actor),
             invoiceId,
             amount: String(data.amount),
             date: data.date,
@@ -39,10 +41,10 @@ export async function recordPayment(actor: SessionUser, invoiceId: string, input
           },
         });
         // Re-read all payments (serialized) and recompute status from the authoritative set.
-        const all = await tx.payment.findMany({ where: { invoiceId } });
+        const all = await tx.payment.findMany({ where: { invoiceId, companyId: tenantId(actor) } });
         const newOut = outstanding(invoice.amount, all);
         const status = newOut <= 0 ? "PAID" : "PARTIALLY_PAID";
-        await tx.invoice.update({ where: { id: invoiceId }, data: { status } });
+        await tx.invoice.updateMany({ where: { id: invoiceId, companyId: tenantId(actor) }, data: { status } });
         await recordAudit(
           {
             userId: actor.id,
@@ -67,5 +69,8 @@ export async function recordPayment(actor: SessionUser, invoiceId: string, input
 
 export async function listPayments(actor: SessionUser, invoiceId: string) {
   assertPermission(actor, "finance", "view");
-  return prisma.payment.findMany({ where: { invoiceId }, orderBy: { date: "desc" } });
+  return prisma.payment.findMany({
+    where: { invoiceId, companyId: tenantId(actor) },
+    orderBy: { date: "desc" },
+  });
 }

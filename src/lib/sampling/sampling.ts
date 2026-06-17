@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SampleStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 const sampleTypes = ["LAB_DIP", "FIT", "PP", "SIZE_SET"] as const;
@@ -35,8 +35,10 @@ export const updateSampleSchema = z
   });
 export type UpdateSampleInput = z.input<typeof updateSampleSchema>;
 
-async function loadSamplingPo(poId: string) {
-  const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+async function loadSamplingPo(actor: SessionUser, poId: string) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
+  });
   if (!po) throw new Error("Purchase order not found");
   if (po.status === "CANCELLED" || po.status === "CLOSED") {
     throw new Error(`Cannot modify sampling on a ${po.status} order`);
@@ -50,9 +52,11 @@ export async function createSampleRequest(
   input: CreateSampleInput,
 ) {
   assertPermission(actor, "sampling", "create");
-  await loadSamplingPo(poId);
+  await loadSamplingPo(actor, poId);
   const data = createSampleSchema.parse(input);
-  const sample = await prisma.sampleRequest.create({ data: { poId, ...data } });
+  const sample = await prisma.sampleRequest.create({
+    data: { companyId: tenantId(actor), poId, ...data },
+  });
   await recordAudit({
     userId: actor.id,
     entityType: "SampleRequest",
@@ -70,18 +74,24 @@ export async function updateSampleStatus(
 ) {
   assertPermission(actor, "sampling", "edit");
   const data = updateSampleSchema.parse(input);
-  const before = await prisma.sampleRequest.findUniqueOrThrow({ where: { id } });
+  const before = await prisma.sampleRequest.findFirst({
+    where: { id, companyId: tenantId(actor) },
+  });
+  if (!before) throw new Error("Sample request not found");
   if (data.status !== before.status && !ALLOWED_TRANSITIONS[before.status].includes(data.status)) {
     throw new Error(`Illegal sample status transition: ${before.status} -> ${data.status}`);
   }
-  const sample = await prisma.sampleRequest.update({
-    where: { id },
+  await prisma.sampleRequest.updateMany({
+    where: { id, companyId: tenantId(actor) },
     data: {
       status: data.status,
       remarks: data.remarks,
       // Couple approvedDate to status: set only when APPROVED, cleared otherwise.
       approvedDate: data.status === "APPROVED" ? data.approvedDate : null,
     },
+  });
+  const sample = await prisma.sampleRequest.findFirstOrThrow({
+    where: { id, companyId: tenantId(actor) },
   });
   await recordAudit({
     userId: actor.id,
@@ -97,7 +107,7 @@ export async function updateSampleStatus(
 export async function listSampleRequests(actor: SessionUser, poId: string) {
   assertPermission(actor, "sampling", "view");
   return prisma.sampleRequest.findMany({
-    where: { poId },
+    where: { poId, companyId: tenantId(actor) },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 }

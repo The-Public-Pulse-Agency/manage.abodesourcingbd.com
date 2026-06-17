@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 export const createPortSchema = z.object({ name: z.string().min(1, "Name is required"), country: z.string().optional() });
@@ -17,10 +17,10 @@ export type UpdateForwarderInput = z.infer<typeof updateForwarderSchema>;
 export async function createPort(actor: SessionUser, input: z.input<typeof createPortSchema>) {
   assertPermission(actor, "masterData", "create");
   const data = createPortSchema.parse(input);
-  if (await prisma.port.findUnique({ where: { name: data.name } })) {
+  if (await prisma.port.findFirst({ where: { name: data.name, companyId: tenantId(actor) } })) {
     throw new Error(`A port named ${data.name} already exists`);
   }
-  const port = await prisma.port.create({ data });
+  const port = await prisma.port.create({ data: { ...data, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "Port", entityId: port.id, action: "create", after: { name: port.name } });
   return port;
 }
@@ -31,19 +31,24 @@ export async function listPorts(
 ) {
   assertPermission(actor, "masterData", "view");
   return prisma.port.findMany({
-    where: opts.includeInactive ? {} : { active: true },
+    where: { companyId: tenantId(actor), ...(opts.includeInactive ? {} : { active: true }) },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getPort(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "view");
-  return prisma.port.findUnique({ where: { id } });
+  return prisma.port.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export async function updatePort(actor: SessionUser, id: string, input: UpdatePortInput) {
   assertPermission(actor, "masterData", "edit");
   const data = updatePortSchema.parse(input);
+  const existing = await prisma.port.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Port not found");
   let port;
   try {
     port = await prisma.port.update({ where: { id }, data });
@@ -64,6 +69,11 @@ export async function updatePort(actor: SessionUser, id: string, input: UpdatePo
 
 export async function setPortActive(actor: SessionUser, id: string, active: boolean) {
   assertPermission(actor, "masterData", "edit");
+  const existing = await prisma.port.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Port not found");
   const port = await prisma.port.update({ where: { id }, data: { active } });
   await recordAudit({ userId: actor.id, entityType: "Port", entityId: id, action: "edit", after: { active } });
   return port;
@@ -72,10 +82,10 @@ export async function setPortActive(actor: SessionUser, id: string, active: bool
 export async function createForwarder(actor: SessionUser, input: z.input<typeof createForwarderSchema>) {
   assertPermission(actor, "masterData", "create");
   const data = createForwarderSchema.parse(input);
-  if (await prisma.forwarder.findUnique({ where: { name: data.name } })) {
+  if (await prisma.forwarder.findFirst({ where: { name: data.name, companyId: tenantId(actor) } })) {
     throw new Error(`A forwarder named ${data.name} already exists`);
   }
-  const fwd = await prisma.forwarder.create({ data });
+  const fwd = await prisma.forwarder.create({ data: { ...data, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "Forwarder", entityId: fwd.id, action: "create", after: { name: fwd.name } });
   return fwd;
 }
@@ -86,19 +96,24 @@ export async function listForwarders(
 ) {
   assertPermission(actor, "masterData", "view");
   return prisma.forwarder.findMany({
-    where: opts.includeInactive ? {} : { active: true },
+    where: { companyId: tenantId(actor), ...(opts.includeInactive ? {} : { active: true }) },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getForwarder(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "view");
-  return prisma.forwarder.findUnique({ where: { id } });
+  return prisma.forwarder.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export async function updateForwarder(actor: SessionUser, id: string, input: UpdateForwarderInput) {
   assertPermission(actor, "masterData", "edit");
   const data = updateForwarderSchema.parse(input);
+  const existing = await prisma.forwarder.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Forwarder not found");
   let fwd;
   try {
     fwd = await prisma.forwarder.update({ where: { id }, data });
@@ -119,6 +134,11 @@ export async function updateForwarder(actor: SessionUser, id: string, input: Upd
 
 export async function setForwarderActive(actor: SessionUser, id: string, active: boolean) {
   assertPermission(actor, "masterData", "edit");
+  const existing = await prisma.forwarder.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Forwarder not found");
   const fwd = await prisma.forwarder.update({ where: { id }, data: { active } });
   await recordAudit({ userId: actor.id, entityType: "Forwarder", entityId: id, action: "edit", after: { active } });
   return fwd;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { createPurchaseOrder } from "@/lib/orders/po";
 
@@ -18,17 +18,18 @@ export const createEnquirySchema = z.object({
 });
 export type CreateEnquiryInput = z.input<typeof createEnquirySchema>;
 
-async function assertBrandInBuyer(buyerId: string, brandId: string) {
-  const brand = await prisma.brand.findUnique({ where: { id: brandId } });
+async function assertBrandInBuyer(actor: SessionUser, buyerId: string, brandId: string) {
+  const brand = await prisma.brand.findFirst({ where: { id: brandId, companyId: tenantId(actor) } });
   if (!brand || brand.buyerId !== buyerId) throw new Error("Brand does not belong to the specified buyer");
 }
 
 export async function createEnquiry(actor: SessionUser, input: CreateEnquiryInput) {
   assertPermission(actor, "orders", "create");
   const data = createEnquirySchema.parse(input);
-  await assertBrandInBuyer(data.buyerId, data.brandId);
+  await assertBrandInBuyer(actor, data.buyerId, data.brandId);
   const enq = await prisma.enquiry.create({
     data: {
+      companyId: tenantId(actor),
       buyerId: data.buyerId,
       brandId: data.brandId,
       factoryId: data.factoryId || null,
@@ -46,7 +47,10 @@ export async function createEnquiry(actor: SessionUser, input: CreateEnquiryInpu
 export async function listEnquiries(actor: SessionUser, filter: { status?: string } = {}) {
   assertPermission(actor, "orders", "view");
   return prisma.enquiry.findMany({
-    where: filter.status ? { status: filter.status as (typeof STATUSES)[number] } : {},
+    where: {
+      companyId: tenantId(actor),
+      ...(filter.status ? { status: filter.status as (typeof STATUSES)[number] } : {}),
+    },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
@@ -54,7 +58,7 @@ export async function listEnquiries(actor: SessionUser, filter: { status?: strin
 
 export async function getEnquiry(actor: SessionUser, id: string) {
   assertPermission(actor, "orders", "view");
-  return prisma.enquiry.findUnique({ where: { id } });
+  return prisma.enquiry.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export const updateEnquirySchema = z.object({
@@ -74,7 +78,9 @@ export async function updateEnquiry(actor: SessionUser, id: string, input: z.inp
   if (data.targetQty != null) patch.targetQty = data.targetQty;
   if (data.lostReason !== undefined) patch.lostReason = data.lostReason;
   if (data.factoryId !== undefined) patch.factoryId = data.factoryId || null;
-  const enq = await prisma.enquiry.update({ where: { id }, data: patch });
+  const res = await prisma.enquiry.updateMany({ where: { id, companyId: tenantId(actor) }, data: patch });
+  if (res.count === 0) throw new Error("Enquiry not found");
+  const enq = await prisma.enquiry.findFirst({ where: { id, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "Enquiry", entityId: id, action: "edit", after: patch });
   return enq;
 }
@@ -82,7 +88,8 @@ export async function updateEnquiry(actor: SessionUser, id: string, input: z.inp
 /** Convert a won enquiry into a DRAFT purchase order, pre-filled from the enquiry. */
 export async function convertToOrder(actor: SessionUser, id: string) {
   assertPermission(actor, "orders", "create");
-  const enq = await prisma.enquiry.findUniqueOrThrow({ where: { id } });
+  const enq = await prisma.enquiry.findFirst({ where: { id, companyId: tenantId(actor) } });
+  if (!enq) throw new Error("Enquiry not found");
   if (enq.convertedPoId) throw new Error("This enquiry has already been converted to an order");
   if (!enq.factoryId) throw new Error("Set a factory on the enquiry before converting to an order");
   const po = await createPurchaseOrder(actor, {
@@ -93,7 +100,7 @@ export async function convertToOrder(actor: SessionUser, id: string) {
     exFactoryDate: enq.requiredShipDate ?? undefined,
     notes: `Converted from enquiry ${enq.styleRef}`,
   });
-  await prisma.enquiry.update({ where: { id }, data: { status: "WON", convertedPoId: po.id } });
+  await prisma.enquiry.updateMany({ where: { id, companyId: tenantId(actor) }, data: { status: "WON", convertedPoId: po.id } });
   await recordAudit({ userId: actor.id, entityType: "Enquiry", entityId: id, action: "edit", after: { converted: po.id } });
   return po;
 }
@@ -102,7 +109,7 @@ export type PipelineKpis = { openCount: number; openValueUsd: number; wonRate: n
 
 export async function enquiryPipelineKpis(actor: SessionUser): Promise<PipelineKpis> {
   assertPermission(actor, "orders", "view");
-  const all = await prisma.enquiry.findMany();
+  const all = await prisma.enquiry.findMany({ where: { companyId: tenantId(actor) } });
   const open = all.filter((e) => ["NEW", "QUOTING", "QUOTED"].includes(e.status));
   const openValueUsd = open.reduce((a, e) => {
     const price = e.quotedPriceUsd ?? e.targetPriceUsd;

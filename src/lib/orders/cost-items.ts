@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 const CATEGORIES = ["FABRIC", "CM", "TRIMS", "TEST", "FREIGHT", "COMMISSION", "OTHER"] as const;
@@ -16,7 +16,10 @@ export type CostItemInput = z.input<typeof costItemSchema>;
 
 export async function listCostItems(actor: SessionUser, poId: string) {
   assertPermission(actor, "costing", "view");
-  return prisma.costItem.findMany({ where: { poId }, orderBy: { createdAt: "asc" } });
+  return prisma.costItem.findMany({
+    where: { poId, companyId: tenantId(actor) },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 export async function addCostItem(actor: SessionUser, input: CostItemInput) {
@@ -24,6 +27,7 @@ export async function addCostItem(actor: SessionUser, input: CostItemInput) {
   const data = costItemSchema.parse(input);
   const item = await prisma.costItem.create({
     data: {
+      companyId: tenantId(actor),
       poId: data.poId,
       category: data.category,
       label: data.label,
@@ -43,6 +47,6 @@ export async function addCostItem(actor: SessionUser, input: CostItemInput) {
 
 export async function removeCostItem(actor: SessionUser, id: string) {
   assertPermission(actor, "costing", "edit");
-  await prisma.costItem.delete({ where: { id } });
+  await prisma.costItem.deleteMany({ where: { id, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "CostItem", entityId: id, action: "delete" });
 }

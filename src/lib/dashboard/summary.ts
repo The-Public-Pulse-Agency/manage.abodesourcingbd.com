@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { financeSummary } from "@/lib/finance/summary";
 import { criticalPathBoard } from "@/lib/tna/board";
 import { businessToday, addDaysUtc } from "@/lib/tna/schedule";
@@ -46,10 +46,10 @@ export async function dashboardSummary(
 
   const [livePos, exFtyMilestones, finance, board] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { status: { in: [...LIVE_STATUSES] } },
+      where: { status: { in: [...LIVE_STATUSES] }, companyId: tenantId(actor) },
       include: { buyer: true, factory: true, lines: { include: { sizes: true } } },
     }),
-    prisma.taMilestone.findMany({ where: { key: "EX_FACTORY", actualDate: { not: null } } }),
+    prisma.taMilestone.findMany({ where: { key: "EX_FACTORY", actualDate: { not: null }, companyId: tenantId(actor) } }),
     financeSummary(actor, { now: today }),
     criticalPathBoard(actor, { now: today }),
   ]);
@@ -74,7 +74,7 @@ export async function dashboardSummary(
     }));
 
   const telex = await prisma.shipment.findMany({
-    where: { blNumber: { not: null }, telexStatus: { not: "RELEASED" } },
+    where: { blNumber: { not: null }, telexStatus: { not: "RELEASED" }, companyId: tenantId(actor) },
     orderBy: { createdAt: "asc" },
   });
 

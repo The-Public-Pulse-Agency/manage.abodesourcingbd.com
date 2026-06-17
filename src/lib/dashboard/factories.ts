@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 import { otdPercent } from "./kpi";
 
@@ -22,17 +22,17 @@ export async function factoryLeagueTable(actor: SessionUser, opts: { now?: Date 
   assertPermission(actor, "dashboards", "view");
 
   const [factories, livePos, exMilestones, finalInspections] = await Promise.all([
-    prisma.factory.findMany({ where: { active: true }, select: { id: true, name: true, type: true } }),
+    prisma.factory.findMany({ where: { active: true, companyId: tenantId(actor) }, select: { id: true, name: true, type: true } }),
     prisma.purchaseOrder.findMany({
-      where: { status: { in: [...LIVE_STATUSES] }, currency: "USD" },
+      where: { status: { in: [...LIVE_STATUSES] }, currency: "USD", companyId: tenantId(actor) },
       select: { factoryId: true, lines: { select: { sizes: true } } },
     }),
     prisma.taMilestone.findMany({
-      where: { key: "EX_FACTORY", actualDate: { not: null } },
+      where: { key: "EX_FACTORY", actualDate: { not: null }, companyId: tenantId(actor) },
       select: { plannedDate: true, actualDate: true, po: { select: { factoryId: true } } },
     }),
     prisma.inspection.findMany({
-      where: { type: "FINAL" },
+      where: { type: "FINAL", companyId: tenantId(actor) },
       select: { result: true, po: { select: { factoryId: true } } },
     }),
   ]);

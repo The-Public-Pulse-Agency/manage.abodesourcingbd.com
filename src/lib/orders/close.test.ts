@@ -7,8 +7,8 @@ import { createFactory } from "@/lib/masterdata/factory";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { closePurchaseOrder } from "./close";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
 
 type Refs = { buyerId: string; brandId: string; factoryId: string };
 

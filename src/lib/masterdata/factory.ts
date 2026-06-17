@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { slugCode } from "@/lib/text";
 
@@ -23,10 +23,12 @@ export async function createFactory(actor: SessionUser, input: CreateFactoryInpu
   assertPermission(actor, "masterData", "create");
   const data = createFactorySchema.parse(input);
   const code = slugCode(data.name);
-  if (await prisma.factory.findUnique({ where: { code } })) {
+  if (await prisma.factory.findFirst({ where: { code, companyId: tenantId(actor) } })) {
     throw new Error(`A factory with code ${code} already exists`);
   }
-  const factory = await prisma.factory.create({ data: { ...data, code } });
+  const factory = await prisma.factory.create({
+    data: { ...data, code, companyId: tenantId(actor) },
+  });
   await recordAudit({
     userId: actor.id,
     entityType: "Factory",
@@ -43,14 +45,14 @@ export async function listFactories(
 ) {
   assertPermission(actor, "masterData", "view");
   return prisma.factory.findMany({
-    where: opts.includeInactive ? {} : { active: true },
+    where: { companyId: tenantId(actor), ...(opts.includeInactive ? {} : { active: true }) },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getFactory(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "view");
-  return prisma.factory.findUnique({ where: { id } });
+  return prisma.factory.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export async function updateFactory(
@@ -60,6 +62,11 @@ export async function updateFactory(
 ) {
   assertPermission(actor, "masterData", "edit");
   const data = updateFactorySchema.parse(input);
+  const existing = await prisma.factory.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Factory not found");
   let factory;
   try {
     factory = await prisma.factory.update({ where: { id }, data });
@@ -86,6 +93,11 @@ export async function updateFactory(
 
 export async function setFactoryActive(actor: SessionUser, id: string, active: boolean) {
   assertPermission(actor, "masterData", "edit");
+  const existing = await prisma.factory.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Factory not found");
   const factory = await prisma.factory.update({ where: { id }, data: { active } });
   await recordAudit({
     userId: actor.id,

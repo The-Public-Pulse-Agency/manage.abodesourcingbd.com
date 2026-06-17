@@ -9,8 +9,8 @@ import { createInvoice } from "@/lib/finance/invoices";
 import { recordPayment } from "@/lib/finance/payments";
 import { fetchAlertData } from "./data";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 const NOW = new Date("2026-06-15T03:00:00.000Z"); // businessToday = 2026-06-15
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 

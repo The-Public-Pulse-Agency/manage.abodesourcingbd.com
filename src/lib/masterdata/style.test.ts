@@ -4,7 +4,7 @@ import { resetDb } from "@/test/db";
 import { createBuyer, createBrand } from "./buyer";
 import { createStyle, listStyles } from "./style";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 
 async function seedBrand() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });

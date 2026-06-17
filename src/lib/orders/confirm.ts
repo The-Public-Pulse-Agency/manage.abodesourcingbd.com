@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { instantiateMilestones } from "@/lib/tna/milestones";
 
@@ -8,10 +8,13 @@ import { instantiateMilestones } from "@/lib/tna/milestones";
 
 export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
   assertPermission(actor, "orders", "edit");
-  const po = await prisma.purchaseOrder.findUniqueOrThrow({
-    where: { id: poId },
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
     include: { lines: { include: { sizes: true } } },
   });
+  if (!po) {
+    throw new Error("Purchase order not found");
+  }
 
   if (po.status !== "DRAFT") {
     throw new Error(`Only DRAFT orders can be confirmed (current: ${po.status})`);
@@ -52,7 +55,7 @@ export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
   // updateMany is the single race-safe serialization point.
   await prisma.$transaction(async (tx) => {
     const res = await tx.purchaseOrder.updateMany({
-      where: { id: poId, status: "DRAFT", costingApprovedAt: { not: null } },
+      where: { id: poId, companyId: tenantId(actor), status: "DRAFT", costingApprovedAt: { not: null } },
       data: { status: "CONFIRMED" },
     });
     if (res.count === 0) {
@@ -72,5 +75,11 @@ export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
     await instantiateMilestones(poId, tx);
   });
 
-  return prisma.purchaseOrder.findUniqueOrThrow({ where: { id: poId } });
+  const confirmed = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
+  });
+  if (!confirmed) {
+    throw new Error("Purchase order not found");
+  }
+  return confirmed;
 }

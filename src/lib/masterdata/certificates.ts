@@ -1,13 +1,18 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 export async function listFactoriesWithCertificates(actor: SessionUser) {
   assertPermission(actor, "masterData", "view");
   return prisma.factory.findMany({
-    where: { active: true },
-    include: { certificates: { orderBy: { validUntil: "asc" } } },
+    where: { companyId: tenantId(actor), active: true },
+    include: {
+      certificates: {
+        where: { companyId: tenantId(actor) },
+        orderBy: { validUntil: "asc" },
+      },
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -24,7 +29,7 @@ export async function addCertificate(actor: SessionUser, input: CertificateInput
   assertPermission(actor, "masterData", "edit");
   const data = certificateSchema.parse(input);
   const c = await prisma.factoryCertificate.create({
-    data: { factoryId: data.factoryId, name: data.name.trim(), number: data.number, validUntil: data.validUntil },
+    data: { factoryId: data.factoryId, name: data.name.trim(), number: data.number, validUntil: data.validUntil, companyId: tenantId(actor) },
   });
   await recordAudit({ userId: actor.id, entityType: "FactoryCertificate", entityId: c.id, action: "create", after: { name: data.name, number: data.number } });
   return c;
@@ -32,6 +37,6 @@ export async function addCertificate(actor: SessionUser, input: CertificateInput
 
 export async function removeCertificate(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "edit");
-  await prisma.factoryCertificate.delete({ where: { id } });
+  await prisma.factoryCertificate.deleteMany({ where: { id, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "FactoryCertificate", entityId: id, action: "delete" });
 }

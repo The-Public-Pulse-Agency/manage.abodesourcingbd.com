@@ -11,9 +11,9 @@ import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
 import { upsertProduction, getProduction } from "./production";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 
 async function refs() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });

@@ -10,9 +10,9 @@ import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting, unapproveCosting } from "./costing";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
-const merch = { id: "m-1", role: "MERCHANDISER" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
+const merch = { id: "m-1", role: "MERCHANDISER" as const, companyId: "test-co" };
 
 async function poWithLine() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });

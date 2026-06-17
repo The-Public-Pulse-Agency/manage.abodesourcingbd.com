@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 const inspectionTypes = ["INLINE", "FINAL"] as const;
@@ -15,8 +15,10 @@ export const addInspectionSchema = z.object({
 });
 export type AddInspectionInput = z.input<typeof addInspectionSchema>;
 
-async function loadQcPo(poId: string) {
-  const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+async function loadQcPo(actor: SessionUser, poId: string) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
+  });
   if (!po) throw new Error("Purchase order not found");
   if (po.status === "DRAFT" || po.status === "CANCELLED" || po.status === "CLOSED") {
     throw new Error(`Cannot record QC on a ${po.status} order`);
@@ -26,9 +28,11 @@ async function loadQcPo(poId: string) {
 
 export async function addInspection(actor: SessionUser, poId: string, input: AddInspectionInput) {
   assertPermission(actor, "productionQc", "create");
-  await loadQcPo(poId);
+  await loadQcPo(actor, poId);
   const data = addInspectionSchema.parse(input);
-  const insp = await prisma.inspection.create({ data: { poId, ...data } });
+  const insp = await prisma.inspection.create({
+    data: { companyId: tenantId(actor), poId, ...data },
+  });
   await recordAudit({
     userId: actor.id,
     entityType: "Inspection",
@@ -43,7 +47,7 @@ export async function listInspections(actor: SessionUser, poId: string) {
   assertPermission(actor, "productionQc", "view");
   // Deterministic newest-first: id (cuid) is the final unique tiebreak for same-day rows.
   return prisma.inspection.findMany({
-    where: { poId },
+    where: { poId, companyId: tenantId(actor) },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
   });
 }

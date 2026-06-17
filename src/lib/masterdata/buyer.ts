@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { slugCode } from "@/lib/text";
 
@@ -25,10 +25,12 @@ export async function createBuyer(actor: SessionUser, input: CreateBuyerInput) {
   assertPermission(actor, "masterData", "create");
   const data = createBuyerSchema.parse(input);
   const code = slugCode(data.name);
-  if (await prisma.buyer.findUnique({ where: { code } })) {
+  if (await prisma.buyer.findFirst({ where: { code, companyId: tenantId(actor) } })) {
     throw new Error(`A buyer with code ${code} already exists`);
   }
-  const buyer = await prisma.buyer.create({ data: { name: data.name, code } });
+  const buyer = await prisma.buyer.create({
+    data: { name: data.name, code, companyId: tenantId(actor) },
+  });
   await recordAudit({
     userId: actor.id,
     entityType: "Buyer",
@@ -42,14 +44,14 @@ export async function createBuyer(actor: SessionUser, input: CreateBuyerInput) {
 export async function listBuyers(actor: SessionUser, opts: { includeInactive?: boolean } = {}) {
   assertPermission(actor, "masterData", "view");
   return prisma.buyer.findMany({
-    where: opts.includeInactive ? {} : { active: true },
+    where: { companyId: tenantId(actor), ...(opts.includeInactive ? {} : { active: true }) },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getBuyer(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "view");
-  return prisma.buyer.findUnique({ where: { id } });
+  return prisma.buyer.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export async function updateBuyer(actor: SessionUser, id: string, input: UpdateBuyerInput) {
@@ -58,6 +60,11 @@ export async function updateBuyer(actor: SessionUser, id: string, input: UpdateB
   // `code` is derived from the buyer name, so re-derive it when the name changes.
   const patch: { name?: string; code?: string } =
     data.name !== undefined ? { name: data.name, code: slugCode(data.name) } : {};
+  const existing = await prisma.buyer.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Buyer not found");
   try {
     const buyer = await prisma.buyer.update({ where: { id }, data: patch });
     await recordAudit({
@@ -80,12 +87,12 @@ export async function createBrand(actor: SessionUser, input: CreateBrandInput) {
   assertPermission(actor, "masterData", "create");
   const data = createBrandSchema.parse(input);
   const code = slugCode(data.code);
-  const dup = await prisma.brand.findUnique({
-    where: { buyerId_code: { buyerId: data.buyerId, code } },
+  const dup = await prisma.brand.findFirst({
+    where: { buyerId: data.buyerId, code, companyId: tenantId(actor) },
   });
   if (dup) throw new Error(`A brand with code ${code} already exists for this buyer`);
   const brand = await prisma.brand.create({
-    data: { buyerId: data.buyerId, name: data.name, code },
+    data: { buyerId: data.buyerId, name: data.name, code, companyId: tenantId(actor) },
   });
   await recordAudit({
     userId: actor.id,
@@ -100,14 +107,14 @@ export async function createBrand(actor: SessionUser, input: CreateBrandInput) {
 export async function listBrands(actor: SessionUser, buyerId?: string) {
   assertPermission(actor, "masterData", "view");
   return prisma.brand.findMany({
-    where: { active: true, ...(buyerId ? { buyerId } : {}) },
+    where: { companyId: tenantId(actor), active: true, ...(buyerId ? { buyerId } : {}) },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getBrand(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "view");
-  return prisma.brand.findUnique({ where: { id } });
+  return prisma.brand.findFirst({ where: { id, companyId: tenantId(actor) } });
 }
 
 export async function updateBrand(actor: SessionUser, id: string, input: UpdateBrandInput) {
@@ -118,6 +125,11 @@ export async function updateBrand(actor: SessionUser, id: string, input: UpdateB
     ...(data.code !== undefined ? { code: slugCode(data.code) } : {}),
     ...(data.buyerId !== undefined ? { buyer: { connect: { id: data.buyerId } } } : {}),
   };
+  const existing = await prisma.brand.findFirst({
+    where: { id, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("Brand not found");
   try {
     const brand = await prisma.brand.update({ where: { id }, data: patch });
     await recordAudit({

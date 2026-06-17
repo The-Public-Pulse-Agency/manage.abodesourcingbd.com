@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 
 const invoiceTypes = ["BUYER", "FACTORY"] as const;
@@ -30,18 +30,23 @@ export async function createInvoice(actor: SessionUser, input: CreateInvoiceInpu
   // Verify links exist + inherit currency from the PO (single-currency rollups, spec §14).
   let currency = data.currency;
   if (data.poId) {
-    const po = await prisma.purchaseOrder.findUnique({ where: { id: data.poId } });
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: data.poId, companyId: tenantId(actor) },
+    });
     if (!po) throw new Error("Purchase order not found");
     currency = po.currency;
   }
   if (data.shipmentId) {
-    const shp = await prisma.shipment.findUnique({ where: { id: data.shipmentId } });
+    const shp = await prisma.shipment.findFirst({
+      where: { id: data.shipmentId, companyId: tenantId(actor) },
+    });
     if (!shp) throw new Error("Shipment not found");
   }
 
   try {
     const inv = await prisma.invoice.create({
       data: {
+        companyId: tenantId(actor),
         type: data.type,
         number: data.number,
         poId: data.poId,
@@ -74,7 +79,11 @@ export async function listInvoices(
 ) {
   assertPermission(actor, "finance", "view");
   return prisma.invoice.findMany({
-    where: { ...(filter.type ? { type: filter.type } : {}), ...(filter.poId ? { poId: filter.poId } : {}) },
+    where: {
+      companyId: tenantId(actor),
+      ...(filter.type ? { type: filter.type } : {}),
+      ...(filter.poId ? { poId: filter.poId } : {}),
+    },
     include: { payments: true, po: true },
     orderBy: { issueDate: "desc" },
   });
@@ -87,7 +96,11 @@ export async function listInvoicesPaged(
   opts: { page?: number; pageSize?: number } = {},
 ) {
   assertPermission(actor, "finance", "view");
-  const where = { ...(filter.type ? { type: filter.type } : {}), ...(filter.poId ? { poId: filter.poId } : {}) };
+  const where = {
+    companyId: tenantId(actor),
+    ...(filter.type ? { type: filter.type } : {}),
+    ...(filter.poId ? { poId: filter.poId } : {}),
+  };
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
   const total = await prisma.invoice.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

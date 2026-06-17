@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { lineMills } from "@/lib/orders/money";
 import { productionProgress } from "./progress";
@@ -20,13 +20,18 @@ export const productionSchema = z
 export type ProductionInput = z.input<typeof productionSchema>;
 
 /** Sum size-wise ordered quantity across all of a PO's lines. */
-export async function orderedQtyFor(poId: string): Promise<number> {
-  const lines = await prisma.orderLine.findMany({ where: { poId }, include: { sizes: true } });
+export async function orderedQtyFor(actor: SessionUser, poId: string): Promise<number> {
+  const lines = await prisma.orderLine.findMany({
+    where: { poId, companyId: tenantId(actor) },
+    include: { sizes: true },
+  });
   return lines.reduce((sum, l) => sum + lineMills(l.sizes).qty, 0);
 }
 
-async function loadProductionPo(poId: string) {
-  const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+async function loadProductionPo(actor: SessionUser, poId: string) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
+  });
   if (!po) throw new Error("Purchase order not found");
   if (po.status === "DRAFT" || po.status === "CANCELLED" || po.status === "CLOSED") {
     throw new Error(`Cannot record production on a ${po.status} order`);
@@ -36,25 +41,41 @@ async function loadProductionPo(poId: string) {
 
 export async function upsertProduction(actor: SessionUser, poId: string, input: ProductionInput) {
   assertPermission(actor, "productionQc", "edit");
-  await loadProductionPo(poId);
+  await loadProductionPo(actor, poId);
   const data = productionSchema.parse(input);
-  const before = await prisma.productionRecord.findUnique({ where: { poId } });
+  // productionRecord is keyed on poId @unique, so a unique-key upsert can't be scoped by
+  // companyId. The PO was already tenant-verified above, so find-then-create/update under
+  // the tenant filter is equivalent and keeps cross-tenant rows unreachable.
+  const before = await prisma.productionRecord.findFirst({
+    where: { poId, companyId: tenantId(actor) },
+  });
 
-  let record;
-  try {
-    record = await prisma.productionRecord.upsert({
-      where: { poId },
-      update: data,
-      create: { poId, ...data },
+  if (before) {
+    await prisma.productionRecord.updateMany({
+      where: { poId, companyId: tenantId(actor) },
+      data,
     });
-  } catch (e) {
-    // Concurrent first-time upsert: the losing INSERT hits @@unique([poId]); fall back to update.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      record = await prisma.productionRecord.update({ where: { poId }, data });
-    } else {
-      throw e;
+  } else {
+    try {
+      await prisma.productionRecord.create({
+        data: { companyId: tenantId(actor), poId, ...data },
+      });
+    } catch (e) {
+      // Concurrent first-time create: the losing INSERT hits @@unique([poId]); fall back to update.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        await prisma.productionRecord.updateMany({
+          where: { poId, companyId: tenantId(actor) },
+          data,
+        });
+      } else {
+        throw e;
+      }
     }
   }
+
+  const record = await prisma.productionRecord.findFirstOrThrow({
+    where: { poId, companyId: tenantId(actor) },
+  });
 
   await recordAudit({
     userId: actor.id,
@@ -71,10 +92,14 @@ export async function upsertProduction(actor: SessionUser, poId: string, input: 
 
 export async function getProduction(actor: SessionUser, poId: string) {
   assertPermission(actor, "productionQc", "view");
-  const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: tenantId(actor) },
+  });
   if (!po) throw new Error("Purchase order not found");
-  const record = await prisma.productionRecord.findUnique({ where: { poId } });
-  const orderedQty = await orderedQtyFor(poId);
+  const record = await prisma.productionRecord.findFirst({
+    where: { poId, companyId: tenantId(actor) },
+  });
+  const orderedQty = await orderedQtyFor(actor, poId);
   const q = {
     cutQty: record?.cutQty ?? 0,
     sewQty: record?.sewQty ?? 0,

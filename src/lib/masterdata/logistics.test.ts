@@ -4,8 +4,8 @@ import { resetDb } from "@/test/db";
 import { ForbiddenError } from "@/lib/auth/guard";
 import { createPort, listPorts, createForwarder, listForwarders } from "./logistics";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
 
 beforeEach(async () => { await resetDb(); });
 afterAll(async () => { await prisma.$disconnect(); });

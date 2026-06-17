@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { addDaysUtc, computeRag, startOfUtcDay, DUE_SOON_DAYS, type Rag } from "./schedule";
 
 // The attention board is an exception view: paused (ON_HOLD) and finished orders are
@@ -32,6 +32,7 @@ export async function criticalPathBoard(
 
   const rows = await prisma.taMilestone.findMany({
     where: {
+      companyId: tenantId(actor),
       actualDate: null,
       plannedDate: { not: null, lt: horizon },
       po: { status: { notIn: [...ATTENTION_EXCLUDED] } },

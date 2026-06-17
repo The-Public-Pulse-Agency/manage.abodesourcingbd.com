@@ -6,7 +6,7 @@ import { createFactory } from "@/lib/masterdata/factory";
 import { createPurchaseOrder } from "./po";
 import { createLot, assignPoToLot } from "./lots";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 
 beforeEach(async () => {
   await resetDb();

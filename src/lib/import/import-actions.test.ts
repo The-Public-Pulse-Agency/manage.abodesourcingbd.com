@@ -5,8 +5,8 @@ import { ForbiddenError } from "@/lib/auth/guard";
 import { importMasterData } from "./import-actions";
 import type { RawRow } from "./normalize";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
 
 const rows: RawRow[] = [
   { factory: "LIZ/ TEI TAK", brand: "Ralawise-TRIDRI", styleName: "TR010-Mens Tee" },

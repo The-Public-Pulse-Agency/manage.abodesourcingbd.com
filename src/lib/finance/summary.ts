@@ -1,6 +1,6 @@
 import type { Invoice, Payment } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { outstanding, ageBucket, type AgeBucketKey } from "./money";
 
 export type AgingRow = {
@@ -25,7 +25,10 @@ function cents(v: { toString(): string }): number {
 
 export async function financeSummary(actor: SessionUser, opts: { now: Date }): Promise<FinanceSummary> {
   assertPermission(actor, "finance", "view");
-  const invoices = await prisma.invoice.findMany({ include: { payments: true } });
+  const invoices = await prisma.invoice.findMany({
+    where: { companyId: tenantId(actor) },
+    include: { payments: true },
+  });
 
   let receivableOutstanding = 0;
   let payableOutstanding = 0;

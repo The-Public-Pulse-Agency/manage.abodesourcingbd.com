@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { hashPassword } from "@/lib/auth/password";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -44,6 +44,7 @@ export async function createUser(
       email,
       role: data.role,
       passwordHash: await hashPassword(data.password),
+      companyId: tenantId(actor),
     },
     select: PUBLIC_SELECT,
   });
@@ -61,7 +62,11 @@ export async function createUser(
 
 export async function listUsers(actor: SessionUser): Promise<PublicUser[]> {
   assertPermission(actor, "users", "view");
-  return prisma.user.findMany({ select: PUBLIC_SELECT, orderBy: { createdAt: "asc" } });
+  return prisma.user.findMany({
+    where: { companyId: tenantId(actor) },
+    select: PUBLIC_SELECT,
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 export async function getUser(
@@ -69,21 +74,21 @@ export async function getUser(
   userId: string,
 ): Promise<PublicUser | null> {
   assertPermission(actor, "users", "view");
-  return prisma.user.findUnique({ where: { id: userId }, select: PUBLIC_SELECT });
+  return prisma.user.findFirst({ where: { id: userId, companyId: tenantId(actor) }, select: PUBLIC_SELECT });
 }
 
 /**
- * Best-effort guard: refuse a change that would leave zero *active* admins.
- * `excludeUserId` is the user being changed; `wouldRemainAdmin` says whether
- * that user is still an active admin after the change.
+ * Best-effort guard: refuse a change that would leave zero *active* admins in the
+ * company. Scoped per-company so one tenant's admin count can't affect another's.
  */
 async function ensureNotLastAdmin(
+  companyId: string,
   excludeUserId: string,
   wouldRemainAdmin: boolean,
 ): Promise<void> {
   if (wouldRemainAdmin) return;
   const otherActiveAdmins = await prisma.user.count({
-    where: { role: "ADMIN", active: true, id: { not: excludeUserId } },
+    where: { role: "ADMIN", active: true, companyId, id: { not: excludeUserId } },
   });
   if (otherActiveAdmins === 0) {
     throw new Error("Cannot remove the last active admin");
@@ -97,9 +102,10 @@ export async function updateUser(
 ): Promise<PublicUser> {
   assertPermission(actor, "users", "edit");
   const data = updateUserSchema.parse(input);
+  const cid = tenantId(actor);
 
-  const current = await prisma.user.findUnique({
-    where: { id: userId },
+  const current = await prisma.user.findFirst({
+    where: { id: userId, companyId: cid },
     select: { role: true, active: true },
   });
   if (!current) throw new Error("User not found");
@@ -107,7 +113,7 @@ export async function updateUser(
   // Guard: changing an active admin's role away from ADMIN must not strip the
   // last admin.
   if (current.role === "ADMIN" && current.active) {
-    await ensureNotLastAdmin(userId, data.role === "ADMIN");
+    await ensureNotLastAdmin(cid, userId, data.role === "ADMIN");
   }
 
   const user = await prisma.user.update({
@@ -132,16 +138,16 @@ export async function setUserActive(
   active: boolean,
 ): Promise<PublicUser> {
   assertPermission(actor, "users", "edit");
+  const cid = tenantId(actor);
 
-  // Guard: deactivating the last active admin is not allowed.
-  if (!active) {
-    const current = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, active: true },
-    });
-    if (current?.role === "ADMIN" && current.active) {
-      await ensureNotLastAdmin(userId, false);
-    }
+  // Verify the target belongs to the actor's company (no cross-tenant toggles).
+  const current = await prisma.user.findFirst({
+    where: { id: userId, companyId: cid },
+    select: { role: true, active: true },
+  });
+  if (!current) throw new Error("User not found");
+  if (!active && current.role === "ADMIN" && current.active) {
+    await ensureNotLastAdmin(cid, userId, false);
   }
 
   const user = await prisma.user.update({

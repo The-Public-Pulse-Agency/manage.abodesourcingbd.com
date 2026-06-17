@@ -9,8 +9,8 @@ import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
 import { setOrderLine, removeOrderLine } from "./lines";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 
 async function seedPo() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { createPoSchema, type CreatePoInput, type OpenOrderBookFilter } from "./schema";
 import { lineMills, rollup, type Decimalish, type Totals } from "./money";
@@ -18,13 +18,16 @@ export async function createPurchaseOrder(actor: SessionUser, input: CreatePoInp
   const data = createPoSchema.parse(input);
   const poNumber = data.poNumber.trim();
   // Cross-entity integrity: the brand must belong to the named buyer.
-  const brand = await prisma.brand.findUnique({ where: { id: data.brandId } });
+  const brand = await prisma.brand.findFirst({
+    where: { id: data.brandId, companyId: tenantId(actor) },
+  });
   if (!brand || brand.buyerId !== data.buyerId) {
     throw new Error("Brand does not belong to the specified buyer");
   }
   try {
     const po = await prisma.purchaseOrder.create({
       data: {
+        companyId: tenantId(actor),
         poNumber,
         buyerId: data.buyerId,
         brandId: data.brandId,
@@ -57,8 +60,8 @@ export async function createPurchaseOrder(actor: SessionUser, input: CreatePoInp
 
 export async function getPurchaseOrder(actor: SessionUser, id: string) {
   assertPermission(actor, "orders", "view");
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { id },
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, companyId: tenantId(actor) },
     include: {
       buyer: true,
       brand: true,
@@ -76,13 +79,7 @@ export async function getPurchaseOrder(actor: SessionUser, id: string) {
 export async function listOpenOrderBook(actor: SessionUser, filter: OpenOrderBookFilter) {
   assertPermission(actor, "orders", "view");
   const pos = await prisma.purchaseOrder.findMany({
-    where: {
-      status: { notIn: [...CLOSED_STATUSES] },
-      ...(filter.factoryId ? { factoryId: filter.factoryId } : {}),
-      ...(filter.buyerId ? { buyerId: filter.buyerId } : {}),
-      ...(filter.channel ? { channel: filter.channel } : {}),
-      ...(filter.exFactoryBefore ? { exFactoryDate: { lte: filter.exFactoryBefore } } : {}),
-    },
+    where: bookWhere(actor, filter),
     include: {
       buyer: true,
       brand: true,
@@ -95,8 +92,9 @@ export async function listOpenOrderBook(actor: SessionUser, filter: OpenOrderBoo
 }
 
 /** Shared WHERE for the Open Order Book (non-closed POs + optional filters). */
-function bookWhere(filter: OpenOrderBookFilter) {
+function bookWhere(actor: SessionUser, filter: OpenOrderBookFilter) {
   return {
+    companyId: tenantId(actor),
     status: { notIn: [...CLOSED_STATUSES] },
     ...(filter.factoryId ? { factoryId: filter.factoryId } : {}),
     ...(filter.buyerId ? { buyerId: filter.buyerId } : {}),
@@ -113,7 +111,7 @@ export async function listOpenOrderBookPaged(
 ) {
   assertPermission(actor, "orders", "view");
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
-  const where = bookWhere(filter);
+  const where = bookWhere(actor, filter);
   const total = await prisma.purchaseOrder.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
@@ -135,7 +133,7 @@ export async function listOpenOrderBookPaged(
 export async function openOrderBookTotals(actor: SessionUser, filter: OpenOrderBookFilter): Promise<Totals> {
   assertPermission(actor, "orders", "view");
   const sizes = await prisma.orderLineSize.findMany({
-    where: { orderLine: { po: bookWhere(filter) } },
+    where: { companyId: tenantId(actor), orderLine: { po: bookWhere(actor, filter) } },
     select: { qty: true, netFob: true, sellFob: true },
   });
   return rollup([lineMills(sizes)]);

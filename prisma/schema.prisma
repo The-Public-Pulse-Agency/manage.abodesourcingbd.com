@@ -111,6 +111,7 @@ enum MaterialStatus {
 // #1 cause of T&A slippage. Receiving stamps the matching milestone actual date.
 model MaterialBooking {
   id           String         @id @default(cuid())
+  companyId String?
   poId         String
   po           PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
   kind         MaterialKind
@@ -133,6 +134,7 @@ model MaterialBooking {
 // Buyer/brand/factory are stored as ids (no relation) to keep this module isolated.
 model Enquiry {
   id               String        @id @default(cuid())
+  companyId String?
   buyerId          String
   brandId          String
   factoryId        String?
@@ -154,6 +156,7 @@ model Enquiry {
 // Per-PO cost build-up behind the sell FOB (reference + margin analysis).
 model CostItem {
   id            String        @id @default(cuid())
+  companyId String?
   poId          String
   po            PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   category      CostCategory
@@ -205,6 +208,7 @@ model SubscriptionPayment {
 
 model Notification {
   id        String           @id @default(cuid())
+  companyId String?
   userId    String
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
@@ -221,6 +225,7 @@ model Notification {
 
 model AuditLog {
   id         String   @id @default(cuid())
+  companyId String?
   userId     String?
   entityType String
   entityId   String
@@ -241,6 +246,7 @@ enum FactoryType {
 
 model Buyer {
   id        String   @id @default(cuid())
+  companyId String?
   name      String
   code      String   @unique
   active    Boolean  @default(true)
@@ -252,6 +258,7 @@ model Buyer {
 
 model Brand {
   id        String   @id @default(cuid())
+  companyId String?
   buyerId   String
   buyer     Buyer    @relation(fields: [buyerId], references: [id])
   name      String
@@ -267,6 +274,7 @@ model Brand {
 
 model Factory {
   id           String      @id @default(cuid())
+  companyId String?
   name         String
   code         String      @unique
   type         FactoryType @default(KNIT)
@@ -285,6 +293,7 @@ model Factory {
 // Compliance certificates held by a factory (GOTS, OEKO-TEX, BSCI, GRS, …).
 model FactoryCertificate {
   id         String    @id @default(cuid())
+  companyId String?
   factoryId  String
   factory    Factory   @relation(fields: [factoryId], references: [id], onDelete: Cascade)
   name       String
@@ -297,6 +306,7 @@ model FactoryCertificate {
 
 model SizeScale {
   id        String   @id @default(cuid())
+  companyId String?
   name      String   @unique
   active    Boolean  @default(true)
   sizes     Size[]
@@ -308,6 +318,7 @@ model SizeScale {
 
 model Size {
   id          String    @id @default(cuid())
+  companyId String?
   sizeScaleId String
   sizeScale   SizeScale @relation(fields: [sizeScaleId], references: [id], onDelete: Cascade)
   label       String
@@ -318,6 +329,7 @@ model Size {
 
 model Colour {
   id        String   @id @default(cuid())
+  companyId String?
   name      String   @unique
   code      String?
   active    Boolean  @default(true)
@@ -329,6 +341,7 @@ model Colour {
 
 model Style {
   id                 String     @id @default(cuid())
+  companyId String?
   brandId            String
   brand              Brand      @relation(fields: [brandId], references: [id])
   styleCode          String
@@ -365,6 +378,7 @@ enum OrderStatus {
 
 model Lot {
   id        String          @id @default(cuid())
+  companyId String?
   name      String
   factoryId String?
   factory   Factory?        @relation(fields: [factoryId], references: [id], onDelete: SetNull)
@@ -375,6 +389,7 @@ model Lot {
 
 model PurchaseOrder {
   id            String       @id @default(cuid())
+  companyId String?
   poNumber      String
   buyerId       String
   buyer         Buyer        @relation(fields: [buyerId], references: [id])
@@ -412,6 +427,7 @@ model PurchaseOrder {
 
 model OrderLine {
   id          String          @id @default(cuid())
+  companyId String?
   poId        String
   po          PurchaseOrder   @relation(fields: [poId], references: [id], onDelete: Cascade)
   styleId     String
@@ -431,6 +447,7 @@ model OrderLine {
 
 model OrderLineSize {
   id          String    @id @default(cuid())
+  companyId String?
   orderLineId String
   orderLine   OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
   label       String
@@ -451,7 +468,8 @@ enum TaStage {
 
 model TaMilestoneTemplate {
   id         String   @id @default(cuid())
-  key        String   @unique
+  companyId  String?
+  key        String
   name       String
   stage      TaStage
   offsetDays Int?
@@ -459,10 +477,13 @@ model TaMilestoneTemplate {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@unique([companyId, key])
 }
 
 model TaMilestone {
   id          String        @id @default(cuid())
+  companyId String?
   poId        String
   po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   key         String
@@ -505,6 +526,7 @@ enum InspectionResult {
 
 model SampleRequest {
   id           String        @id @default(cuid())
+  companyId String?
   poId         String
   po           PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   colourId     String?
@@ -522,6 +544,7 @@ model SampleRequest {
 
 model ProductionRecord {
   id        String        @id @default(cuid())
+  companyId String?
   poId      String        @unique
   po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   cutQty    Int           @default(0)
@@ -533,6 +556,7 @@ model ProductionRecord {
 
 model Inspection {
   id        String           @id @default(cuid())
+  companyId String?
   poId      String
   po        PurchaseOrder    @relation(fields: [poId], references: [id], onDelete: Cascade)
   type      InspectionType
@@ -568,6 +592,7 @@ enum DocumentType {
 
 model Port {
   id        String     @id @default(cuid())
+  companyId String?
   name      String     @unique
   country   String?
   active    Boolean    @default(true)
@@ -578,6 +603,7 @@ model Port {
 
 model Forwarder {
   id        String     @id @default(cuid())
+  companyId String?
   name      String     @unique
   contact   String?
   active    Boolean    @default(true)
@@ -588,6 +614,7 @@ model Forwarder {
 
 model Shipment {
   id            String         @id @default(cuid())
+  companyId String?
   reference     String         @unique
   mode          ShipmentMode   @default(SEA)
   containerNo   String?
@@ -628,6 +655,7 @@ enum PaymentMethod {
 
 model Invoice {
   id         String         @id @default(cuid())
+  companyId String?
   type       InvoiceType
   number     String
   poId       String?
@@ -652,6 +680,7 @@ model Invoice {
 
 model Payment {
   id        String        @id @default(cuid())
+  companyId String?
   invoiceId String
   invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   amount    Decimal       @db.Decimal(14, 2)
@@ -665,6 +694,7 @@ model Payment {
 
 model ShipmentLine {
   id          String             @id @default(cuid())
+  companyId String?
   shipmentId  String
   shipment    Shipment           @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   orderLineId String
@@ -678,6 +708,7 @@ model ShipmentLine {
 
 model ShipmentLineSize {
   id             String       @id @default(cuid())
+  companyId String?
   shipmentLineId String
   shipmentLine   ShipmentLine @relation(fields: [shipmentLineId], references: [id], onDelete: Cascade)
   label          String
@@ -688,6 +719,7 @@ model ShipmentLineSize {
 
 model Document {
   id           String       @id @default(cuid())
+  companyId String?
   entityType   String
   entityId     String
   type         DocumentType

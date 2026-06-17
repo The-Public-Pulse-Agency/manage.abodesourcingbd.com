@@ -10,13 +10,13 @@ import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
 import { seedTemplates, DEFAULT_TEMPLATES } from "@/lib/tna/templates";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 beforeEach(async () => {
   await resetDb();
-  await seedTemplates();
+  await seedTemplates("test-co");
 });
 afterAll(async () => {
   await prisma.$disconnect();

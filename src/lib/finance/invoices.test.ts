@@ -7,9 +7,9 @@ import { createFactory } from "@/lib/masterdata/factory";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { createInvoice, listInvoices } from "./invoices";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
-const merch = { id: "m-1", role: "MERCHANDISER" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
+const merch = { id: "m-1", role: "MERCHANDISER" as const, companyId: "test-co" };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 async function seedPo() {

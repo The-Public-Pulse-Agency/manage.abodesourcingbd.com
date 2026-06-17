@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 
 export type ShippedRow = {
   id: string;
@@ -21,6 +21,7 @@ export type ShippedRow = {
 export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow[]> {
   assertPermission(actor, "shipment", "view");
   const shipments = await prisma.shipment.findMany({
+    where: { companyId: tenantId(actor) },
     include: {
       invoices: true,
       lines: {

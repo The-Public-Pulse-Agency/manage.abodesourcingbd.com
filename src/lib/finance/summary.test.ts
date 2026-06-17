@@ -8,8 +8,8 @@ import { createInvoice } from "./invoices";
 import { recordPayment } from "./payments";
 import { financeSummary } from "./summary";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 async function po(poNumber: string) {

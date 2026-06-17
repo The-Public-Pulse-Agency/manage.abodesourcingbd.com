@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { businessToday } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 
@@ -44,7 +44,7 @@ export async function openOrdersReport(actor: SessionUser, opts: { now?: Date } 
   const today = businessToday(opts.now ?? new Date());
 
   const pos = await prisma.purchaseOrder.findMany({
-    where: { status: { in: [...OPEN_STATUSES] } },
+    where: { status: { in: [...OPEN_STATUSES] }, companyId: tenantId(actor) },
     include: {
       buyer: true,
       factory: true,

@@ -7,9 +7,9 @@ import { createFactory } from "@/lib/masterdata/factory";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { createDocument, listDocuments } from "./documents";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
-const accounts = { id: "acc-1", role: "ACCOUNTS" as const };
-const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
+const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
 
 async function seedPo() {
   const buyer = await createBuyer(admin, { name: "Ralawise" });

@@ -8,7 +8,7 @@ import { seedTemplates } from "./templates";
 import { instantiateMilestones } from "./milestones";
 import { criticalPathBoard } from "./board";
 
-const admin = { id: "admin-1", role: "ADMIN" as const };
+const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 type Refs = { buyerId: string; brandId: string; factoryId: string };
@@ -34,7 +34,7 @@ async function mkPo(r: Refs, poNumber: string, exFty: Date) {
 
 beforeEach(async () => {
   await resetDb();
-  await seedTemplates();
+  await seedTemplates("test-co");
 });
 afterAll(async () => {
   await prisma.$disconnect();

@@ -15,6 +15,6 @@ function dbSchema(): string {
 export async function resetDb() {
   const s = dbSchema();
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "${s}"."MaterialBooking", "${s}"."Enquiry", "${s}"."CostItem", "${s}"."SubscriptionPayment", "${s}"."Subscription", "${s}"."Notification", "${s}"."AuditLog", "${s}"."Payment", "${s}"."Invoice", "${s}"."Document", "${s}"."ShipmentLineSize", "${s}"."ShipmentLine", "${s}"."Shipment", "${s}"."Port", "${s}"."Forwarder", "${s}"."Inspection", "${s}"."ProductionRecord", "${s}"."SampleRequest", "${s}"."TaMilestone", "${s}"."TaMilestoneTemplate", "${s}"."OrderLineSize", "${s}"."OrderLine", "${s}"."PurchaseOrder", "${s}"."Lot", "${s}"."Style", "${s}"."Size", "${s}"."SizeScale", "${s}"."Colour", "${s}"."Brand", "${s}"."Buyer", "${s}"."Factory", "${s}"."User" RESTART IDENTITY CASCADE`,
+    `TRUNCATE TABLE "${s}"."FactoryCertificate", "${s}"."MaterialBooking", "${s}"."Enquiry", "${s}"."CostItem", "${s}"."SubscriptionPayment", "${s}"."Subscription", "${s}"."Notification", "${s}"."AuditLog", "${s}"."Payment", "${s}"."Invoice", "${s}"."Document", "${s}"."ShipmentLineSize", "${s}"."ShipmentLine", "${s}"."Shipment", "${s}"."Port", "${s}"."Forwarder", "${s}"."Inspection", "${s}"."ProductionRecord", "${s}"."SampleRequest", "${s}"."TaMilestone", "${s}"."TaMilestoneTemplate", "${s}"."OrderLineSize", "${s}"."OrderLine", "${s}"."PurchaseOrder", "${s}"."Lot", "${s}"."Style", "${s}"."Size", "${s}"."SizeScale", "${s}"."Colour", "${s}"."Brand", "${s}"."Buyer", "${s}"."Factory", "${s}"."User" RESTART IDENTITY CASCADE`,
   );
 }

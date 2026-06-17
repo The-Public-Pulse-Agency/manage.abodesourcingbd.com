@@ -27,6 +27,12 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Order Book Overview</h1>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <ReportCard href="/reports/open-orders" title="Open / Running Orders" desc="PO → ship status across the critical path" />
+        <ReportCard href="/reports/shipped" title="Shipped Goods" desc="Invoices, payments, container & TC status" />
+        <ReportCard href="/reports/factories" title="Factory Information" desc="Compliance certificates & validity" />
+      </div>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Open orders" value={formatQty(s.openOrders.count)} />
         <Stat label="Open order value (USD)" value={formatMoney(s.openOrders.value)} />
@@ -115,6 +121,16 @@ export default async function DashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ReportCard({ href, title, desc }: { href: string; title: string; desc: string }) {
+  return (
+    <Link href={href} className="card-hover elevate block rounded-md border border-line bg-surface p-4">
+      <p className="font-semibold">{title}</p>
+      <p className="mt-0.5 text-xs text-ink-soft">{desc}</p>
+      <p className="mt-2 text-xs font-medium text-accent">Open report →</p>
+    </Link>
   );
 }
 

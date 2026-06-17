@@ -8,6 +8,9 @@ import { logoutAction } from "@/lib/auth/actions";
 
 const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; icon: string }[] = [
   { href: "/dashboard", label: "Dashboard", module: "dashboards", icon: "▦" },
+  { href: "/reports/open-orders", label: "Running Orders", module: "orders", icon: "▥" },
+  { href: "/reports/shipped", label: "Shipped Goods", module: "shipment", icon: "✔" },
+  { href: "/reports/factories", label: "Factory Info", module: "masterData", icon: "❖" },
   { href: "/enquiries", label: "Enquiries", module: "orders", icon: "✎" },
   { href: "/orders", label: "Orders", module: "orders", icon: "▤" },
   { href: "/critical-path", label: "Critical Path", module: "criticalPath", icon: "◷" },

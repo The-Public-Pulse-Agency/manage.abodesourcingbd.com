@@ -277,8 +277,22 @@ model Factory {
   active       Boolean     @default(true)
   orders       PurchaseOrder[]
   lots         Lot[]
+  certificates FactoryCertificate[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+// Compliance certificates held by a factory (GOTS, OEKO-TEX, BSCI, GRS, …).
+model FactoryCertificate {
+  id         String    @id @default(cuid())
+  factoryId  String
+  factory    Factory   @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  name       String
+  number     String?
+  validUntil DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([factoryId])
 }
 
 model SizeScale {

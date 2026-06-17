@@ -1,84 +1,102 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { shippedGoodsReport } from "@/lib/reports/shipped";
-import { formatDate, formatMoney, formatQty } from "@/lib/format";
+import { shippedGoodsReport, type ShippedRow } from "@/lib/reports/shipped";
+import { formatQty } from "@/lib/format";
+import { CountUp } from "@/components/dashboard/count-up";
+import { ShippedTable } from "@/components/reports/shipped-table";
 
-const PAY_CLS: Record<string, string> = {
-  ISSUED: "bg-warn-soft text-warn",
-  PARTIALLY_PAID: "bg-warn-soft text-warn",
-  PAID: "bg-ok-soft text-ok",
-};
+function topBy(rows: ShippedRow[], key: (r: ShippedRow) => string, val: (r: ShippedRow) => number, n = 7) {
+  const m = new Map<string, number>();
+  for (const r of rows) m.set(key(r), (m.get(key(r)) ?? 0) + val(r));
+  return [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, n);
+}
 
 export default async function ShippedReportPage() {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
   const rows = await shippedGoodsReport(actor);
 
+  const totalQty = rows.reduce((a, r) => a + r.qty, 0);
+  const totalValue = rows.reduce((a, r) => a + (r.invoiceValue ?? 0), 0);
+  const paid = rows.filter((r) => r.paymentStatus === "PAID").length;
+  const awaiting = rows.filter((r) => r.paymentStatus && r.paymentStatus !== "PAID").length;
+
+  const byFactory = topBy(rows, (r) => r.factory, (r) => r.qty);
+  const byBuyer = topBy(rows, (r) => r.buyer, () => 1);
+  const facMax = Math.max(1, ...byFactory.map((d) => d.value));
+  const buyMax = Math.max(1, ...byBuyer.map((d) => d.value));
+
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Report</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Shipped Goods</h1>
-        <p className="mt-1 text-sm text-ink-soft">{rows.length} shipments · invoice, payment &amp; TC status.</p>
+      <div className="rise flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">Report</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Shipped Goods</h1>
+          <p className="mt-1 text-sm text-ink-soft">Shipped register — invoice, payment &amp; transaction-certificate status.</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-ink-soft">
+          <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
+          {rows.length} shipments
+        </div>
       </div>
-      <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
-        <table className="w-full whitespace-nowrap text-sm">
-          <thead>
-            <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">
-              <th className="px-3 py-2 font-semibold">BL / Ref</th>
-              <th className="px-3 py-2 font-semibold">Factory</th>
-              <th className="px-3 py-2 font-semibold">Buyer</th>
-              <th className="px-3 py-2 font-semibold">Size</th>
-              <th className="px-3 py-2 font-semibold">Colour</th>
-              <th className="px-3 py-2 font-semibold">Ship date</th>
-              <th className="px-3 py-2 font-semibold">Invoice #</th>
-              <th className="px-3 py-2 text-right font-semibold">Inv value</th>
-              <th className="px-3 py-2 font-semibold">Due date</th>
-              <th className="px-3 py-2 font-semibold">Payment</th>
-              <th className="px-3 py-2 font-semibold">Container</th>
-              <th className="px-3 py-2 font-semibold">TC status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={12} className="px-3 py-10 text-center text-ink-soft">No shipped goods yet.</td></tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-line last:border-0">
-                <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.reference}</Link></td>
-                <td className="px-3 py-2">{r.factory}</td>
-                <td className="px-3 py-2">{r.buyer}</td>
-                <td className="px-3 py-2 text-xs">{r.sizes}</td>
-                <td className="px-3 py-2 text-xs">{r.colours}</td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.shipDate)}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.invoiceNumber ?? "—"}</td>
-                <td className="px-3 py-2 text-right tnum">{r.invoiceValue && r.invoiceValue > 0 ? formatMoney(r.invoiceValue) : "—"}</td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.invoiceDueDate)}</td>
-                <td className="px-3 py-2">
-                  {r.paymentStatus ? (
-                    <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${PAY_CLS[r.paymentStatus] ?? ""}`}>
-                      {r.paymentStatus === "PAID" ? "Paid" : "Due"}
-                    </span>
-                  ) : "—"}
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">{r.containerNo ?? "—"}</td>
-                <td className="px-3 py-2 text-xs">{r.tcStatus ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t-2 border-ink bg-paper font-semibold">
-                <td className="px-3 py-2" colSpan={7}>{formatQty(rows.length)} shipments</td>
-                <td className="px-3 py-2 text-right tnum">{formatMoney(rows.reduce((a, r) => a + (r.invoiceValue ?? 0), 0))}</td>
-                <td colSpan={4} />
-              </tr>
-            </tfoot>
-          )}
-        </table>
+
+      <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>
+        <Kpi label="Shipments" rail="var(--accent)"><CountUp value={rows.length} format="qty" /></Kpi>
+        <Kpi label="Shipped quantity (pcs)" rail="var(--ink)"><CountUp value={totalQty} format="qty" /></Kpi>
+        <Kpi label="Invoiced value (USD)" rail="var(--ok)"><CountUp value={totalValue} format="money" /></Kpi>
+        <Kpi label="Awaiting payment" rail="var(--warn)"><CountUp value={awaiting} format="qty" /><span className="ml-2 text-xs font-normal text-ink-soft">/ {paid} paid</span></Kpi>
       </div>
+
+      <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "120ms" }}>
+        <ChartCard title="Shipped quantity by factory">
+          <BarChart data={byFactory} max={facMax} color="var(--accent)" fmt={(v) => formatQty(v)} />
+        </ChartCard>
+        <ChartCard title="Shipments by buyer">
+          <BarChart data={byBuyer} max={buyMax} color="var(--ink)" fmt={(v) => formatQty(v)} />
+        </ChartCard>
+      </div>
+
+      <div className="rise" style={{ animationDelay: "180ms" }}>
+        <ShippedTable rows={rows} />
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ label, rail, children }: { label: string; rail: string; children: React.ReactNode }) {
+  return (
+    <div className="kpi rounded-lg border border-line bg-surface p-4 elevate" style={{ "--kpi-rail": rail } as React.CSSProperties}>
+      <p className="eyebrow">{label}</p>
+      <p className="tnum mt-1 text-xl font-semibold">{children}</p>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+      <div className="border-b border-line bg-paper px-4 py-2.5">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function BarChart({ data, max, color, fmt }: { data: { label: string; value: number }[]; max: number; color: string; fmt: (v: number) => string }) {
+  if (data.length === 0) return <p className="py-6 text-center text-sm text-ink-soft">No data.</p>;
+  return (
+    <div className="space-y-2.5">
+      {data.map((d) => (
+        <div key={d.label} className="grid grid-cols-[8rem_1fr_3.5rem] items-center gap-3 text-sm">
+          <span className="truncate text-ink-soft" title={d.label}>{d.label}</span>
+          <div className="h-2.5 overflow-hidden rounded-full bg-paper">
+            <div className="bar-fill h-full rounded-full" style={{ width: `${Math.max(3, (d.value / max) * 100)}%`, background: color }} />
+          </div>
+          <span className="tnum text-right text-xs font-semibold">{fmt(d.value)}</span>
+        </div>
+      ))}
     </div>
   );
 }

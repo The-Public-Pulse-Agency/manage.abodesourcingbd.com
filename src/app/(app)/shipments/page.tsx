@@ -55,14 +55,16 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
               const invoice = s.invoices[0];
               return (
                 <tr key={s.id} className="border-b border-line last:border-0">
-                  <td className="px-3 py-2">
-                    <Link href={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">
-                      {s.blNumber ?? s.reference}
-                    </Link>
-                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-ink-soft">{s.blNumber ?? s.reference}</td>
                   <td className="px-3 py-2">{factory ?? "—"}</td>
                   <td className="px-3 py-2 font-mono text-xs">{s.containerNo ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{invoice?.number ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    {invoice?.number ? (
+                      <Link href={`/shipments/${s.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{invoice.number}</Link>
+                    ) : (
+                      <Link href={`/shipments/${s.id}`} className="font-mono text-xs text-ink-soft hover:text-accent">open →</Link>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tnum">{invoice && Number(invoice.amount) > 0 ? formatMoney(Number(invoice.amount), invoice.currency) : "—"}</td>
                   <td className="px-3 py-2 tnum text-xs">{invoice?.dueDate ? formatDate(invoice.dueDate) : "—"}</td>
                   <td className="px-3 py-2">

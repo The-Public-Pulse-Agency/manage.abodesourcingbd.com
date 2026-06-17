@@ -8,6 +8,7 @@ export type ShippedRow = {
   buyer: string;
   sizes: string;
   colours: string;
+  qty: number;
   shipDate: Date | null;
   invoiceNumber: string | null;
   invoiceValue: number | null;
@@ -39,6 +40,7 @@ export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow
     const firstPo = s.lines.find((l) => l.orderLine?.po)?.orderLine?.po;
     const sizes = [...new Set(s.lines.flatMap((l) => l.sizes.map((z) => z.label)))].join(", ");
     const colours = [...new Set(s.lines.map((l) => l.orderLine?.colour?.name).filter(Boolean) as string[])].join(", ");
+    const qty = s.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
     const inv = s.invoices.find((i) => i.type === "FACTORY") ?? s.invoices[0];
     return {
       id: s.id,
@@ -47,6 +49,7 @@ export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow
       buyer: firstPo?.buyer?.name ?? "—",
       sizes: sizes || "—",
       colours: colours || "—",
+      qty,
       shipDate: s.exFactoryDate ?? s.blDate,
       invoiceNumber: inv?.number ?? null,
       invoiceValue: inv ? Number(inv.amount) : null,

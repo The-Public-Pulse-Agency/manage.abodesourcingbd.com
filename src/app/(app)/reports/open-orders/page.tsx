@@ -1,26 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { openOrdersReport, type StatusCell, type OpenOrderRow } from "@/lib/reports/open-orders";
-import { formatDate, formatMoney, formatQty } from "@/lib/format";
+import { openOrdersReport, type OpenOrderRow } from "@/lib/reports/open-orders";
+import { formatQty } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
-
-function Cell({ c }: { c: StatusCell }) {
-  if (c.state === "na") return <span className="text-ink-soft">—</span>;
-  if (c.state === "done")
-    return <span className="inline-flex rounded-sm bg-ok-soft px-1.5 py-0.5 text-[0.625rem] font-semibold text-ok">✓ {c.date ? formatDate(c.date) : "done"}</span>;
-  if (c.state === "overdue")
-    return <span className="inline-flex rounded-sm bg-bad-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-bad">overdue</span>;
-  return <span className="inline-flex rounded-sm bg-warn-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-warn">pending</span>;
-}
-
-const STATUS_CLS: Record<string, string> = {
-  DRAFT: "bg-paper text-ink-soft",
-  CONFIRMED: "bg-accent-soft text-accent",
-  IN_PRODUCTION: "bg-warn-soft text-warn",
-  PARTLY_SHIPPED: "bg-ok-soft text-ok",
-};
+import { OpenOrdersTable } from "@/components/reports/open-orders-table";
 
 function topBy(rows: OpenOrderRow[], key: (r: OpenOrderRow) => string, val: (r: OpenOrderRow) => number, n = 7) {
   const m = new Map<string, number>();
@@ -57,7 +41,6 @@ export default async function OpenOrdersReportPage() {
         </div>
       </div>
 
-      {/* KPI strip */}
       <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>
         <Kpi label="Open orders" rail="var(--accent)"><CountUp value={rows.length} format="qty" /></Kpi>
         <Kpi label="Total quantity (pcs)" rail="var(--ink)"><CountUp value={totalQty} format="qty" /></Kpi>
@@ -65,7 +48,6 @@ export default async function OpenOrdersReportPage() {
         <Kpi label="Shipping ≤ 30 days" rail="var(--warn)"><CountUp value={shipping30} format="qty" /></Kpi>
       </div>
 
-      {/* Charts */}
       <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "120ms" }}>
         <ChartCard title="Quantity by factory">
           <BarChart data={byFactory} max={facMax} color="var(--accent)" fmt={(v) => formatQty(v)} />
@@ -75,65 +57,8 @@ export default async function OpenOrdersReportPage() {
         </ChartCard>
       </div>
 
-      {/* Table */}
-      <div className="rise overflow-x-auto rounded-lg border border-line bg-surface elevate" style={{ animationDelay: "180ms" }}>
-        <table className="list-table w-full whitespace-nowrap text-sm">
-          <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
-              <th className="px-3 py-2.5 font-semibold">PO</th>
-              <th className="px-3 py-2.5 font-semibold">Status</th>
-              <th className="px-3 py-2.5 font-semibold">PO recvd</th>
-              <th className="px-3 py-2.5 font-semibold">Factory</th>
-              <th className="px-3 py-2.5 font-semibold">Buyer</th>
-              <th className="px-3 py-2.5 font-semibold">Size</th>
-              <th className="px-3 py-2.5 font-semibold">Colour</th>
-              <th className="px-3 py-2.5 font-semibold">Conf. ship</th>
-              <th className="px-3 py-2.5 text-right font-semibold">Qty</th>
-              <th className="px-3 py-2.5 text-right font-semibold">Value</th>
-              <th className="px-3 py-2.5 font-semibold">Trims</th>
-              <th className="px-3 py-2.5 font-semibold">Yarn</th>
-              <th className="px-3 py-2.5 font-semibold">Dyeing</th>
-              <th className="px-3 py-2.5 font-semibold">Bulk shade</th>
-              <th className="px-3 py-2.5 font-semibold">PP sample</th>
-              <th className="px-3 py-2.5 font-semibold">Bulk sewing</th>
-              <th className="px-3 py-2.5 font-semibold">Final insp.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && <tr><td colSpan={17} className="px-3 py-10 text-center text-ink-soft">No open orders.</td></tr>}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-line last:border-0">
-                <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
-                <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.poReceiveDate)}</td>
-                <td className="px-3 py-2">{r.factory}</td>
-                <td className="px-3 py-2">{r.buyer}</td>
-                <td className="px-3 py-2 text-xs">{r.sizes}</td>
-                <td className="px-3 py-2 text-xs">{r.colours}</td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.confirmedShipDate)}</td>
-                <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
-                <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
-                <td className="px-3 py-2"><Cell c={r.trims} /></td>
-                <td className="px-3 py-2"><Cell c={r.yarn} /></td>
-                <td className="px-3 py-2"><Cell c={r.dyeing} /></td>
-                <td className="px-3 py-2"><Cell c={r.bulkShade} /></td>
-                <td className="px-3 py-2"><Cell c={r.ppSample} /></td>
-                <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
-              </tr>
-            ))}
-          </tbody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t-2 border-ink bg-paper font-semibold">
-                <td className="px-3 py-2.5" colSpan={8}>{formatQty(rows.length)} orders</td>
-                <td className="px-3 py-2.5 text-right tnum">{formatQty(totalQty)}</td>
-                <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>
-                <td colSpan={7} />
-              </tr>
-            </tfoot>
-          )}
-        </table>
+      <div className="rise" style={{ animationDelay: "180ms" }}>
+        <OpenOrdersTable rows={rows} />
       </div>
     </div>
   );

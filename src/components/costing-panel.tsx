@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addCostItemAction, removeCostItemAction } from "@/lib/orders/cost-item-form-actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export type CostItemRow = { id: string; category: string; label: string; amountPerUnit: number; note: string | null };
 
@@ -58,7 +59,7 @@ export function CostingPanel({
               <td className="px-3 py-1.5 text-right tnum">{i.amountPerUnit.toFixed(4)}</td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">
-                  <button type="button" onClick={async () => { const r = await removeCostItemAction(i.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</button>
+                  <ConfirmButton onConfirm={async () => { const r = await removeCostItemAction(i.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</ConfirmButton>
                 </td>
               )}
             </tr>

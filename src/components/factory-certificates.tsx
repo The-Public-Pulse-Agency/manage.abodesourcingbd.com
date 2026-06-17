@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addCertificateAction, removeCertificateAction } from "@/lib/masterdata/certificate-form-actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export type CertRow = { id: string; name: string; number: string | null; validUntil: string | null; validityState: "ok" | "expiring" | "expired" | "na" };
 
@@ -43,7 +44,7 @@ export function FactoryCertificates({ factoryId, certs, canEdit }: { factoryId: 
               </td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">
-                  <button type="button" onClick={async () => { const r = await removeCertificateAction(c.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</button>
+                  <ConfirmButton onConfirm={async () => { const r = await removeCertificateAction(c.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</ConfirmButton>
                 </td>
               )}
             </tr>

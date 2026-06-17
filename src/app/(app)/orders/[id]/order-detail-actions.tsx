@@ -9,6 +9,7 @@ import {
   removeLineAction,
   createAndAssignLotAction,
 } from "@/lib/orders/form-actions";
+import { ConfirmButton as ConfirmDelete } from "@/components/confirm-button";
 
 export function CloseButton({ poId }: { poId: string }) {
   const router = useRouter();
@@ -90,22 +91,16 @@ export function ConfirmButton({ poId }: { poId: string }) {
 
 export function RemoveLineButton({ poId, lineId }: { poId: string; lineId: string }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={async () => {
-        setPending(true);
+    <ConfirmDelete
+      onConfirm={async () => {
         const r = await removeLineAction(poId, lineId);
-        setPending(false);
         if (!r.error) router.refresh();
       }}
-      disabled={pending}
-      className="text-xs text-ink-soft transition-colors hover:text-bad disabled:opacity-50"
-      title="Remove line"
+      className="text-xs text-ink-soft transition-colors hover:text-bad"
     >
       Remove
-    </button>
+    </ConfirmDelete>
   );
 }
 

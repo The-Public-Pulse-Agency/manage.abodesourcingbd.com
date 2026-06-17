@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addMaterialAction, receiveMaterialAction, removeMaterialAction } from "@/lib/materials/form-actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export type MaterialRow = {
   id: string;
@@ -82,7 +83,7 @@ export function MaterialsPanel({ poId, materials, canEdit }: { poId: string; mat
                       {receiving === m.id ? "Cancel" : "Receive"}
                     </button>
                   )}
-                  <button type="button" onClick={async () => { const r = await removeMaterialAction(m.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</button>
+                  <ConfirmButton onConfirm={async () => { const r = await removeMaterialAction(m.id); if (r.error) setMsg(r.error); else router.refresh(); }} className="text-xs text-ink-soft hover:text-bad">Remove</ConfirmButton>
                 </td>
               )}
             </tr>

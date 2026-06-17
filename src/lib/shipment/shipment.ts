@@ -165,6 +165,7 @@ export const updateShipmentSchema = z.object({
   cartons: z.number().int().nonnegative().optional(),
   blNumber: z.string().optional(),
   blDate: z.coerce.date().optional(),
+  etaDestination: z.coerce.date().nullish(),
   telexStatus: z.enum(telexStatuses).optional(),
   tcStatus: z.string().optional(),
   forwarderId: z.string().optional(),

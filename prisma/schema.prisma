@@ -637,6 +637,7 @@ model Shipment {
   exFactoryDate DateTime?
   blNumber      String?
   blDate        DateTime?
+  etaDestination DateTime?     // estimated arrival at destination port
   telexStatus   TelexStatus    @default(PENDING)
   tcStatus      String?        // transaction-certificate status (free text: Working / NO TC / Send <date>)
   forwarderId   String?

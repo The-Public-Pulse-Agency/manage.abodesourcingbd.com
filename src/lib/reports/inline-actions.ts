@@ -44,12 +44,20 @@ export async function setShipmentContainer(id: string, value: string): Promise<R
   return run((a) => updateShipment(a, id, { containerNo: value }).then(() => undefined));
 }
 
+export async function setShipmentEta(id: string, value: string): Promise<Res> {
+  return run((a) => updateShipment(a, id, { etaDestination: parseDate(value) }).then(() => undefined));
+}
+
 export async function setInvoiceValue(id: string, value: string): Promise<Res> {
   return run((a) => updateInvoiceFields(a, id, { amount: Math.max(0, Number(value) || 0) }));
 }
 
 export async function setInvoiceDue(id: string, value: string): Promise<Res> {
   return run((a) => updateInvoiceFields(a, id, { dueDate: parseDate(value) }));
+}
+
+export async function setInvoicePaymentStatus(id: string, value: string): Promise<Res> {
+  return run((a) => updateInvoiceFields(a, id, { status: value }));
 }
 
 export async function deleteOrderAction(poId: string): Promise<Res> {

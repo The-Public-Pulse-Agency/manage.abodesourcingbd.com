@@ -4,12 +4,15 @@ import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 export type ShippedRow = {
   id: string;
   reference: string;
+  poNumber: string;
+  poId: string | null;
   factory: string;
   buyer: string;
   sizes: string;
   colours: string;
   qty: number;
   shipDate: Date | null;
+  etaDestination: Date | null;
   invoiceId: string | null;
   invoiceNumber: string | null;
   invoiceValue: number | null;
@@ -46,12 +49,15 @@ export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow
     return {
       id: s.id,
       reference: s.blNumber ?? s.reference,
+      poNumber: firstPo?.poNumber ?? "—",
+      poId: firstPo?.id ?? null,
       factory: firstPo?.factory?.name ?? "—",
       buyer: firstPo?.buyer?.name ?? "—",
       sizes: sizes || "—",
       colours: colours || "—",
       qty,
       shipDate: s.exFactoryDate ?? s.blDate,
+      etaDestination: s.etaDestination,
       invoiceId: inv?.id ?? null,
       invoiceNumber: inv?.number ?? null,
       invoiceValue: inv ? Number(inv.amount) : null,

@@ -26,9 +26,16 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Logistics</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Shipment Tracker</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">Logistics</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Shipment Tracker</h1>
+        </div>
+        {can(actor.role, "shipment", "create") && (
+          <Link href="/shipments/new" className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90">
+            + New shipment
+          </Link>
+        )}
       </div>
       <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
         <table className="w-full text-sm">

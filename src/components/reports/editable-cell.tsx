@@ -7,32 +7,50 @@ type Props = {
   id: string;
   raw: string; // current value as an input string ("" when empty)
   action: (id: string, value: string) => Promise<{ error?: string }>;
-  type?: "text" | "number" | "date";
+  type?: "text" | "number" | "date" | "select";
+  options?: { value: string; label: string }[];
   align?: "left" | "right";
   placeholder?: string;
   children: React.ReactNode; // formatted display
 };
 
 /** Click-to-edit table cell: commits on Enter/blur, Esc cancels, then refreshes data. */
-export function EditableCell({ id, raw, action, type = "text", align = "left", placeholder = "—", children }: Props) {
+export function EditableCell({ id, raw, action, type = "text", options, align = "left", placeholder = "—", children }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(raw);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
 
-  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  useEffect(() => { if (editing) (inputRef.current ?? selectRef.current)?.focus(); }, [editing]);
 
-  async function commit() {
+  async function commitValue(value: string) {
     setEditing(false);
-    if (draft === raw) return;
+    if (value === raw) return;
     setBusy(true);
     setErr(false);
-    const res = await action(id, draft);
+    const res = await action(id, value);
     setBusy(false);
     if (res.error) { setErr(true); setDraft(raw); return; }
     router.refresh();
+  }
+  const commit = () => commitValue(draft);
+
+  if (editing && type === "select") {
+    return (
+      <select
+        ref={selectRef}
+        aria-label="Edit value"
+        value={draft}
+        onChange={(e) => { setDraft(e.target.value); commitValue(e.target.value); }}
+        onBlur={() => setEditing(false)}
+        className="w-full rounded-sm border border-accent bg-surface px-1.5 py-0.5 text-xs outline-none"
+      >
+        {(options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    );
   }
 
   if (editing) {

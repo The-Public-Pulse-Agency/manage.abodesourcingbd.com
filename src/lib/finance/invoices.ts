@@ -116,18 +116,21 @@ export async function listInvoicesPaged(
 }
 
 /** Inline quick-edit of an invoice's value + due date. */
+const INVOICE_STATUSES = ["ISSUED", "PARTIALLY_PAID", "PAID"] as const;
+
 export async function updateInvoiceFields(
   actor: SessionUser,
   id: string,
-  input: { amount?: number; dueDate?: Date | null },
+  input: { amount?: number; dueDate?: Date | null; status?: string },
 ) {
   assertPermission(actor, "finance", "edit");
   const cid = tenantId(actor);
   const existing = await prisma.invoice.findFirst({ where: { id, companyId: cid }, select: { id: true } });
   if (!existing) throw new Error("Invoice not found");
-  const data: { amount?: Prisma.Decimal | number; dueDate?: Date | null } = {};
+  const data: { amount?: Prisma.Decimal | number; dueDate?: Date | null; status?: (typeof INVOICE_STATUSES)[number] } = {};
   if (input.amount !== undefined && input.amount >= 0) data.amount = input.amount;
   if (input.dueDate !== undefined) data.dueDate = input.dueDate;
+  if (input.status && (INVOICE_STATUSES as readonly string[]).includes(input.status)) data.status = input.status as (typeof INVOICE_STATUSES)[number];
   await prisma.invoice.update({ where: { id }, data });
   await recordAudit({ userId: actor.id, entityType: "Invoice", entityId: id, action: "edit", after: input });
 }

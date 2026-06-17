@@ -5,6 +5,8 @@ import { can } from "@/lib/auth/permissions";
 import { listFactories } from "@/lib/masterdata/factory";
 import { MasterDataTable, type Column } from "@/components/master-data-table";
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
+import { ActiveToggle } from "@/components/master-data/active-toggle";
+import { setFactoryActiveAction } from "@/lib/masterdata/active-form-actions";
 import { deleteFactoryAction } from "@/lib/masterdata/delete-form-actions";
 import { FactoryForm } from "./factory-form";
 
@@ -18,7 +20,7 @@ export default async function FactoriesPage() {
     { header: "Name", cell: (f) => f.name },
     { header: "Code", cell: (f) => f.code },
     { header: "Type", cell: (f) => f.type },
-    { header: "Active", cell: (f) => (f.active ? "Yes" : "No") },
+    { header: "Active", cell: (f) => (can(actor.role, "masterData", "edit") ? <ActiveToggle id={f.id} active={f.active} action={setFactoryActiveAction} /> : f.active ? "Yes" : "No") },
   ];
   if (can(actor.role, "masterData", "edit")) {
     columns.push({

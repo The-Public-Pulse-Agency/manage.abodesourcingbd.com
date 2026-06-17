@@ -20,9 +20,12 @@ export type CreateCommissionInput = z.input<typeof createCommissionSchema>;
 export async function createCommission(actor: SessionUser, input: CreateCommissionInput) {
   assertPermission(actor, "finance", "edit");
   const d = createCommissionSchema.parse(input);
+  const cid = tenantId(actor);
+  if (d.factoryId && !(await prisma.factory.findFirst({ where: { id: d.factoryId, companyId: cid }, select: { id: true } }))) throw new Error("Invalid factory");
+  if (d.buyerId && !(await prisma.buyer.findFirst({ where: { id: d.buyerId, companyId: cid }, select: { id: true } }))) throw new Error("Invalid buyer");
   const entry = await prisma.commissionEntry.create({
     data: {
-      companyId: tenantId(actor),
+      companyId: cid,
       buyerId: d.buyerId || null,
       factoryId: d.factoryId || null,
       factoryInvoiceNo: d.factoryInvoiceNo?.trim() || null,
@@ -46,7 +49,15 @@ export async function updateCommissionField(actor: SessionUser, id: string, fiel
   const existing = await prisma.commissionEntry.findFirst({ where: { id, companyId: cid }, select: { id: true } });
   if (!existing) throw new Error("Commission entry not found");
   const data: Record<string, string | number | Date | null> = {};
-  if ((ID as readonly string[]).includes(field)) data[field] = value || null;
+  if ((ID as readonly string[]).includes(field)) {
+    if (value) {
+      const ok = field === "factoryId"
+        ? await prisma.factory.findFirst({ where: { id: value, companyId: cid }, select: { id: true } })
+        : await prisma.buyer.findFirst({ where: { id: value, companyId: cid }, select: { id: true } });
+      if (!ok) throw new Error("Invalid selection");
+    }
+    data[field] = value || null;
+  }
   else if ((TEXT as readonly string[]).includes(field)) data[field] = value.trim() || null;
   else if ((NUM as readonly string[]).includes(field)) data[field] = value ? String(Math.max(0, Number(value) || 0)) : null;
   else if ((DATE as readonly string[]).includes(field)) data[field] = value ? new Date(`${value}T00:00:00.000Z`) : null;

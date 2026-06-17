@@ -9,7 +9,7 @@ import { updateFactoryFromForm } from "@/lib/masterdata/factory-form-actions";
 export function FactoryEditForm({
   factory,
 }: {
-  factory: { id: string; name: string; type: string; contactName: string | null };
+  factory: { id: string; name: string; type: string; contactName: string | null; contactEmail: string | null; contactPhone: string | null; address: string | null };
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -62,6 +62,18 @@ export function FactoryEditForm({
           defaultValue={factory.contactName ?? ""}
           className="input"
         />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-soft">Contact email</span>
+        <input name="contactEmail" type="email" aria-label="Contact email" placeholder="Email" defaultValue={factory.contactEmail ?? ""} className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-soft">Contact phone</span>
+        <input name="contactPhone" aria-label="Contact phone" placeholder="Phone" defaultValue={factory.contactPhone ?? ""} className="input" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-soft">Address</span>
+        <input name="address" aria-label="Address" placeholder="Address" defaultValue={factory.address ?? ""} className="input min-w-[16rem]" />
       </label>
       <button
         type="submit"

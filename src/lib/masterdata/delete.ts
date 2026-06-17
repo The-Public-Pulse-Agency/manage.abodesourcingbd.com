@@ -57,3 +57,27 @@ export async function deleteColour(actor: SessionUser, id: string) {
   await prisma.colour.deleteMany({ where: { id, companyId } });
   await recordAudit({ userId: actor.id, entityType: "Colour", entityId: id, action: "delete" });
 }
+
+export async function deleteSizeScale(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "delete");
+  const companyId = tenantId(actor);
+  const styles = await prisma.style.count({ where: { defaultSizeScaleId: id, companyId } });
+  if (styles > 0) throw new Error(`In use by ${styles} style(s) — deactivate instead.`);
+  await prisma.sizeScale.deleteMany({ where: { id, companyId } }); // sizes cascade
+  await recordAudit({ userId: actor.id, entityType: "SizeScale", entityId: id, action: "delete" });
+}
+
+// Ports/forwarders are referenced by shipments via SetNull, so delete is always safe.
+export async function deletePort(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "delete");
+  const companyId = tenantId(actor);
+  await prisma.port.deleteMany({ where: { id, companyId } });
+  await recordAudit({ userId: actor.id, entityType: "Port", entityId: id, action: "delete" });
+}
+
+export async function deleteForwarder(actor: SessionUser, id: string) {
+  assertPermission(actor, "masterData", "delete");
+  const companyId = tenantId(actor);
+  await prisma.forwarder.deleteMany({ where: { id, companyId } });
+  await recordAudit({ userId: actor.id, entityType: "Forwarder", entityId: id, action: "delete" });
+}

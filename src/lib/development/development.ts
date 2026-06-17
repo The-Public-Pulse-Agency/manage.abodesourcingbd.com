@@ -19,9 +19,12 @@ export type CreateDevInput = z.input<typeof createDevSchema>;
 export async function createDevelopment(actor: SessionUser, input: CreateDevInput) {
   assertPermission(actor, "orders", "create");
   const data = createDevSchema.parse(input);
+  const cid = tenantId(actor);
+  if (data.factoryId) await assertRefInCompany("factoryId", data.factoryId, cid);
+  if (data.buyerId) await assertRefInCompany("buyerId", data.buyerId, cid);
   const item = await prisma.developmentItem.create({
     data: {
-      companyId: tenantId(actor),
+      companyId: cid,
       buyerId: data.buyerId || null,
       factoryId: data.factoryId || null,
       styleRef: data.styleRef.trim(),
@@ -34,6 +37,14 @@ export async function createDevelopment(actor: SessionUser, input: CreateDevInpu
 
 const TEXT_FIELDS = ["labDip", "knitting", "firstSample", "secondSample", "remarks", "colour", "styleRef"] as const;
 const ID_FIELDS = ["factoryId", "buyerId"] as const;
+
+/** Guard against cross-tenant references: the factory/buyer id must belong to the company. */
+async function assertRefInCompany(field: "factoryId" | "buyerId", id: string, companyId: string) {
+  const ok = field === "factoryId"
+    ? await prisma.factory.findFirst({ where: { id, companyId }, select: { id: true } })
+    : await prisma.buyer.findFirst({ where: { id, companyId }, select: { id: true } });
+  if (!ok) throw new Error("Invalid selection");
+}
 export type DevField = (typeof TEXT_FIELDS)[number] | (typeof ID_FIELDS)[number] | "finalSampleDate";
 
 export async function updateDevelopmentField(actor: SessionUser, id: string, field: DevField, value: string) {
@@ -43,8 +54,10 @@ export async function updateDevelopmentField(actor: SessionUser, id: string, fie
   if (!existing) throw new Error("Development item not found");
   const data: Record<string, string | Date | null> = {};
   if (field === "finalSampleDate") data.finalSampleDate = value ? new Date(`${value}T00:00:00.000Z`) : null;
-  else if ((ID_FIELDS as readonly string[]).includes(field)) data[field] = value || null;
-  else if ((TEXT_FIELDS as readonly string[]).includes(field)) data[field] = value.trim() || null;
+  else if ((ID_FIELDS as readonly string[]).includes(field)) {
+    if (value) await assertRefInCompany(field as "factoryId" | "buyerId", value, cid);
+    data[field] = value || null;
+  } else if ((TEXT_FIELDS as readonly string[]).includes(field)) data[field] = value.trim() || null;
   else throw new Error("Invalid field");
   await prisma.developmentItem.update({ where: { id }, data });
 }

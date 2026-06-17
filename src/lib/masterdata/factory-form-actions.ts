@@ -18,6 +18,9 @@ export async function createFactoryFromForm(
     name: formData.get("name"),
     type: formData.get("type") || "KNIT",
     contactName: formData.get("contactName") || undefined,
+    contactEmail: formData.get("contactEmail") || undefined,
+    contactPhone: formData.get("contactPhone") || undefined,
+    address: formData.get("address") || undefined,
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   try {
@@ -39,6 +42,9 @@ export async function updateFactoryFromForm(
     name: formData.get("name") || undefined,
     type: formData.get("type") || undefined,
     contactName: formData.get("contactName") || undefined,
+    contactEmail: formData.get("contactEmail") || undefined,
+    contactPhone: formData.get("contactPhone") || undefined,
+    address: formData.get("address") || undefined,
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   try {

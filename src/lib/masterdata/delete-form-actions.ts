@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, type SessionUser } from "@/lib/auth/guard";
-import { deleteFactory, deleteBuyer, deleteBrand, deleteStyle, deleteColour } from "./delete";
+import { deleteFactory, deleteBuyer, deleteBrand, deleteStyle, deleteColour, deleteSizeScale, deletePort, deleteForwarder } from "./delete";
 
 type Res = { error?: string };
 
@@ -23,3 +23,6 @@ export async function deleteBuyerAction(id: string): Promise<Res> { return run("
 export async function deleteBrandAction(id: string): Promise<Res> { return run("/master-data/brands", (a) => deleteBrand(a, id)); }
 export async function deleteStyleAction(id: string): Promise<Res> { return run("/master-data/styles", (a) => deleteStyle(a, id)); }
 export async function deleteColourAction(id: string): Promise<Res> { return run("/master-data/colours", (a) => deleteColour(a, id)); }
+export async function deleteSizeScaleAction(id: string): Promise<Res> { return run("/master-data/size-scales", (a) => deleteSizeScale(a, id)); }
+export async function deletePortAction(id: string): Promise<Res> { return run("/master-data/ports", (a) => deletePort(a, id)); }
+export async function deleteForwarderAction(id: string): Promise<Res> { return run("/master-data/forwarders", (a) => deleteForwarder(a, id)); }

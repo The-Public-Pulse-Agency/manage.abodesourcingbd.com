@@ -23,6 +23,9 @@ export default async function EditFactoryPage({
           name: factory.name,
           type: factory.type,
           contactName: factory.contactName,
+          contactEmail: factory.contactEmail,
+          contactPhone: factory.contactPhone,
+          address: factory.address,
         }}
       />
     </div>

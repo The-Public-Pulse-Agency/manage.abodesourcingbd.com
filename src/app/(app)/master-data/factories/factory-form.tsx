@@ -25,6 +25,9 @@ export function FactoryForm() {
         ))}
       </select>
       <input name="contactName" aria-label="Contact" placeholder="Contact (optional)" className="input" />
+      <input name="contactEmail" type="email" aria-label="Contact email" placeholder="Email (optional)" className="input" />
+      <input name="contactPhone" aria-label="Contact phone" placeholder="Phone (optional)" className="input" />
+      <input name="address" aria-label="Address" placeholder="Address (optional)" className="input min-w-[14rem]" />
       <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
         Add factory
       </button>

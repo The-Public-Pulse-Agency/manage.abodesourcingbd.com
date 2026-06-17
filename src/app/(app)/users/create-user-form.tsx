@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROLES } from "@/lib/auth/permissions";
+import { ASSIGNABLE_ROLES as ROLES } from "@/lib/auth/permissions";
 import { createUserFromForm } from "@/lib/users/form-actions";
 
 export function CreateUserForm() {

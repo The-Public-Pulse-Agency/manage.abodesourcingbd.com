@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPlatformOperator } from "./guard";
 import { recordAudit } from "@/lib/audit";
 
 export type CompanyRow = {
@@ -13,6 +14,7 @@ export type CompanyRow = {
 };
 
 export async function listCompanies(actor: SessionUser): Promise<CompanyRow[]> {
+  assertPlatformOperator(actor);
   assertPermission(actor, "companies", "view");
   const companies = await prisma.company.findMany({ orderBy: { createdAt: "asc" } });
   const userGroups = await prisma.user.groupBy({ by: ["companyId"], _count: true });
@@ -29,6 +31,7 @@ export async function listCompanies(actor: SessionUser): Promise<CompanyRow[]> {
 }
 
 export async function setCompanyStatus(actor: SessionUser, id: string, status: "ACTIVE" | "SUSPENDED") {
+  assertPlatformOperator(actor);
   assertPermission(actor, "companies", "edit");
   const c = await prisma.company.update({ where: { id }, data: { status } });
   await recordAudit({ userId: actor.id, entityType: "Company", entityId: id, action: "edit", after: { status } });
@@ -36,6 +39,7 @@ export async function setCompanyStatus(actor: SessionUser, id: string, status: "
 }
 
 export async function setCompanyPackage(actor: SessionUser, id: string, packageId: string | null) {
+  assertPlatformOperator(actor);
   assertPermission(actor, "companies", "edit");
   const c = await prisma.company.update({ where: { id }, data: { packageId } });
   await recordAudit({ userId: actor.id, entityType: "Company", entityId: id, action: "edit", after: { packageId } });

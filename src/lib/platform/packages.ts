@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPlatformOperator } from "./guard";
 import { recordAudit } from "@/lib/audit";
 
 export async function listPackages(actor: SessionUser) {
+  assertPlatformOperator(actor);
   assertPermission(actor, "packages", "view");
   return prisma.package.findMany({ orderBy: [{ active: "desc" }, { priceBdt: "asc" }] });
 }
@@ -16,6 +18,7 @@ export const packageSchema = z.object({
 export type PackageInput = z.input<typeof packageSchema>;
 
 export async function createPackage(actor: SessionUser, input: PackageInput) {
+  assertPlatformOperator(actor);
   assertPermission(actor, "packages", "create");
   const data = packageSchema.parse(input);
   const p = await prisma.package.create({ data });
@@ -24,6 +27,7 @@ export async function createPackage(actor: SessionUser, input: PackageInput) {
 }
 
 export async function updatePackage(actor: SessionUser, id: string, input: Partial<PackageInput> & { active?: boolean }) {
+  assertPlatformOperator(actor);
   assertPermission(actor, "packages", "edit");
   const data: Record<string, string | number | boolean> = {};
   if (input.name) data.name = String(input.name);

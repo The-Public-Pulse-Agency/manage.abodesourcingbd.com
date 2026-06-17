@@ -24,6 +24,13 @@ export async function createPurchaseOrder(actor: SessionUser, input: CreatePoInp
   if (!brand || brand.buyerId !== data.buyerId) {
     throw new Error("Brand does not belong to the specified buyer");
   }
+  // Tenant integrity: the factory must belong to the actor's company (prevents a
+  // cross-tenant factoryId from being booked onto this company's order).
+  const factory = await prisma.factory.findFirst({
+    where: { id: data.factoryId, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!factory) throw new Error("Factory not found");
   try {
     const po = await prisma.purchaseOrder.create({
       data: {

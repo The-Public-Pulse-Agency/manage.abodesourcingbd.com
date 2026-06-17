@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ROLES } from "@/lib/auth/permissions";
+import { ASSIGNABLE_ROLES as ROLES } from "@/lib/auth/permissions";
 import { updateUserFromForm } from "@/lib/users/form-actions";
 
 export function UserEditForm({

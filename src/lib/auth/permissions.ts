@@ -2,6 +2,11 @@
 export const ROLES = ["SUPERADMIN", "ADMIN", "MERCHANDISER", "ACCOUNTS", "MANAGEMENT"] as const;
 export type Role = (typeof ROLES)[number];
 
+// Roles a company ADMIN may assign to a user. SUPERADMIN is deliberately excluded:
+// it is the cross-tenant platform operator and must never be grantable from within a
+// tenant (otherwise an ADMIN could self-escalate to platform-wide control).
+export const ASSIGNABLE_ROLES = ROLES.filter((r) => r !== "SUPERADMIN") as Exclude<Role, "SUPERADMIN">[];
+
 export const ACTIONS = ["view", "create", "edit", "delete", "approve"] as const;
 export type Action = (typeof ACTIONS)[number];
 

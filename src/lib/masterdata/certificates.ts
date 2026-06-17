@@ -28,6 +28,12 @@ export type CertificateInput = z.input<typeof certificateSchema>;
 export async function addCertificate(actor: SessionUser, input: CertificateInput) {
   assertPermission(actor, "masterData", "edit");
   const data = certificateSchema.parse(input);
+  // Tenant integrity: the parent factory must belong to the actor's company.
+  const factory = await prisma.factory.findFirst({
+    where: { id: data.factoryId, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!factory) throw new Error("Factory not found");
   const c = await prisma.factoryCertificate.create({
     data: { factoryId: data.factoryId, name: data.name.trim(), number: data.number, validUntil: data.validUntil, companyId: tenantId(actor) },
   });

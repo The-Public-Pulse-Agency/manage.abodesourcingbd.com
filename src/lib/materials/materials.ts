@@ -15,6 +15,18 @@ async function stampMilestone(actor: SessionUser, poId: string, key: string | un
   await prisma.taMilestone.updateMany({ where: { poId, key, actualDate: null, companyId: tenantId(actor) }, data: { actualDate: date } });
 }
 
+/** Revert a material-driven milestone's actual date (used when the last booking that
+ * stamped it is removed). */
+async function unstampMilestone(actor: SessionUser, poId: string, key: string | undefined) {
+  if (!key) return;
+  await prisma.taMilestone.updateMany({ where: { poId, key, companyId: tenantId(actor) }, data: { actualDate: null } });
+}
+
+/** Kinds whose booking stamps the same "booked" milestone key (TRIM+ACCESSORY share TRIMS_BOOKED). */
+function kindsSharingBookedKey(key: string): (typeof KINDS)[number][] {
+  return KINDS.filter((k) => BOOKED_KEY[k] === key);
+}
+
 export async function listMaterials(actor: SessionUser, poId: string) {
   assertPermission(actor, "productionQc", "view");
   return prisma.materialBooking.findMany({ where: { poId, companyId: tenantId(actor) }, orderBy: { createdAt: "asc" } });
@@ -35,6 +47,9 @@ export type MaterialInput = z.input<typeof materialSchema>;
 export async function addMaterial(actor: SessionUser, input: MaterialInput) {
   assertPermission(actor, "productionQc", "create");
   const data = materialSchema.parse(input);
+  // Tenant integrity: the parent PO must belong to the actor's company.
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: data.poId, companyId: tenantId(actor) }, select: { id: true } });
+  if (!po) throw new Error("Order not found");
   const m = await prisma.materialBooking.create({
     data: {
       companyId: tenantId(actor),
@@ -54,26 +69,37 @@ export async function addMaterial(actor: SessionUser, input: MaterialInput) {
   return m;
 }
 
+const receiveSchema = z.object({
+  receivedQty: z.coerce.number().positive("Received quantity must be greater than zero").finite(),
+  receivedDate: z.coerce.date().optional(),
+});
+
 export async function receiveMaterial(
   actor: SessionUser,
   id: string,
   input: { receivedQty: number; receivedDate?: Date },
 ) {
   assertPermission(actor, "productionQc", "edit");
+  const parsed = receiveSchema.parse(input); // rejects zero / negative / non-numeric receipts
   const m = await prisma.materialBooking.findFirst({ where: { id, companyId: tenantId(actor) } });
   if (!m) throw new Error("Material booking not found");
-  const receivedDate = input.receivedDate ?? new Date();
+  const receivedDate = parsed.receivedDate ?? new Date();
+  // Accumulate partial receipts rather than overwriting the running total.
+  const prevReceived = m.receivedQty != null ? Number(m.receivedQty) : 0;
+  const newTotal = prevReceived + parsed.receivedQty;
   const booked = m.bookedQty != null ? Number(m.bookedQty) : null;
-  const fullyIn = booked != null ? input.receivedQty >= booked : input.receivedQty > 0;
+  // "Fully in-house" requires a positive booked target that has been met. With no
+  // target (null/0), we can't assert completeness, so the booking stays PARTIAL.
+  const fullyIn = booked != null && booked > 0 && newTotal >= booked;
   const status = fullyIn ? "IN_HOUSE" : "PARTIAL";
   await prisma.materialBooking.updateMany({
     where: { id, companyId: tenantId(actor) },
-    data: { receivedQty: String(input.receivedQty), receivedDate, status },
+    data: { receivedQty: String(newTotal), receivedDate, status },
   });
   const updated = await prisma.materialBooking.findFirst({ where: { id, companyId: tenantId(actor) } });
   // Fabric fully in-house stamps the "bulk fabric in-house" milestone.
   if (status === "IN_HOUSE") await stampMilestone(actor, m.poId, IN_HOUSE_KEY[m.kind], receivedDate);
-  await recordAudit({ userId: actor.id, entityType: "MaterialBooking", entityId: id, action: "edit", after: { receivedQty: input.receivedQty, status } });
+  await recordAudit({ userId: actor.id, entityType: "MaterialBooking", entityId: id, action: "edit", after: { receivedQty: newTotal, status } });
   return updated;
 }
 
@@ -110,6 +136,20 @@ export async function updateMaterial(actor: SessionUser, id: string, input: Mate
 
 export async function removeMaterial(actor: SessionUser, id: string) {
   assertPermission(actor, "productionQc", "edit");
-  await prisma.materialBooking.deleteMany({ where: { id, companyId: tenantId(actor) } });
+  const cid = tenantId(actor);
+  const m = await prisma.materialBooking.findFirst({ where: { id, companyId: cid }, select: { id: true, poId: true, kind: true } });
+  if (!m) return;
+  await prisma.materialBooking.deleteMany({ where: { id, companyId: cid } });
+  // Revert the milestone(s) this kind stamps if no other booking still backs them.
+  const bookedKey = BOOKED_KEY[m.kind];
+  if (bookedKey) {
+    const stillBooked = await prisma.materialBooking.count({ where: { poId: m.poId, kind: { in: kindsSharingBookedKey(bookedKey) }, companyId: cid } });
+    if (stillBooked === 0) await unstampMilestone(actor, m.poId, bookedKey);
+  }
+  const inKey = IN_HOUSE_KEY[m.kind];
+  if (inKey) {
+    const stillInHouse = await prisma.materialBooking.count({ where: { poId: m.poId, kind: m.kind, status: "IN_HOUSE", companyId: cid } });
+    if (stillInHouse === 0) await unstampMilestone(actor, m.poId, inKey);
+  }
   await recordAudit({ userId: actor.id, entityType: "MaterialBooking", entityId: id, action: "delete" });
 }

@@ -25,6 +25,13 @@ export async function listCostItems(actor: SessionUser, poId: string) {
 export async function addCostItem(actor: SessionUser, input: CostItemInput) {
   assertPermission(actor, "costing", "edit");
   const data = costItemSchema.parse(input);
+  // Tenant integrity: the parent PO must belong to the actor's company so a cost item
+  // can't be attached to another tenant's order.
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: data.poId, companyId: tenantId(actor) },
+    select: { id: true },
+  });
+  if (!po) throw new Error("Order not found");
   const item = await prisma.costItem.create({
     data: {
       companyId: tenantId(actor),

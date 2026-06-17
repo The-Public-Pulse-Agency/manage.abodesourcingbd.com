@@ -248,12 +248,14 @@ model Buyer {
   id        String   @id @default(cuid())
   companyId String?
   name      String
-  code      String   @unique
+  code      String
   active    Boolean  @default(true)
   brands    Brand[]
   orders    PurchaseOrder[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
 }
 
 model Brand {
@@ -276,7 +278,7 @@ model Factory {
   id           String      @id @default(cuid())
   companyId String?
   name         String
-  code         String      @unique
+  code         String
   type         FactoryType @default(KNIT)
   address      String?
   contactName  String?
@@ -288,6 +290,8 @@ model Factory {
   certificates FactoryCertificate[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@unique([companyId, code])
 }
 
 // Compliance certificates held by a factory (GOTS, OEKO-TEX, BSCI, GRS, …).
@@ -307,13 +311,15 @@ model FactoryCertificate {
 model SizeScale {
   id        String   @id @default(cuid())
   companyId String?
-  name      String   @unique
+  name      String
   active    Boolean  @default(true)
   sizes     Size[]
   styles    Style[]
   orderLines OrderLine[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
 }
 
 model Size {
@@ -330,13 +336,15 @@ model Size {
 model Colour {
   id        String   @id @default(cuid())
   companyId String?
-  name      String   @unique
+  name      String
   code      String?
   active    Boolean  @default(true)
   orderLines OrderLine[]
   sampleRequests SampleRequest[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
 }
 
 model Style {
@@ -593,34 +601,38 @@ enum DocumentType {
 model Port {
   id        String     @id @default(cuid())
   companyId String?
-  name      String     @unique
+  name      String
   country   String?
   active    Boolean    @default(true)
   shipments Shipment[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@unique([companyId, name])
 }
 
 model Forwarder {
   id        String     @id @default(cuid())
   companyId String?
-  name      String     @unique
+  name      String
   contact   String?
   active    Boolean    @default(true)
   shipments Shipment[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@unique([companyId, name])
 }
 
 model Shipment {
   id            String         @id @default(cuid())
   companyId String?
-  reference     String         @unique
+  reference     String
   mode          ShipmentMode   @default(SEA)
   containerNo   String?
   cartons       Int?
   exFactoryDate DateTime?
-  blNumber      String?        @unique
+  blNumber      String?
   blDate        DateTime?
   telexStatus   TelexStatus    @default(PENDING)
   tcStatus      String?        // transaction-certificate status (free text: Working / NO TC / Send <date>)
@@ -634,6 +646,9 @@ model Shipment {
   updatedAt     DateTime       @updatedAt
 
   @@index([telexStatus])
+
+  @@unique([companyId, reference])
+  @@unique([companyId, blNumber])
 }
 
 enum InvoiceType {
@@ -671,7 +686,7 @@ model Invoice {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  @@unique([type, number])
+  @@unique([companyId, type, number])
   @@index([status])
   @@index([issueDate])
   @@index([poId])

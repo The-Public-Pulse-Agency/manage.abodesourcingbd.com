@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { assertPermission, type SessionUser } from "@/lib/auth/guard";
+import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { normalizeMasterData, type RawRow } from "./normalize";
 
@@ -15,22 +15,23 @@ export async function importMasterData(
   rows: RawRow[],
 ): Promise<ImportSummary> {
   assertPermission(actor, "masterData", "create");
+  const companyId = tenantId(actor);
   const data = normalizeMasterData(rows);
 
   for (const f of data.factories) {
     await prisma.factory.upsert({
-      where: { code: f.code },
+      where: { companyId_code: { companyId, code: f.code } },
       update: {},
-      create: { name: f.name, code: f.code },
+      create: { name: f.name, code: f.code, companyId },
     });
   }
 
   const buyerIdByCode = new Map<string, string>();
   for (const b of data.buyers) {
     const buyer = await prisma.buyer.upsert({
-      where: { code: b.code },
+      where: { companyId_code: { companyId, code: b.code } },
       update: {},
-      create: { name: b.name, code: b.code },
+      create: { name: b.name, code: b.code, companyId },
     });
     buyerIdByCode.set(b.code, buyer.id);
   }
@@ -42,7 +43,7 @@ export async function importMasterData(
     const brand = await prisma.brand.upsert({
       where: { buyerId_code: { buyerId, code: br.code } },
       update: {},
-      create: { buyerId, name: br.name, code: br.code },
+      create: { buyerId, name: br.name, code: br.code, companyId },
     });
     brandIdByCode.set(br.code, brand.id);
   }
@@ -53,7 +54,7 @@ export async function importMasterData(
     await prisma.style.upsert({
       where: { brandId_styleCode: { brandId, styleCode: st.styleCode } },
       update: {},
-      create: { brandId, styleCode: st.styleCode, name: st.name },
+      create: { brandId, styleCode: st.styleCode, name: st.name, companyId },
     });
   }
 

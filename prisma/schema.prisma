@@ -32,8 +32,11 @@ model Company {
   slug      String        @unique
   status    CompanyStatus @default(ACTIVE)
   packageId String?
+  signupIp  String? // source IP at self-serve signup (abuse rate-limiting)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+
+  @@index([signupIp, createdAt])
 }
 
 // SuperAdmin-defined subscription package (price + billing period only, per decision).

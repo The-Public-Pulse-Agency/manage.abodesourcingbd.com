@@ -1,19 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { signUpAction } from "@/lib/signup/form-actions";
 
 export function SignUpForm() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
     <form
       action={(fd) => start(async () => {
+        setError(null);
         const res = await signUpAction(fd);
         if (res?.error) setError(res.error);
+        else router.push("/login?welcome=1");
       })}
       className="space-y-3"
     >
+      {/* Honeypot — hidden from humans; bots fill it and get rejected. */}
+      <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 opacity-0" />
       <Field label="Company name"><input name="companyName" required className="input w-full" placeholder="e.g. Acme Sourcing" /></Field>
       <Field label="Your name"><input name="name" required className="input w-full" placeholder="Full name" /></Field>
       <Field label="Work email"><input name="email" type="email" required className="input w-full" placeholder="you@company.com" /></Field>

@@ -6,7 +6,8 @@ import type { ShippedRow } from "@/lib/reports/shipped";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
 import { ExportButton } from "./export-button";
-import { setInvoiceValue, setInvoiceDue, setShipmentTc, setShipmentContainer } from "@/lib/reports/inline-actions";
+import { RowDeleteButton } from "./row-delete-button";
+import { setInvoiceValue, setInvoiceDue, setShipmentTc, setShipmentContainer, deleteShipmentAction } from "@/lib/reports/inline-actions";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 const EXPORT_HEADERS = ["BL / Ref", "Factory", "Buyer", "Size", "Colour", "Qty", "Ship date", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status"];
@@ -87,10 +88,11 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
               <th className="px-3 py-2.5 font-semibold">Container</th>
               <th className="px-3 py-2.5 font-semibold">TC status</th>
               <th className="px-3 py-2.5 font-semibold">Edit</th>
+              <th className="px-3 py-2.5 font-semibold">Delete</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={14} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={15} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2 font-mono text-xs text-ink-soft">{r.reference}</td>
@@ -117,6 +119,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell></td>
                 <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell></td>
                 <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
+                <td className="px-3 py-2"><RowDeleteButton action={deleteShipmentAction} id={r.id} /></td>
               </tr>
             ))}
           </tbody>

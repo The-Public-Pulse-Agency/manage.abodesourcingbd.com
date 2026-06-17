@@ -139,6 +139,29 @@ export async function openOrderBookTotals(actor: SessionUser, filter: OpenOrderB
   return rollup([lineMills(sizes)]);
 }
 
+/**
+ * Delete a purchase order and its dependent records (lines, sizes, milestones, cost
+ * items, materials, samples, QC — all cascade; invoices removed too). Blocked when the
+ * order has shipments, to protect shipped data — delete those shipments first.
+ */
+export async function deletePurchaseOrder(actor: SessionUser, poId: string): Promise<void> {
+  assertPermission(actor, "orders", "delete");
+  const cid = tenantId(actor);
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, companyId: cid },
+    select: { poNumber: true, lines: { select: { shipmentLines: { select: { id: true }, take: 1 } } } },
+  });
+  if (!po) throw new Error("Order not found");
+  if (po.lines.some((l) => l.shipmentLines.length > 0)) {
+    throw new Error("This order has shipments — delete the shipment(s) first, then delete the order.");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.invoice.deleteMany({ where: { poId, companyId: cid } }); // payments cascade
+    await tx.purchaseOrder.deleteMany({ where: { id: poId, companyId: cid } }); // lines/sizes/milestones/etc. cascade
+  });
+  await recordAudit({ userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "delete", before: { poNumber: po.poNumber } });
+}
+
 /** Inline quick-edit of a PO's schedule dates (PO receive + confirmed ship). */
 export async function updateOrderSchedule(
   actor: SessionUser,

@@ -28,7 +28,10 @@ export type OpenOrderRow = {
   dyeing: StatusCell;
   bulkShade: StatusCell;
   ppSample: StatusCell;
+  cutting: StatusCell;
   bulkSewing: StatusCell;
+  printEmb: StatusCell;
+  topSample: StatusCell;
   finalInspectionDate: Date | null;
 };
 
@@ -40,7 +43,10 @@ const KEY = {
   dyeing: "FABRIC_IN",
   bulkShade: "LAB_DIP",
   ppSample: "PP_SAMPLE",
+  cutting: "CUTTING",
   bulkSewing: "SEWING",
+  printEmb: "PRINT_EMB",
+  topSample: "TOP_SAMPLE",
 } as const;
 
 function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrderWhereInput {
@@ -62,9 +68,10 @@ type PoForRow = Prisma.PurchaseOrderGetPayload<{
 }>;
 
 function mapRow(po: PoForRow, today: Date): OpenOrderRow {
-  const byKey = new Map(po.milestones.map((m) => [m.key, m]));
+  // Case-tolerant: default template keys are UPPER_CASE; user-added ones are lower_case.
+  const byKey = new Map(po.milestones.map((m) => [m.key.toUpperCase(), m]));
   const cell = (k: string): StatusCell => {
-    const m = byKey.get(k);
+    const m = byKey.get(k.toUpperCase());
     if (!m) return { state: "na", date: null };
     if (m.actualDate) return { state: "done", date: m.actualDate };
     if (m.plannedDate && m.plannedDate < today) return { state: "overdue", date: m.plannedDate };
@@ -92,7 +99,10 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     dyeing: cell(KEY.dyeing),
     bulkShade: cell(KEY.bulkShade),
     ppSample: cell(KEY.ppSample),
+    cutting: cell(KEY.cutting),
     bulkSewing: cell(KEY.bulkSewing),
+    printEmb: cell(KEY.printEmb),
+    topSample: cell(KEY.topSample),
     finalInspectionDate: byKey.get("FINAL_AQL")?.actualDate ?? null,
   };
 }

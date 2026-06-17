@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
-import { updateOrderSchedule } from "@/lib/orders/po";
+import { updateOrderSchedule, deletePurchaseOrder } from "@/lib/orders/po";
 import { updateInvoiceFields } from "@/lib/finance/invoices";
-import { updateShipment } from "@/lib/shipment/shipment";
+import { updateShipment, deleteShipment } from "@/lib/shipment/shipment";
 
 type Res = { error?: string };
 
@@ -50,4 +50,12 @@ export async function setInvoiceValue(id: string, value: string): Promise<Res> {
 
 export async function setInvoiceDue(id: string, value: string): Promise<Res> {
   return run((a) => updateInvoiceFields(a, id, { dueDate: parseDate(value) }));
+}
+
+export async function deleteOrderAction(poId: string): Promise<Res> {
+  return run((a) => deletePurchaseOrder(a, poId));
+}
+
+export async function deleteShipmentAction(id: string): Promise<Res> {
+  return run((a) => deleteShipment(a, id));
 }

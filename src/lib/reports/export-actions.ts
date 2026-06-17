@@ -13,7 +13,8 @@ export async function openOrdersExportAction(filter: OpenOrdersFilter): Promise<
   return rows.map((r) => [
     r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.sizes, r.colours,
     formatDate(r.confirmedShipDate), r.qty, r.totalValue || 0,
-    cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample), cellText(r.bulkSewing),
+    cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample),
+    cellText(r.cutting), cellText(r.bulkSewing), cellText(r.printEmb), cellText(r.topSample),
     formatDate(r.finalInspectionDate),
   ]);
 }

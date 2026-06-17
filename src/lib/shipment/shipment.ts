@@ -214,6 +214,46 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
   }
 }
 
+/**
+ * Delete a shipment (and its invoices/payments), then recompute each affected order's
+ * status — fully-shipped → SHIPPED, some → PARTLY_SHIPPED, none left → back to CONFIRMED.
+ * Used to correct mistaken / imported shipment records.
+ */
+export async function deleteShipment(actor: SessionUser, id: string): Promise<void> {
+  assertPermission(actor, "shipment", "delete");
+  const cid = tenantId(actor);
+  const shipment = await prisma.shipment.findFirst({
+    where: { id, companyId: cid },
+    include: { lines: { select: { orderLine: { select: { poId: true } } } } },
+  });
+  if (!shipment) throw new Error("Shipment not found");
+  const poIds = [...new Set(shipment.lines.map((l) => l.orderLine.poId))];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.invoice.deleteMany({ where: { shipmentId: id, companyId: cid } }); // payments cascade
+    await tx.shipment.deleteMany({ where: { id, companyId: cid } }); // lines + sizes cascade
+    for (const poId of poIds) {
+      const po = await tx.purchaseOrder.findFirst({ where: { id: poId, companyId: cid }, select: { status: true } });
+      if (!po) continue;
+      const lines = await tx.orderLine.findMany({
+        where: { poId, companyId: cid },
+        include: { sizes: true, shipmentLines: { include: { sizes: true } } },
+      });
+      const hasShip = lines.some((l) => l.shipmentLines.length > 0);
+      let next: "SHIPPED" | "PARTLY_SHIPPED" | "CONFIRMED" | null = null;
+      if (!hasShip) {
+        if (po.status === "SHIPPED" || po.status === "PARTLY_SHIPPED") next = "CONFIRMED";
+      } else {
+        next = isFullyShipped(lines) ? "SHIPPED" : "PARTLY_SHIPPED";
+      }
+      if (next && next !== po.status) {
+        await tx.purchaseOrder.updateMany({ where: { id: poId, companyId: cid }, data: { status: next } });
+      }
+    }
+  });
+  await recordAudit({ userId: actor.id, entityType: "Shipment", entityId: id, action: "delete", before: { reference: shipment.reference } });
+}
+
 export async function listShipments(actor: SessionUser) {
   assertPermission(actor, "shipment", "view");
   return prisma.shipment.findMany({

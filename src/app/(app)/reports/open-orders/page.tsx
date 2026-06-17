@@ -12,10 +12,11 @@ import { EditableCell } from "@/components/reports/editable-cell";
 import { ExportButton } from "@/components/reports/export-button";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { Pagination } from "@/components/pagination";
-import { setOrderShipDate, setOrderRecvDate } from "@/lib/reports/inline-actions";
+import { setOrderShipDate, setOrderRecvDate, deleteOrderAction } from "@/lib/reports/inline-actions";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Bulk sewing", "Final inspection"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Print/Emb", "TOP sample", "Final inspection"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 function Cell({ c }: { c: StatusCell }) {
@@ -93,11 +94,12 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Dyeing</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
-                <th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Edit</th>
+                <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Print/Emb</th>
+                <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Delete</th>
               </tr>
             </thead>
             <tbody>
-              {book.rows.length === 0 && <tr><td colSpan={18} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.length === 0 && <tr><td colSpan={22} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
               {book.rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
@@ -111,9 +113,11 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
                   <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
                   <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
-                  <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.bulkSewing} /></td>
+                  <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.cutting} /></td>
+                  <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
                   <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
+                  <td className="px-3 py-2"><RowDeleteButton action={deleteOrderAction} id={r.id} /></td>
                 </tr>
               ))}
             </tbody>

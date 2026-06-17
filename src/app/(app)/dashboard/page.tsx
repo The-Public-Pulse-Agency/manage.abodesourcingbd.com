@@ -81,6 +81,7 @@ export default async function DashboardPage() {
         <ReportCard href="/reports/development" icon={<IconTarget />} title="Development Program" desc="Lab dip, knitting & sample approvals" />
         <ReportCard href="/reports/shipped" icon={<IconShip />} title="Shipped Goods" desc="Invoices, payments, container & TC status" />
         <ReportCard href="/reports/factories" icon={<IconCert />} title="Factory Information" desc="Compliance certificates & validity" />
+        <ReportCard href="/reports/commission" icon={<IconCash />} title="Buyer Commission" desc="Factory vs own invoice, commission % & payment" />
       </div>
 
       {/* Exception tiles */}

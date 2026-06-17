@@ -177,6 +177,27 @@ model DevelopmentItem {
   @@index([companyId])
 }
 
+// Buyer-commission ledger: pairs a factory invoice with the buying house's own (buyer)
+// invoice + commission %. Standalone (buyer/factory as ids, no relations).
+model CommissionEntry {
+  id                  String    @id @default(cuid())
+  companyId           String?
+  buyerId             String?
+  factoryId           String?
+  factoryInvoiceNo    String?
+  factoryInvoiceValue Decimal?  @db.Decimal(14, 2)
+  commissionPct       Decimal?  @db.Decimal(6, 2)
+  ownInvoiceNo        String?
+  issueDate           DateTime?
+  dueDate             DateTime?
+  paymentStatus       String?
+  remarks             String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
 // Per-PO cost build-up behind the sell FOB (reference + margin analysis).
 model CostItem {
   id            String        @id @default(cuid())

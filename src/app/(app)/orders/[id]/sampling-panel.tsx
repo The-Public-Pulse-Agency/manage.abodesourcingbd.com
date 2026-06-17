@@ -34,7 +34,11 @@ function dateInput(v: string | Date | null): string {
 function awaitingDays(s: Sample): number | null {
   if (!s.sentDate || (s.status !== "PENDING" && s.status !== "SUBMITTED")) return null;
   const sent = typeof s.sentDate === "string" ? new Date(s.sentDate) : s.sentDate;
-  return Math.max(0, Math.floor((Date.now() - sent.getTime()) / 86_400_000));
+  // Floor "today" to UTC midnight so this agrees with the alert path (alerts/data.ts:85),
+  // which diffs businessToday(now) (UTC-midnight floor) against the UTC-midnight sentDate.
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.max(0, Math.floor((today - sent.getTime()) / 86_400_000));
 }
 type Opt = { id: string; name: string };
 

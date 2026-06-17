@@ -47,7 +47,7 @@ export async function fetchAlertData(now: Date, companyId: string): Promise<Aler
       include: { payments: true },
     }),
     prisma.sampleRequest.findMany({
-      where: { companyId, status: "PENDING", sentDate: { not: null } },
+      where: { companyId, status: { in: ["PENDING", "SUBMITTED"] }, sentDate: { not: null } },
       include: { po: true },
     }),
   ]);

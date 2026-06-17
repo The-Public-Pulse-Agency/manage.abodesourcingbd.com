@@ -10,11 +10,12 @@ export type { TemplateDef } from "./template-data";
 
 const STAGES = ["PRE_PRODUCTION", "SAMPLING", "PRODUCTION_QC", "SHIPPING"] as const;
 
-/** Seed the default critical-path template for a company (idempotent per company). */
-export async function seedTemplates(companyId: string): Promise<void> {
-  const existing = await prisma.taMilestoneTemplate.count({ where: { companyId } });
+/** Seed the default critical-path template for a company (idempotent per company).
+ * Accepts an optional transaction client so signup can provision atomically. */
+export async function seedTemplates(companyId: string, db: Prisma.TransactionClient = prisma): Promise<void> {
+  const existing = await db.taMilestoneTemplate.count({ where: { companyId } });
   if (existing > 0) return;
-  await prisma.taMilestoneTemplate.createMany({
+  await db.taMilestoneTemplate.createMany({
     data: DEFAULT_TEMPLATES.map((t) => ({ ...t, companyId })),
   });
 }

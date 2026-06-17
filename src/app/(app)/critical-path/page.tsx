@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { criticalPathBoard, criticalPathSummary, type StageProgress } from "@/lib/tna/board";
+import { businessToday } from "@/lib/tna/schedule";
 import { RagChip } from "@/components/rag-chip";
 import { CountUp } from "@/components/dashboard/count-up";
 import { formatDate } from "@/lib/format";
@@ -10,7 +11,7 @@ import { formatDate } from "@/lib/format";
 export default async function CriticalPathPage() {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "criticalPath", "view")) redirect("/dashboard");
-  const now = new Date();
+  const now = businessToday(new Date());
   const [items, summary] = await Promise.all([
     criticalPathBoard(actor, { now }),
     criticalPathSummary(actor, { now }),

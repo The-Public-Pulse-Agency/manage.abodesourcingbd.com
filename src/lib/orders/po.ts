@@ -1,7 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { can } from "@/lib/auth/permissions";
 import { recordAudit } from "@/lib/audit";
+import { rebaseMilestones } from "@/lib/tna/milestones";
 import { createPoSchema, type CreatePoInput, type OpenOrderBookFilter } from "./schema";
 import { lineMills, rollup, type Decimalish, type Totals } from "./money";
 
@@ -186,4 +188,10 @@ export async function updateOrderSchedule(
   if (input.notes !== undefined) data.notes = input.notes || null;
   await prisma.purchaseOrder.update({ where: { id: poId }, data });
   await recordAudit({ userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "edit", after: data });
+  // A ship-date change must re-base the critical path so un-actualed milestone planned
+  // dates move with it. rebaseMilestones asserts criticalPath:edit, so only call it when
+  // the actor holds that permission — a schedule save shouldn't fail on a missing rebase right.
+  if (input.exFactoryDate !== undefined && can(actor.role, "criticalPath", "edit")) {
+    await rebaseMilestones(actor, poId);
+  }
 }

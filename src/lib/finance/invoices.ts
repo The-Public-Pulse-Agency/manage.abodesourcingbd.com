@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
+import { outstanding } from "./money";
+import { recomputeInvoiceStatus } from "./payments";
 
 const invoiceTypes = ["BUYER", "FACTORY"] as const;
 
@@ -127,7 +129,10 @@ export async function updateInvoiceFields(
 ) {
   assertPermission(actor, "finance", "edit");
   const cid = tenantId(actor);
-  const existing = await prisma.invoice.findFirst({ where: { id, companyId: cid }, select: { id: true } });
+  const existing = await prisma.invoice.findFirst({
+    where: { id, companyId: cid },
+    include: { payments: true },
+  });
   if (!existing) throw new Error("Invoice not found");
   const data: {
     amount?: Prisma.Decimal | number;
@@ -136,17 +141,52 @@ export async function updateInvoiceFields(
     number?: string;
     issueDate?: Date;
   } = {};
-  if (input.amount !== undefined && input.amount >= 0) data.amount = input.amount;
+  const amountChanged = input.amount !== undefined && input.amount >= 0;
+  if (amountChanged) data.amount = input.amount;
   if (input.dueDate !== undefined) data.dueDate = input.dueDate;
-  if (input.status && (INVOICE_STATUSES as readonly string[]).includes(input.status)) data.status = input.status as (typeof INVOICE_STATUSES)[number];
+  const explicitStatus =
+    input.status && (INVOICE_STATUSES as readonly string[]).includes(input.status)
+      ? (input.status as (typeof INVOICE_STATUSES)[number])
+      : undefined;
+  if (explicitStatus) data.status = explicitStatus;
   if (input.number !== undefined) {
     const trimmed = input.number.trim();
     if (!trimmed) throw new Error("Invoice number cannot be empty");
     data.number = trimmed;
   }
   if (input.issueDate !== undefined) data.issueDate = input.issueDate;
+
+  // #18 manual-status-no-payment-validation: an explicit status must be consistent with
+  // the authoritative payment set. Outstanding is computed from the effective amount
+  // (the new amount if it's also being changed, else the current one) minus payments.
+  if (explicitStatus) {
+    const effectiveAmount = amountChanged ? (input.amount as number) : existing.amount;
+    const out = outstanding(effectiveAmount, existing.payments);
+    if (explicitStatus === "PAID" && out > 0) {
+      throw new Error("Cannot mark invoice PAID while it has an outstanding balance");
+    }
+    if (explicitStatus === "ISSUED" && existing.payments.length > 0) {
+      throw new Error("Cannot set invoice to ISSUED while payments exist");
+    }
+    if (explicitStatus === "PARTIALLY_PAID" && (existing.payments.length === 0 || out <= 0)) {
+      throw new Error("Cannot set invoice to PARTIALLY_PAID without a partial payment");
+    }
+  }
+
+  // #7 invoice-amount-edit-stale-status: changing the amount (or issueDate) without an
+  // explicit status can leave a stored PAID/PARTIALLY_PAID diverged from the new amount vs
+  // payment set, so recompute the status from the authoritative payments after the write.
+  // recomputeInvoiceStatus requires a TransactionClient, so wrap the update + recompute.
+  const recompute = amountChanged && !explicitStatus;
   try {
-    await prisma.invoice.update({ where: { id }, data });
+    if (recompute) {
+      await prisma.$transaction(async (tx) => {
+        await tx.invoice.update({ where: { id }, data });
+        await recomputeInvoiceStatus(tx, id, cid);
+      });
+    } else {
+      await prisma.invoice.update({ where: { id }, data });
+    }
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       throw new Error("An invoice with that number already exists");

@@ -32,8 +32,11 @@ export async function factoryLeagueTable(actor: SessionUser, opts: { now?: Date 
       select: { plannedDate: true, actualDate: true, po: { select: { factoryId: true } } },
     }),
     prisma.inspection.findMany({
-      where: { type: "FINAL", companyId: tenantId(actor) },
-      select: { result: true, po: { select: { factoryId: true } } },
+      // Final-AQL pass rate: only inspections on live orders count (exclude CANCELLED/CLOSED
+      // POs); re-inspections are deduped to the latest FINAL per PO below.
+      where: { type: "FINAL", companyId: tenantId(actor), po: { status: { notIn: ["CANCELLED", "CLOSED"] } } },
+      select: { poId: true, result: true, date: true, createdAt: true, po: { select: { factoryId: true } } },
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     }),
   ]);
 
@@ -53,8 +56,14 @@ export async function factoryLeagueTable(actor: SessionUser, opts: { now?: Date 
     exByFactory.set(fid, arr);
   }
 
+  // Dedup to the latest FINAL inspection per PO so a re-inspection doesn't double-count.
+  // Rows arrive ordered by (date, createdAt) asc, so the last write per PO is the newest
+  // (createdAt breaks same-day ties).
+  const latestByPo = new Map<string, (typeof finalInspections)[number]>();
+  for (const i of finalInspections) latestByPo.set(i.poId, i);
+
   const aqlByFactory = new Map<string, { pass: number; total: number }>();
-  for (const i of finalInspections) {
+  for (const i of latestByPo.values()) {
     const fid = i.po.factoryId;
     const a = aqlByFactory.get(fid) ?? { pass: 0, total: 0 };
     a.total += 1;

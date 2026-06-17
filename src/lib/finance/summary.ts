@@ -25,8 +25,12 @@ function cents(v: { toString(): string }): number {
 
 export async function financeSummary(actor: SessionUser, opts: { now: Date }): Promise<FinanceSummary> {
   assertPermission(actor, "finance", "view");
+  // Platform finance KPIs are USD-scoped (single-currency contract — see
+  // lib/orders/money.ts): receivable/payable/realised-margin must not mix
+  // currencies, and these totals carry no FX conversion. Non-USD invoices
+  // (EUR/BDT/etc.) are intentionally excluded from these rollups.
   const invoices = await prisma.invoice.findMany({
-    where: { companyId: tenantId(actor) },
+    where: { companyId: tenantId(actor), currency: "USD" },
     include: { payments: true },
   });
 

@@ -6,6 +6,7 @@ import { shippedGoodsReport, type ShippedRow } from "@/lib/reports/shipped";
 import { formatQty } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
 import { ShippedTable } from "@/components/reports/shipped-table";
+import { Pagination } from "@/components/pagination";
 
 function topBy(rows: ShippedRow[], key: (r: ShippedRow) => string, val: (r: ShippedRow) => number, n = 7) {
   const m = new Map<string, number>();
@@ -13,16 +14,22 @@ function topBy(rows: ShippedRow[], key: (r: ShippedRow) => string, val: (r: Ship
   return [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, n);
 }
 
-export default async function ShippedReportPage() {
+type SP = { page?: string };
+
+export default async function ShippedReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
-  const rows = await shippedGoodsReport(actor);
+  const sp = await searchParams;
+  const report = await shippedGoodsReport(actor, { page: Math.max(1, Number(sp.page) || 1) });
+  const { rows, kpis } = report;
 
-  const totalQty = rows.reduce((a, r) => a + r.qty, 0);
-  const totalValue = rows.reduce((a, r) => a + (r.invoiceValue ?? 0), 0);
-  const paid = rows.filter((r) => r.paymentStatus === "PAID").length;
-  const awaiting = rows.filter((r) => r.paymentStatus && r.paymentStatus !== "PAID").length;
+  // Headline KPIs span ALL shipments (DB aggregate), not just the visible page.
+  const totalQty = kpis.totalQty;
+  const totalValue = kpis.receivableUsd;
+  const paid = kpis.paid;
+  const awaiting = kpis.awaiting;
 
+  // Charts summarise the current page of rows (matches the open-orders report pattern).
   const byFactory = topBy(rows, (r) => r.factory, (r) => r.qty);
   const byBuyer = topBy(rows, (r) => r.buyer, () => 1);
   const facMax = Math.max(1, ...byFactory.map((d) => d.value));
@@ -39,7 +46,7 @@ export default async function ShippedReportPage() {
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-2 text-xs text-ink-soft">
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
-            {rows.length} shipments
+            {kpis.shipments} shipments
           </span>
           {can(actor.role, "shipment", "create") && (
             <Link href="/shipments/new" className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90">+ New shipment</Link>
@@ -48,7 +55,7 @@ export default async function ShippedReportPage() {
       </div>
 
       <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>
-        <Kpi label="Shipments" rail="var(--accent)"><CountUp value={rows.length} format="qty" /></Kpi>
+        <Kpi label="Shipments" rail="var(--accent)"><CountUp value={kpis.shipments} format="qty" /></Kpi>
         <Kpi label="Shipped quantity (pcs)" rail="var(--ink)"><CountUp value={totalQty} format="qty" /></Kpi>
         <Kpi label="Invoiced value (USD)" rail="var(--ok)"><CountUp value={totalValue} format="money" /></Kpi>
         <Kpi label="Awaiting payment" rail="var(--warn)"><CountUp value={awaiting} format="qty" /><span className="ml-2 text-xs font-normal text-ink-soft">/ {paid} paid</span></Kpi>
@@ -63,8 +70,9 @@ export default async function ShippedReportPage() {
         </ChartCard>
       </div>
 
-      <div className="rise" style={{ animationDelay: "180ms" }}>
+      <div className="rise space-y-3" style={{ animationDelay: "180ms" }}>
         <ShippedTable rows={rows} />
+        <Pagination page={report.page} totalPages={report.totalPages} total={report.total} pageSize={report.pageSize} params={sp} />
       </div>
     </div>
   );

@@ -11,6 +11,11 @@ const TELEX_ORDER = ["PENDING", "RECEIVED", "RELEASED"];
 
 // IN_PRODUCTION is forward-compat (no phase sets it yet).
 const SHIPPABLE = ["CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"] as const;
+// Statuses whose value is derived from shipment data and may therefore be safely
+// recomputed when a shipment is deleted / a line qty is edited. SHIPPED is added
+// because reverting it (→ PARTLY_SHIPPED / CONFIRMED) is a valid recompute, whereas
+// CLOSED / CANCELLED / ON_HOLD / DRAFT are manual states that must never be overwritten.
+const RECOMPUTABLE = [...SHIPPABLE, "SHIPPED"] as const;
 
 export const createShipmentSchema = z
   .object({
@@ -254,7 +259,23 @@ export async function deleteShipment(actor: SessionUser, id: string): Promise<vo
         next = isFullyShipped(lines) ? "SHIPPED" : "PARTLY_SHIPPED";
       }
       if (next && next !== po.status) {
-        await tx.purchaseOrder.updateMany({ where: { id: poId, companyId: cid }, data: { status: next } });
+        const res = await tx.purchaseOrder.updateMany({
+          where: { id: poId, companyId: cid, status: { in: [...RECOMPUTABLE] } },
+          data: { status: next },
+        });
+        if (res.count > 0) {
+          await recordAudit(
+            {
+              userId: actor.id,
+              entityType: "PurchaseOrder",
+              entityId: poId,
+              action: "edit",
+              before: { status: po.status },
+              after: { status: next },
+            },
+            tx,
+          );
+        }
       }
     }
   });
@@ -317,7 +338,23 @@ export async function updateShipmentLineQty(actor: SessionUser, shipmentLineSize
           next = isFullyShipped(lines) ? "SHIPPED" : "PARTLY_SHIPPED";
         }
         if (next && next !== po.status) {
-          await tx.purchaseOrder.updateMany({ where: { id: poId, companyId: cid }, data: { status: next } });
+          const res = await tx.purchaseOrder.updateMany({
+            where: { id: poId, companyId: cid, status: { in: [...RECOMPUTABLE] } },
+            data: { status: next },
+          });
+          if (res.count > 0) {
+            await recordAudit(
+              {
+                userId: actor.id,
+                entityType: "PurchaseOrder",
+                entityId: poId,
+                action: "edit",
+                before: { status: po.status },
+                after: { status: next },
+              },
+              tx,
+            );
+          }
         }
       }
 

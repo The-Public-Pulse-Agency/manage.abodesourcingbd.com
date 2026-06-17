@@ -20,7 +20,7 @@ export type RecordPaymentInput = z.input<typeof recordPaymentSchema>;
  * Mirrors recordPayment's logic, extended to also revert to ISSUED when nothing is paid
  * (relevant after a payment update/delete). Tenant-scoped via companyId on both reads + writes.
  */
-async function recomputeInvoiceStatus(
+export async function recomputeInvoiceStatus(
   tx: Prisma.TransactionClient,
   invoiceId: string,
   companyId: string | null,

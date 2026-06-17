@@ -4,8 +4,9 @@ import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { businessToday } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 
-const OPEN_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"] as const;
-const SUMMARY_CAP = 20_000; // bound the in-app aggregation at extreme scale
+// ON_HOLD is an active (non-finished, non-cancelled) status — held orders stay
+// visible in the canonical open-order book/pipeline.
+const OPEN_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED", "ON_HOLD"] as const;
 
 export type StatusCell = { state: "done" | "overdue" | "pending" | "na"; date: Date | null };
 
@@ -175,24 +176,41 @@ export type OpenOrdersSummary = {
 /** KPI + chart aggregates over the filtered set (light projection — no milestone graph). */
 export async function openOrdersSummary(actor: SessionUser, filter: OpenOrdersFilter): Promise<OpenOrdersSummary> {
   assertPermission(actor, "orders", "view");
-  const pos = await prisma.purchaseOrder.findMany({
-    where: whereFor(actor, filter),
-    select: { exFactoryDate: true, factory: { select: { name: true } }, buyer: { select: { name: true } }, lines: { select: { sizes: { select: { qty: true, netFob: true, sellFob: true } } } } },
-    take: SUMMARY_CAP,
-  });
+  // KPI value/qty are USD-scoped (single-currency contract — see lib/orders/money.ts):
+  // the money lib forbids mixing currencies in one rollup and order-line FOB carries no
+  // currency tag, so only USD POs contribute to totalQty/totalValue.
+  const where: Prisma.PurchaseOrderWhereInput = { ...whereFor(actor, filter), currency: "USD" };
+
+  // count() is the true matching-PO count (no in-app cap), so it never diverges from the
+  // value/qty rollup at scale; totals come from a flat size aggregate over the same
+  // where-clause (mirrors openOrderBookTotals in lib/orders/po.ts — accurate under any size).
+  const [count, sizes, pos] = await Promise.all([
+    prisma.purchaseOrder.count({ where }),
+    prisma.orderLineSize.findMany({
+      where: { companyId: tenantId(actor), orderLine: { po: where } },
+      select: { qty: true, netFob: true, sellFob: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      where,
+      select: { exFactoryDate: true, factory: { select: { name: true } }, buyer: { select: { name: true } }, lines: { select: { sizes: { select: { qty: true } } } } },
+    }),
+  ]);
+
+  const totals = rollup([lineMills(sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])]);
+
+  // Chart aggregates (qty-by-factory, count-by-buyer, shipping≤30d) need per-PO grouping
+  // that a single aggregate can't express, so derive them from a light per-PO projection.
   const now = Date.now();
-  let totalQty = 0, totalValue = 0, shipping30 = 0;
+  let shipping30 = 0;
   const fac = new Map<string, number>(), buy = new Map<string, number>();
   for (const po of pos) {
-    const t = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
-    totalQty += t.qty;
-    totalValue += t.value;
-    fac.set(po.factory.name, (fac.get(po.factory.name) ?? 0) + t.qty);
+    const qty = po.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
+    fac.set(po.factory.name, (fac.get(po.factory.name) ?? 0) + qty);
     buy.set(po.buyer.name, (buy.get(po.buyer.name) ?? 0) + 1);
     if (po.exFactoryDate && +po.exFactoryDate >= now && +po.exFactoryDate <= now + 30 * 86_400_000) shipping30++;
   }
   const top = (m: Map<string, number>) => [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 7);
-  return { count: pos.length, totalQty, totalValue, shipping30, byFactory: top(fac), byBuyer: top(buy) };
+  return { count, totalQty: totals.qty, totalValue: totals.value, shipping30, byFactory: top(fac), byBuyer: top(buy) };
 }
 
 /** All filtered rows for CSV export (bounded). */

@@ -67,34 +67,31 @@ export async function signUp(
   }
 
   const slug = await uniqueSlug(data.companyName);
-  const company = await prisma.company.create({ data: { name: data.companyName.trim(), slug, signupIp: opts.ip ?? null } });
-  const companyId = company.id;
+  // Hash BEFORE the transaction so the slow bcrypt work never holds the tx open.
+  const passwordHash = await hashPassword(data.password);
+  const trialEnd = new Date(Date.now() + 30 * 86_400_000);
 
-  await prisma.user.create({
-    data: {
-      name: data.name.trim(),
-      email,
-      role: "ADMIN",
-      passwordHash: await hashPassword(data.password),
-      companyId,
-    },
+  // Provision the whole tenant atomically: a failure mid-seed rolls back entirely
+  // rather than leaving a half-built, unrecoverable company (e.g. a company with no
+  // admin, or an admin with no subscription/templates).
+  const companyId = await prisma.$transaction(async (tx) => {
+    const company = await tx.company.create({ data: { name: data.companyName.trim(), slug, signupIp: opts.ip ?? null } });
+    const cid = company.id;
+    await tx.user.create({ data: { name: data.name.trim(), email, role: "ADMIN", passwordHash, companyId: cid } });
+    // 30-day trial subscription (id == companyId).
+    await tx.subscription.create({ data: { id: cid, currentPeriodEnd: trialEnd } });
+    // Seed defaults so the company can start immediately.
+    await seedTemplates(cid, tx);
+    for (const [name, sizes] of Object.entries(DEFAULT_SCALES)) {
+      await tx.sizeScale.create({
+        data: { name, companyId: cid, sizes: { create: sizes.map((label, position) => ({ label, position, companyId: cid })) } },
+      });
+    }
+    for (const name of DEFAULT_COLOURS) {
+      await tx.colour.create({ data: { name, companyId: cid } });
+    }
+    return cid;
   });
-
-  // 30-day trial subscription (id == companyId).
-  await prisma.subscription.create({
-    data: { id: companyId, currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000) },
-  });
-
-  // Seed defaults so the company can start immediately.
-  await seedTemplates(companyId);
-  for (const [name, sizes] of Object.entries(DEFAULT_SCALES)) {
-    await prisma.sizeScale.create({
-      data: { name, companyId, sizes: { create: sizes.map((label, position) => ({ label, position, companyId })) } },
-    });
-  }
-  for (const name of DEFAULT_COLOURS) {
-    await prisma.colour.create({ data: { name, companyId } });
-  }
 
   return { companyId, email };
 }

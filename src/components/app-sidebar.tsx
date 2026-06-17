@@ -47,9 +47,9 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
             href={i.href}
             onClick={() => setOpen(false)}
             aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors ${
+            className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
               active
-                ? "bg-accent-soft font-semibold text-accent"
+                ? "bg-gradient-to-r from-accent-soft to-transparent font-semibold text-accent shadow-[inset_0_0_0_1px_rgba(211,47,47,0.12)] before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent"
                 : "text-ink-soft hover:bg-paper hover:text-ink"
             }`}
           >
@@ -63,7 +63,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
 
   const brand = (
     <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-baseline gap-2 px-5 py-4">
-      <span className="font-mono text-base font-bold tracking-tight text-accent">Pulse</span>
+      <span className="brand-gradient font-mono text-base font-bold tracking-tight">Pulse</span>
       <span className="text-sm font-semibold tracking-tight">OMS</span>
     </Link>
   );
@@ -133,7 +133,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
   return (
     <>
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-2 md:hidden">
+      <header className="glass sticky top-0 z-30 flex items-center justify-between border-b border-line px-4 py-2 md:hidden">
         <button
           type="button"
           aria-label="Open menu"
@@ -143,7 +143,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
           ☰
         </button>
         <Link href="/dashboard" className="flex items-baseline gap-2">
-          <span className="font-mono text-sm font-bold tracking-tight text-accent">Pulse</span>
+          <span className="brand-gradient font-mono text-sm font-bold tracking-tight">Pulse</span>
           <span className="text-sm font-semibold tracking-tight">OMS</span>
         </Link>
         <Link href="/notifications" aria-label="Notifications" className="relative text-ink-soft hover:text-accent">
@@ -157,7 +157,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
       </header>
 
       {/* Desktop fixed sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
+      <aside className="glass sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line md:flex">
         {brand}
         {nav}
         {footer}
@@ -172,7 +172,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-ink/30"
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-surface shadow-xl">
+          <aside className="glass absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line shadow-2xl">
             {brand}
             {nav}
             {footer}

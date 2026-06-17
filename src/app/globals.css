@@ -39,9 +39,65 @@
 }
 
 body {
-  background: var(--paper);
+  /* Subtle dotted texture across the whole app + a faint accent wash top-left. */
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(circle, rgba(30, 41, 59, 0.05) 1px, transparent 1.5px),
+    radial-gradient(1200px 600px at 0% -5%, rgba(211, 47, 47, 0.04), transparent 70%);
+  background-size: 22px 22px, 100% 100%;
+  background-position: -11px -11px, 0 0;
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-plex-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Auth screens — soft gradient mesh backdrop behind the sign-in / sign-up card. */
+.auth-bg {
+  background:
+    radial-gradient(900px 520px at 12% -10%, rgba(211, 47, 47, 0.1), transparent 55%),
+    radial-gradient(900px 520px at 88% 110%, rgba(30, 41, 59, 0.1), transparent 55%),
+    var(--paper);
+}
+
+/* Brand wordmark gradient (the accent "Pulse"). */
+.brand-gradient {
+  background: linear-gradient(120deg, var(--accent), #f0663f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Glassmorphism surface — translucent + blur, used for the sidebar & sticky chrome. */
+.glass {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* Thin, unobtrusive scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink-soft) 35%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink-soft) 55%, transparent);
+  background-clip: content-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* Tabular, monospaced numerals for money / quantities so columns align. */
@@ -133,11 +189,13 @@ table tbody tr:hover {
   background-color: var(--accent-soft);
 }
 
-/* Reusable hover-lift for cards / tiles. */
+/* Reusable hover-lift for cards / tiles — lifts with a soft accent glow. */
 .card-hover:hover {
-  border-color: var(--accent);
-  box-shadow: 0 8px 22px -14px rgba(28, 25, 23, 0.35);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow:
+    0 18px 38px -18px rgba(211, 47, 47, 0.22),
+    0 8px 16px -10px rgba(15, 23, 42, 0.12);
+  transform: translateY(-3px);
 }
 
 /* Accent links underline on hover. */
@@ -161,22 +219,28 @@ table tbody tr:hover {
   animation: fade-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Soft elevation so cards read as surfaces, not flat boxes (Salesforce-like). */
+/* Soft, layered elevation + a hairline top highlight so cards read as crisp glass
+   panels, not flat boxes. */
 .elevate {
   box-shadow:
-    0 1px 2px rgba(28, 25, 23, 0.06),
-    0 1px 1px rgba(28, 25, 23, 0.03);
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 2px 10px -3px rgba(15, 23, 42, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .elevate-lg {
-  box-shadow: 0 10px 30px -18px rgba(28, 25, 23, 0.35);
+  box-shadow:
+    0 14px 44px -16px rgba(15, 23, 42, 0.2),
+    0 4px 12px -6px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-/* Sticky, crisp table headers for scannable list views. */
+/* Sticky, crisp table headers for scannable list views — subtle gradient + hairline. */
 .list-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--paper);
+  background: linear-gradient(180deg, var(--surface), var(--paper));
+  border-bottom: 1px solid var(--line);
 }
 
 /* Skeleton shimmer — a live loading shimmer instead of a dead grey block. */
@@ -282,17 +346,26 @@ table tbody tr:hover {
     var(--surface);
 }
 
-/* KPI tile: a colored signal rail on the leading edge. */
+/* KPI tile: a glossy gradient surface + a colored signal rail on the leading edge. */
 .kpi {
   position: relative;
   overflow: hidden;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--kpi-rail, var(--accent)) 6%, var(--surface)), var(--surface) 55%);
+  transition: box-shadow 0.18s ease, transform 0.12s ease;
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 30px -16px color-mix(in srgb, var(--kpi-rail, var(--accent)) 40%, transparent),
+    0 4px 10px -6px rgba(15, 23, 42, 0.12);
 }
 .kpi::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: var(--kpi-rail, var(--accent));
+  background: linear-gradient(180deg, var(--kpi-rail, var(--accent)), color-mix(in srgb, var(--kpi-rail, var(--accent)) 45%, transparent));
   opacity: 0.85;
 }
 

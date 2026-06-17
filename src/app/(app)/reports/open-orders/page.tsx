@@ -1,31 +1,46 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { openOrdersReport, type OpenOrderRow } from "@/lib/reports/open-orders";
-import { formatQty } from "@/lib/format";
+import { listOpenOrders, openOrdersSummary, type OpenOrdersFilter, type StatusCell } from "@/lib/reports/open-orders";
+import { openOrdersExportAction } from "@/lib/reports/export-actions";
+import { listFactories } from "@/lib/masterdata/factory";
+import { listBuyers } from "@/lib/masterdata/buyer";
+import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
-import { OpenOrdersTable } from "@/components/reports/open-orders-table";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { ExportButton } from "@/components/reports/export-button";
+import { ReportFilters } from "@/components/reports/report-filters";
+import { Pagination } from "@/components/pagination";
+import { setOrderShipDate, setOrderRecvDate } from "@/lib/reports/inline-actions";
 
-function topBy(rows: OpenOrderRow[], key: (r: OpenOrderRow) => string, val: (r: OpenOrderRow) => number, n = 7) {
-  const m = new Map<string, number>();
-  for (const r of rows) m.set(key(r), (m.get(key(r)) ?? 0) + val(r));
-  return [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, n);
+const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Bulk sewing", "Final inspection"];
+const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
+
+function Cell({ c }: { c: StatusCell }) {
+  if (c.state === "na") return <span className="text-ink-soft">—</span>;
+  if (c.state === "done") return <span className="inline-flex rounded-sm bg-ok-soft px-1.5 py-0.5 text-[0.625rem] font-semibold text-ok">✓ {c.date ? formatDate(c.date) : "done"}</span>;
+  if (c.state === "overdue") return <span className="inline-flex rounded-sm bg-bad-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-bad">overdue</span>;
+  return <span className="inline-flex rounded-sm bg-warn-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-warn">pending</span>;
 }
 
-export default async function OpenOrdersReportPage() {
+type SP = { page?: string; status?: string; factory?: string; buyer?: string; q?: string };
+
+export default async function OpenOrdersReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
   if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
-  const rows = await openOrdersReport(actor, { now: new Date() });
+  const sp = await searchParams;
+  const filter: OpenOrdersFilter = { status: sp.status, factoryId: sp.factory, buyerId: sp.buyer, q: sp.q };
 
-  const totalQty = rows.reduce((a, r) => a + r.qty, 0);
-  const totalValue = rows.reduce((a, r) => a + r.totalValue, 0);
-  const now = Date.now();
-  const shipping30 = rows.filter((r) => r.confirmedShipDate && r.confirmedShipDate.getTime() >= now && r.confirmedShipDate.getTime() <= now + 30 * 86_400_000).length;
-
-  const byFactory = topBy(rows, (r) => r.factory, (r) => r.qty);
-  const byBuyer = topBy(rows, (r) => r.buyer, () => 1);
-  const facMax = Math.max(1, ...byFactory.map((d) => d.value));
-  const buyMax = Math.max(1, ...byBuyer.map((d) => d.value));
+  const [book, summary, factories, buyers] = await Promise.all([
+    listOpenOrders(actor, filter, { page: Math.max(1, Number(sp.page) || 1) }),
+    openOrdersSummary(actor, filter),
+    listFactories(actor),
+    listBuyers(actor),
+  ]);
+  const facMax = Math.max(1, ...summary.byFactory.map((d) => d.value));
+  const buyMax = Math.max(1, ...summary.byBuyer.map((d) => d.value));
 
   return (
     <div className="space-y-6">
@@ -37,28 +52,74 @@ export default async function OpenOrdersReportPage() {
         </div>
         <div className="flex items-center gap-2 text-xs text-ink-soft">
           <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
-          {rows.length} live orders
+          {book.total} matching orders
         </div>
       </div>
 
       <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>
-        <Kpi label="Open orders" rail="var(--accent)"><CountUp value={rows.length} format="qty" /></Kpi>
-        <Kpi label="Total quantity (pcs)" rail="var(--ink)"><CountUp value={totalQty} format="qty" /></Kpi>
-        <Kpi label="Order value (USD)" rail="var(--ok)"><CountUp value={totalValue} format="money" /></Kpi>
-        <Kpi label="Shipping ≤ 30 days" rail="var(--warn)"><CountUp value={shipping30} format="qty" /></Kpi>
+        <Kpi label="Open orders" rail="var(--accent)"><CountUp value={book.total} format="qty" /></Kpi>
+        <Kpi label="Total quantity (pcs)" rail="var(--ink)"><CountUp value={summary.totalQty} format="qty" /></Kpi>
+        <Kpi label="Order value (USD)" rail="var(--ok)"><CountUp value={summary.totalValue} format="money" /></Kpi>
+        <Kpi label="Shipping ≤ 30 days" rail="var(--warn)"><CountUp value={summary.shipping30} format="qty" /></Kpi>
       </div>
 
       <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "120ms" }}>
-        <ChartCard title="Quantity by factory">
-          <BarChart data={byFactory} max={facMax} color="var(--accent)" fmt={(v) => formatQty(v)} />
-        </ChartCard>
-        <ChartCard title="Orders by buyer">
-          <BarChart data={byBuyer} max={buyMax} color="var(--ink)" fmt={(v) => formatQty(v)} />
-        </ChartCard>
+        <ChartCard title="Quantity by factory"><BarChart data={summary.byFactory} max={facMax} color="var(--accent)" /></ChartCard>
+        <ChartCard title="Orders by buyer"><BarChart data={summary.byBuyer} max={buyMax} color="var(--ink)" /></ChartCard>
       </div>
 
-      <div className="rise" style={{ animationDelay: "180ms" }}>
-        <OpenOrdersTable rows={rows} />
+      <div className="rise space-y-3" style={{ animationDelay: "180ms" }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-[15rem] flex-1">
+            <ReportFilters
+              searchPlaceholder="Search PO number…"
+              resultLabel={`${book.rows.length} on this page · ${book.total} total`}
+              selects={[
+                { param: "status", allLabel: "All statuses", options: ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"].map((s) => ({ value: s, label: s.replace("_", " ").toLowerCase() })) },
+                { param: "factory", allLabel: "All factories", options: factories.map((f) => ({ value: f.id, label: f.name })) },
+                { param: "buyer", allLabel: "All buyers", options: buyers.map((b) => ({ value: b.id, label: b.name })) },
+              ]}
+            />
+          </div>
+          <ExportButton filename="open-orders.csv" headers={EXPORT_HEADERS} action={openOrdersExportAction as (a: unknown) => Promise<(string | number)[][]>} actionArg={filter} />
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">
+          <table className="list-table w-full whitespace-nowrap text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
+                <th className="px-3 py-2.5 font-semibold">PO</th><th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">PO recvd</th>
+                <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Size</th>
+                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
+                <th className="px-3 py-2.5 font-semibold">Dyeing</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
+                <th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Edit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {book.rows.length === 0 && <tr><td colSpan={18} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.map((r) => (
+                <tr key={r.id} className="border-b border-line last:border-0">
+                  <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
+                  <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
+                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell></td>
+                  <td className="px-3 py-2">{r.factory}</td>
+                  <td className="px-3 py-2">{r.buyer}</td>
+                  <td className="px-3 py-2 text-xs">{r.sizes}</td>
+                  <td className="px-3 py-2 text-xs">{r.colours}</td>
+                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell></td>
+                  <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
+                  <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
+                  <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
+                  <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.bulkSewing} /></td>
+                  <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
+                  <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pagination page={book.page} totalPages={book.totalPages} total={book.total} pageSize={book.pageSize} params={sp} />
       </div>
     </div>
   );
@@ -76,25 +137,21 @@ function Kpi({ label, rail, children }: { label: string; rail: string; children:
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
-      <div className="border-b border-line bg-paper px-4 py-2.5">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{title}</h3>
-      </div>
+      <div className="border-b border-line bg-paper px-4 py-2.5"><h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{title}</h3></div>
       <div className="p-4">{children}</div>
     </div>
   );
 }
 
-function BarChart({ data, max, color, fmt }: { data: { label: string; value: number }[]; max: number; color: string; fmt: (v: number) => string }) {
+function BarChart({ data, max, color }: { data: { label: string; value: number }[]; max: number; color: string }) {
   if (data.length === 0) return <p className="py-6 text-center text-sm text-ink-soft">No data.</p>;
   return (
     <div className="space-y-2.5">
       {data.map((d) => (
         <div key={d.label} className="grid grid-cols-[8rem_1fr_3.5rem] items-center gap-3 text-sm">
           <span className="truncate text-ink-soft" title={d.label}>{d.label}</span>
-          <div className="h-2.5 overflow-hidden rounded-full bg-paper">
-            <div className="bar-fill h-full rounded-full" style={{ width: `${Math.max(3, (d.value / max) * 100)}%`, background: color }} />
-          </div>
-          <span className="tnum text-right text-xs font-semibold">{fmt(d.value)}</span>
+          <div className="h-2.5 overflow-hidden rounded-full bg-paper"><div className="bar-fill h-full rounded-full" style={{ width: `${Math.max(3, (d.value / max) * 100)}%`, background: color }} /></div>
+          <span className="tnum text-right text-xs font-semibold">{formatQty(d.value)}</span>
         </div>
       ))}
     </div>

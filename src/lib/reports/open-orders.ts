@@ -1,9 +1,11 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { businessToday } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 
 const OPEN_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"] as const;
+const SUMMARY_CAP = 20_000; // bound the in-app aggregation at extreme scale
 
 export type StatusCell = { state: "done" | "overdue" | "pending" | "na"; date: Date | null };
 
@@ -30,66 +32,135 @@ export type OpenOrderRow = {
   finalInspectionDate: Date | null;
 };
 
-// Which critical-path milestone backs each status column.
+export type OpenOrdersFilter = { status?: string; factoryId?: string; buyerId?: string; q?: string };
+
 const KEY = {
   trims: "TRIMS_BOOKED",
   yarn: "FABRIC_BOOKED",
-  dyeing: "FABRIC_IN", // bulk fabric in-house ≈ dyeing complete
-  bulkShade: "LAB_DIP", // lab-dip approval = bulk shade approval
+  dyeing: "FABRIC_IN",
+  bulkShade: "LAB_DIP",
   ppSample: "PP_SAMPLE",
   bulkSewing: "SEWING",
 } as const;
 
-export async function openOrdersReport(actor: SessionUser, opts: { now?: Date } = {}): Promise<OpenOrderRow[]> {
+function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrderWhereInput {
+  const status =
+    f.status && (OPEN_STATUSES as readonly string[]).includes(f.status)
+      ? { equals: f.status as (typeof OPEN_STATUSES)[number] }
+      : { in: [...OPEN_STATUSES] };
+  return {
+    companyId: tenantId(actor),
+    status,
+    ...(f.factoryId ? { factoryId: f.factoryId } : {}),
+    ...(f.buyerId ? { buyerId: f.buyerId } : {}),
+    ...(f.q ? { poNumber: { contains: f.q, mode: "insensitive" } } : {}),
+  };
+}
+
+type PoForRow = Prisma.PurchaseOrderGetPayload<{
+  include: { buyer: true; factory: true; lines: { include: { sizes: true; colour: true } }; milestones: { select: { key: true; plannedDate: true; actualDate: true } } };
+}>;
+
+function mapRow(po: PoForRow, today: Date): OpenOrderRow {
+  const byKey = new Map(po.milestones.map((m) => [m.key, m]));
+  const cell = (k: string): StatusCell => {
+    const m = byKey.get(k);
+    if (!m) return { state: "na", date: null };
+    if (m.actualDate) return { state: "done", date: m.actualDate };
+    if (m.plannedDate && m.plannedDate < today) return { state: "overdue", date: m.plannedDate };
+    return { state: "pending", date: m.plannedDate };
+  };
+  const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
+  const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
+  const totals = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
+  return {
+    id: po.id,
+    poNumber: po.poNumber,
+    status: po.status,
+    poReceiveDate: po.orderDate,
+    factory: po.factory.name,
+    buyer: po.buyer.name,
+    sizes: sizes || "—",
+    colours: colours || "—",
+    confirmedShipDate: po.exFactoryDate,
+    qty: totals.qty,
+    pricePerUnit: totals.qty > 0 ? Math.round((totals.value / totals.qty) * 10000) / 10000 : 0,
+    totalValue: totals.value,
+    currency: po.currency,
+    trims: cell(KEY.trims),
+    yarn: cell(KEY.yarn),
+    dyeing: cell(KEY.dyeing),
+    bulkShade: cell(KEY.bulkShade),
+    ppSample: cell(KEY.ppSample),
+    bulkSewing: cell(KEY.bulkSewing),
+    finalInspectionDate: byKey.get("FINAL_AQL")?.actualDate ?? null,
+  };
+}
+
+/** Server-side filtered + paginated rows (bounds the heavy include query at scale). */
+export async function listOpenOrders(
+  actor: SessionUser,
+  filter: OpenOrdersFilter,
+  opts: { page?: number; pageSize?: number; now?: Date } = {},
+) {
   assertPermission(actor, "orders", "view");
   const today = businessToday(opts.now ?? new Date());
-
+  const where = whereFor(actor, filter);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 50));
+  const total = await prisma.purchaseOrder.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
   const pos = await prisma.purchaseOrder.findMany({
-    where: { status: { in: [...OPEN_STATUSES] }, companyId: tenantId(actor) },
-    include: {
-      buyer: true,
-      factory: true,
-      lines: { include: { sizes: true, colour: true } },
-      milestones: { select: { key: true, plannedDate: true, actualDate: true } },
-    },
+    where,
+    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
+  return { rows: pos.map((po) => mapRow(po, today)), total, page, pageSize, totalPages };
+}
 
-  return pos.map((po) => {
-    const byKey = new Map(po.milestones.map((m) => [m.key, m]));
-    const cell = (k: string): StatusCell => {
-      const m = byKey.get(k);
-      if (!m) return { state: "na", date: null };
-      if (m.actualDate) return { state: "done", date: m.actualDate };
-      if (m.plannedDate && m.plannedDate < today) return { state: "overdue", date: m.plannedDate };
-      return { state: "pending", date: m.plannedDate };
-    };
+export type OpenOrdersSummary = {
+  count: number;
+  totalQty: number;
+  totalValue: number;
+  shipping30: number;
+  byFactory: { label: string; value: number }[];
+  byBuyer: { label: string; value: number }[];
+};
 
-    const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
-    const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
-    const totals = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
-
-    return {
-      id: po.id,
-      poNumber: po.poNumber,
-      status: po.status,
-      poReceiveDate: po.orderDate,
-      factory: po.factory.name,
-      buyer: po.buyer.name,
-      sizes: sizes || "—",
-      colours: colours || "—",
-      confirmedShipDate: po.exFactoryDate,
-      qty: totals.qty,
-      pricePerUnit: totals.qty > 0 ? Math.round((totals.value / totals.qty) * 10000) / 10000 : 0,
-      totalValue: totals.value,
-      currency: po.currency,
-      trims: cell(KEY.trims),
-      yarn: cell(KEY.yarn),
-      dyeing: cell(KEY.dyeing),
-      bulkShade: cell(KEY.bulkShade),
-      ppSample: cell(KEY.ppSample),
-      bulkSewing: cell(KEY.bulkSewing),
-      finalInspectionDate: byKey.get("FINAL_AQL")?.actualDate ?? null,
-    };
+/** KPI + chart aggregates over the filtered set (light projection — no milestone graph). */
+export async function openOrdersSummary(actor: SessionUser, filter: OpenOrdersFilter): Promise<OpenOrdersSummary> {
+  assertPermission(actor, "orders", "view");
+  const pos = await prisma.purchaseOrder.findMany({
+    where: whereFor(actor, filter),
+    select: { exFactoryDate: true, factory: { select: { name: true } }, buyer: { select: { name: true } }, lines: { select: { sizes: { select: { qty: true, netFob: true, sellFob: true } } } } },
+    take: SUMMARY_CAP,
   });
+  const now = Date.now();
+  let totalQty = 0, totalValue = 0, shipping30 = 0;
+  const fac = new Map<string, number>(), buy = new Map<string, number>();
+  for (const po of pos) {
+    const t = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
+    totalQty += t.qty;
+    totalValue += t.value;
+    fac.set(po.factory.name, (fac.get(po.factory.name) ?? 0) + t.qty);
+    buy.set(po.buyer.name, (buy.get(po.buyer.name) ?? 0) + 1);
+    if (po.exFactoryDate && +po.exFactoryDate >= now && +po.exFactoryDate <= now + 30 * 86_400_000) shipping30++;
+  }
+  const top = (m: Map<string, number>) => [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 7);
+  return { count: pos.length, totalQty, totalValue, shipping30, byFactory: top(fac), byBuyer: top(buy) };
+}
+
+/** All filtered rows for CSV export (bounded). */
+export async function openOrdersForExport(actor: SessionUser, filter: OpenOrdersFilter): Promise<OpenOrderRow[]> {
+  assertPermission(actor, "orders", "view");
+  const today = businessToday(new Date());
+  const pos = await prisma.purchaseOrder.findMany({
+    where: whereFor(actor, filter),
+    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
+    orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    take: 5_000,
+  });
+  return pos.map((po) => mapRow(po, today));
 }

@@ -4,6 +4,7 @@ import { can } from "@/lib/auth/permissions";
 import { listFactoriesWithCertificates } from "@/lib/masterdata/certificates";
 import { FactoryCertificates, type CertRow } from "@/components/factory-certificates";
 import { CountUp } from "@/components/dashboard/count-up";
+import { ExportButton } from "@/components/reports/export-button";
 import { formatDate } from "@/lib/format";
 
 function validity(d: Date | null): CertRow["validityState"] {
@@ -24,6 +25,12 @@ export default async function FactoryInfoPage() {
   const expiring = allCerts.filter((c) => validity(c.validUntil) === "expiring").length;
   const expired = allCerts.filter((c) => validity(c.validUntil) === "expired").length;
 
+  const exportRows: (string | number)[][] = factories.flatMap((f) =>
+    f.certificates.length === 0
+      ? [[f.name, f.code, f.type, "—", "", ""]]
+      : f.certificates.map((c) => [f.name, f.code, f.type, c.name, c.number ?? "", c.validUntil ? formatDate(c.validUntil) : ""]),
+  );
+
   return (
     <div className="space-y-6">
       <div className="rise flex flex-wrap items-end justify-between gap-3">
@@ -32,6 +39,7 @@ export default async function FactoryInfoPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Factory Information</h1>
           <p className="mt-1 text-sm text-ink-soft">Compliance certificates &amp; validity across your factory base.</p>
         </div>
+        <ExportButton filename="factory-certificates.csv" headers={["Factory", "Code", "Type", "Certificate", "Number", "Valid until"]} rows={exportRows} />
       </div>
 
       <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>

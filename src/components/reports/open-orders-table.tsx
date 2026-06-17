@@ -5,9 +5,12 @@ import Link from "next/link";
 import type { OpenOrderRow, StatusCell } from "@/lib/reports/open-orders";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
+import { ExportButton } from "./export-button";
 import { setOrderShipDate, setOrderRecvDate } from "@/lib/reports/inline-actions";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+const cellText = (c: StatusCell) => (c.state === "na" ? "—" : c.state === "done" ? `done ${c.date ? formatDate(c.date) : ""}`.trim() : c.state);
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Bulk sewing", "Final inspection"];
 
 const STATUS_CLS: Record<string, string> = {
   DRAFT: "bg-paper text-ink-soft",
@@ -67,7 +70,14 @@ export function OpenOrdersTable({ rows }: { rows: OpenOrderRow[] }) {
         {(q || factory || buyer || status) && (
           <button type="button" onClick={() => { setQ(""); setFactory(""); setBuyer(""); setStatus(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
-        <span className="ml-auto text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
+        <div className="ml-auto flex items-center gap-3">
+          <ExportButton
+            filename="open-orders.csv"
+            headers={EXPORT_HEADERS}
+            rows={filtered.map((r) => [r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.sizes, r.colours, formatDate(r.confirmedShipDate), r.qty, r.totalValue || 0, cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample), cellText(r.bulkSewing), formatDate(r.finalInspectionDate)])}
+          />
+          <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">

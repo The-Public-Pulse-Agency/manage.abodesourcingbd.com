@@ -112,10 +112,10 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
         )}
       </Link>
       <div className="flex items-center justify-between gap-2 px-3">
-        <div className="min-w-0">
+        <Link href="/account" onClick={() => setOpen(false)} className="min-w-0 rounded-sm hover:text-accent" aria-label="My account">
           <p className="truncate text-sm font-medium">{name}</p>
           <p className="font-mono text-[0.625rem] uppercase tracking-wide text-ink-soft">{role}</p>
-        </div>
+        </Link>
         <form action={logoutAction}>
           <button
             type="submit"

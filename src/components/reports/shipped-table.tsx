@@ -5,9 +5,11 @@ import Link from "next/link";
 import type { ShippedRow } from "@/lib/reports/shipped";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
+import { ExportButton } from "./export-button";
 import { setInvoiceValue, setInvoiceDue, setShipmentTc, setShipmentContainer } from "@/lib/reports/inline-actions";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+const EXPORT_HEADERS = ["BL / Ref", "Factory", "Buyer", "Size", "Colour", "Qty", "Ship date", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -57,7 +59,14 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
         {(q || factory || buyer || pay) && (
           <button type="button" onClick={() => { setQ(""); setFactory(""); setBuyer(""); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
-        <span className="ml-auto text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
+        <div className="ml-auto flex items-center gap-3">
+          <ExportButton
+            filename="shipped-goods.csv"
+            headers={EXPORT_HEADERS}
+            rows={filtered.map((r) => [r.reference, r.factory, r.buyer, r.sizes, r.colours, r.qty, formatDate(r.shipDate), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? ""])}
+          />
+          <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">

@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listBrands, listBuyers } from "@/lib/masterdata/buyer";
 import { MasterDataTable, type Column } from "@/components/master-data-table";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
+import { deleteBrandAction } from "@/lib/masterdata/delete-form-actions";
 import { BrandForm } from "../buyers/buyer-forms";
 
 type BrandRow = Awaited<ReturnType<typeof listBrands>>[number];
@@ -31,6 +33,9 @@ export default async function BrandsPage() {
         </Link>
       ),
     });
+  }
+  if (can(actor.role, "masterData", "delete")) {
+    columns.push({ header: "Delete", align: "right", cell: (b) => <RowDeleteButton action={deleteBrandAction} id={b.id} /> });
   }
   return (
     <div className="space-y-6">

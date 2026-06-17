@@ -5,6 +5,8 @@ import { can } from "@/lib/auth/permissions";
 import { listStyles } from "@/lib/masterdata/style";
 import { listBrands } from "@/lib/masterdata/buyer";
 import { MasterDataTable, type Column } from "@/components/master-data-table";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
+import { deleteStyleAction } from "@/lib/masterdata/delete-form-actions";
 import { StyleForm } from "./style-form";
 
 export default async function StylesPage() {
@@ -29,6 +31,9 @@ export default async function StylesPage() {
         </Link>
       ),
     });
+  }
+  if (can(actor.role, "masterData", "delete")) {
+    columns.push({ header: "Delete", align: "right", cell: (s) => <RowDeleteButton action={deleteStyleAction} id={s.id} /> });
   }
   return (
     <div className="space-y-6">

@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listColours } from "@/lib/masterdata/sizescale";
 import { MasterDataTable, type Column } from "@/components/master-data-table";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
+import { deleteColourAction } from "@/lib/masterdata/delete-form-actions";
 import { ColourForm } from "./colour-form";
 
 type ColourRow = Awaited<ReturnType<typeof listColours>>[number];
@@ -30,6 +32,9 @@ export default async function ColoursPage() {
         </Link>
       ),
     });
+  }
+  if (can(actor.role, "masterData", "delete")) {
+    columns.push({ header: "Delete", align: "right", cell: (c) => <RowDeleteButton action={deleteColourAction} id={c.id} /> });
   }
   return (
     <div className="space-y-6">

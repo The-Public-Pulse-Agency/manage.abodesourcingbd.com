@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpenOrderRow, StatusCell } from "@/lib/reports/open-orders";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
+import { EditableCell } from "./editable-cell";
+import { setOrderShipDate, setOrderRecvDate } from "@/lib/reports/inline-actions";
+
+const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
 const STATUS_CLS: Record<string, string> = {
   DRAFT: "bg-paper text-ink-soft",
@@ -61,7 +65,7 @@ export function OpenOrdersTable({ rows }: { rows: OpenOrderRow[] }) {
           {statuses.map((s) => <option key={s} value={s}>{s.replace("_", " ").toLowerCase()}</option>)}
         </select>
         {(q || factory || buyer || status) && (
-          <button onClick={() => { setQ(""); setFactory(""); setBuyer(""); setStatus(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
+          <button type="button" onClick={() => { setQ(""); setFactory(""); setBuyer(""); setStatus(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
         <span className="ml-auto text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
       </div>
@@ -96,12 +100,12 @@ export function OpenOrdersTable({ rows }: { rows: OpenOrderRow[] }) {
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
                 <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.poReceiveDate)}</td>
+                <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell></td>
                 <td className="px-3 py-2">{r.factory}</td>
                 <td className="px-3 py-2">{r.buyer}</td>
                 <td className="px-3 py-2 text-xs">{r.sizes}</td>
                 <td className="px-3 py-2 text-xs">{r.colours}</td>
-                <td className="px-3 py-2 tnum text-xs">{formatDate(r.confirmedShipDate)}</td>
+                <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell></td>
                 <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
                 <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
                 <td className="px-3 py-2"><Cell c={r.trims} /></td>

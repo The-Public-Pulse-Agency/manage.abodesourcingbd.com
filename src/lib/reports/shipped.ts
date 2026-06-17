@@ -10,6 +10,7 @@ export type ShippedRow = {
   colours: string;
   qty: number;
   shipDate: Date | null;
+  invoiceId: string | null;
   invoiceNumber: string | null;
   invoiceValue: number | null;
   invoiceDueDate: Date | null;
@@ -51,6 +52,7 @@ export async function shippedGoodsReport(actor: SessionUser): Promise<ShippedRow
       colours: colours || "—",
       qty,
       shipDate: s.exFactoryDate ?? s.blDate,
+      invoiceId: inv?.id ?? null,
       invoiceNumber: inv?.number ?? null,
       invoiceValue: inv ? Number(inv.amount) : null,
       invoiceDueDate: inv?.dueDate ?? null,

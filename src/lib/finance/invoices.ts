@@ -114,3 +114,20 @@ export async function listInvoicesPaged(
   });
   return { rows, total, page, pageSize, totalPages };
 }
+
+/** Inline quick-edit of an invoice's value + due date. */
+export async function updateInvoiceFields(
+  actor: SessionUser,
+  id: string,
+  input: { amount?: number; dueDate?: Date | null },
+) {
+  assertPermission(actor, "finance", "edit");
+  const cid = tenantId(actor);
+  const existing = await prisma.invoice.findFirst({ where: { id, companyId: cid }, select: { id: true } });
+  if (!existing) throw new Error("Invoice not found");
+  const data: { amount?: Prisma.Decimal | number; dueDate?: Date | null } = {};
+  if (input.amount !== undefined && input.amount >= 0) data.amount = input.amount;
+  if (input.dueDate !== undefined) data.dueDate = input.dueDate;
+  await prisma.invoice.update({ where: { id }, data });
+  await recordAudit({ userId: actor.id, entityType: "Invoice", entityId: id, action: "edit", after: input });
+}

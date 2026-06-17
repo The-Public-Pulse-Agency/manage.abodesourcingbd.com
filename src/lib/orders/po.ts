@@ -138,3 +138,20 @@ export async function openOrderBookTotals(actor: SessionUser, filter: OpenOrderB
   });
   return rollup([lineMills(sizes)]);
 }
+
+/** Inline quick-edit of a PO's schedule dates (PO receive + confirmed ship). */
+export async function updateOrderSchedule(
+  actor: SessionUser,
+  poId: string,
+  input: { orderDate?: Date | null; exFactoryDate?: Date | null },
+) {
+  assertPermission(actor, "orders", "edit");
+  const cid = tenantId(actor);
+  const existing = await prisma.purchaseOrder.findFirst({ where: { id: poId, companyId: cid }, select: { id: true } });
+  if (!existing) throw new Error("Order not found");
+  const data: { orderDate?: Date | null; exFactoryDate?: Date | null } = {};
+  if (input.orderDate !== undefined) data.orderDate = input.orderDate;
+  if (input.exFactoryDate !== undefined) data.exFactoryDate = input.exFactoryDate;
+  await prisma.purchaseOrder.update({ where: { id: poId }, data });
+  await recordAudit({ userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "edit", after: data });
+}

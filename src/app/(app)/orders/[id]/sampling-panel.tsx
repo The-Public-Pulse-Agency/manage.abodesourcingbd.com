@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSampleAction, updateSampleStatusAction } from "@/lib/sampling/form-actions";
+import {
+  createSampleAction,
+  updateSampleStatusAction,
+  setSampleSentDate,
+  setSampleRemarks,
+  setSampleColour,
+  deleteSampleAction,
+} from "@/lib/sampling/form-actions";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 type Sample = {
   id: string;
@@ -11,7 +20,15 @@ type Sample = {
   status: string;
   approvedDate: string | Date | null;
   sentDate: string | Date | null;
+  remarks: string | null;
 };
+
+/** YYYY-MM-DD for an EditableCell date input ("" when unset). */
+function dateInput(v: string | Date | null): string {
+  if (!v) return "";
+  const d = typeof v === "string" ? new Date(v) : v;
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
 
 /** Days a sent sample has been awaiting approval (null if not sent or already decided). */
 function awaitingDays(s: Sample): number | null {
@@ -54,6 +71,8 @@ export function SamplingPanel({
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const colourName = (id: string | null) => colours.find((c) => c.id === id)?.name ?? "—";
+  // EditableCell select options; leading blank entry clears the colour.
+  const colourOpts = [{ value: "", label: "(no colour)" }, ...colours.map((c) => ({ value: c.id, label: c.name }))];
 
   async function advance(id: string, status: string) {
     setMsg(null);
@@ -74,18 +93,62 @@ export function SamplingPanel({
           <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
             <th className="px-3 py-1.5 font-semibold">Type</th>
             <th className="px-3 py-1.5 font-semibold">Colour</th>
+            <th className="px-3 py-1.5 font-semibold">Sent</th>
+            <th className="px-3 py-1.5 font-semibold">Remarks</th>
             <th className="px-3 py-1.5 font-semibold">Status</th>
             {canEdit && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
         <tbody>
           {samples.length === 0 && (
-            <tr><td colSpan={canEdit ? 4 : 3} className="px-3 py-4 text-center text-ink-soft">No samples yet.</td></tr>
+            <tr><td colSpan={canEdit ? 6 : 5} className="px-3 py-4 text-center text-ink-soft">No samples yet.</td></tr>
           )}
           {samples.map((s) => (
             <tr key={s.id} className="border-b border-line last:border-0">
               <td className="px-3 py-1.5 font-mono text-xs">{s.type.replace(/_/g, " ")}</td>
-              <td className="px-3 py-1.5">{colourName(s.colourId)}</td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <EditableCell
+                    id={s.id}
+                    raw={s.colourId ?? ""}
+                    type="select"
+                    options={colourOpts}
+                    action={(id, value) => setSampleColour(poId, id, value)}
+                  >
+                    {colourName(s.colourId)}
+                  </EditableCell>
+                ) : (
+                  colourName(s.colourId)
+                )}
+              </td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <EditableCell
+                    id={s.id}
+                    raw={dateInput(s.sentDate)}
+                    type="date"
+                    action={(id, value) => setSampleSentDate(poId, id, value)}
+                  >
+                    {dateInput(s.sentDate)}
+                  </EditableCell>
+                ) : (
+                  dateInput(s.sentDate) || "—"
+                )}
+              </td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <EditableCell
+                    id={s.id}
+                    raw={s.remarks ?? ""}
+                    placeholder="—"
+                    action={(id, value) => setSampleRemarks(poId, id, value)}
+                  >
+                    {s.remarks}
+                  </EditableCell>
+                ) : (
+                  s.remarks || "—"
+                )}
+              </td>
               <td className="px-3 py-1.5">
                 <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[s.status] ?? ""}`}>
                   {s.status}
@@ -112,6 +175,9 @@ export function SamplingPanel({
                       {n.label}
                     </button>
                   ))}
+                  <span className="ml-2 inline-flex">
+                    <RowDeleteButton id={s.id} action={(id) => deleteSampleAction(poId, id)} />
+                  </span>
                 </td>
               )}
             </tr>
@@ -138,6 +204,7 @@ export function SamplingPanel({
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          <input name="sentDate" type="date" className="input text-xs" aria-label="Sent date" />
           <input name="remarks" placeholder="Remarks" className="input text-xs" />
           <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
             Add sample

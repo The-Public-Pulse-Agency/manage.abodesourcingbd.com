@@ -3,18 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createEnquiryAction, updateEnquiryAction, convertEnquiryAction } from "@/lib/enquiries/form-actions";
+import { createEnquiryAction, updateEnquiryAction, convertEnquiryAction, deleteEnquiryAction, type ActionResult } from "@/lib/enquiries/form-actions";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 export type EnquiryRow = {
   id: string;
   buyerName: string;
   brandName: string;
+  factoryId: string | null;
   factoryName: string | null;
   styleRef: string;
   targetQty: number | null;
   targetPriceUsd: number | null;
   quotedPriceUsd: number | null;
   requiredShipDate: string | null;
+  requiredShipDateRaw: string | null;
+  notes: string | null;
   status: string;
   convertedPoId: string | null;
 };
@@ -50,7 +55,13 @@ export function EnquiryManager({
   const brandOpts = brands.filter((b) => !buyerId || b.buyerId === buyerId);
 
   async function setStatus(id: string, status: string) {
-    const r = await updateEnquiryAction(id, { status });
+    let lostReason: string | undefined;
+    if (status === "LOST") {
+      const reason = window.prompt("Reason this enquiry was lost (optional):");
+      if (reason === null) { router.refresh(); return; } // cancelled — revert the dropdown
+      lostReason = reason.trim();
+    }
+    const r = await updateEnquiryAction(id, { status, ...(status === "LOST" ? { lostReason } : {}) });
     if (!r.ok) setMsg(r.error);
     else router.refresh();
   }
@@ -67,6 +78,20 @@ export function EnquiryManager({
     else if (!r.ok) setMsg(r.error);
   }
 
+  // EditableCell action wrappers: each commits one field through updateEnquiryAction.
+  const toRes = (r: ActionResult) => (r.ok ? {} : { error: r.error });
+  const editQty = (id: string, v: string) =>
+    updateEnquiryAction(id, { targetQty: v ? Number(v) : null }).then(toRes);
+  const editTargetPrice = (id: string, v: string) =>
+    updateEnquiryAction(id, { targetPriceUsd: v ? Number(v) : null }).then(toRes);
+  const editShipDate = (id: string, v: string) =>
+    updateEnquiryAction(id, { requiredShipDate: v || null }).then(toRes);
+  const editNotes = (id: string, v: string) =>
+    updateEnquiryAction(id, { notes: v || null }).then(toRes);
+  const editFactory = (id: string, v: string) =>
+    updateEnquiryAction(id, { factoryId: v }).then(toRes);
+  const factoryOpts = [{ value: "", label: "—" }, ...factories.map((f) => ({ value: f.id, label: f.name }))];
+
   return (
     <div className="space-y-4">
       {msg && <p className="text-sm text-bad">{msg}</p>}
@@ -82,12 +107,14 @@ export function EnquiryManager({
               <th className="px-3 py-2 text-right font-semibold">Target $</th>
               <th className="px-3 py-2 text-right font-semibold">Quoted $</th>
               <th className="px-3 py-2 font-semibold">Req. ship</th>
+              <th className="px-3 py-2 font-semibold">Notes</th>
               <th className="px-3 py-2" />
+              {canEdit && <th className="px-3 py-2 font-semibold">Delete</th>}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-10 text-center text-ink-soft">No enquiries yet.</td></tr>
+              <tr><td colSpan={canEdit ? 11 : 10} className="px-3 py-10 text-center text-ink-soft">No enquiries yet.</td></tr>
             )}
             {rows.map((e) => (
               <tr key={e.id} className="border-b border-line last:border-0">
@@ -102,15 +129,36 @@ export function EnquiryManager({
                 </td>
                 <td className="px-3 py-2"><div className="font-medium">{e.buyerName}</div><div className="text-xs text-ink-soft">{e.brandName}</div></td>
                 <td className="px-3 py-2">{e.styleRef}</td>
-                <td className="px-3 py-2">{e.factoryName ?? <span className="text-ink-soft">—</span>}</td>
-                <td className="px-3 py-2 text-right tnum">{e.targetQty ?? "—"}</td>
-                <td className="px-3 py-2 text-right tnum">{e.targetPriceUsd ?? "—"}</td>
+                <td className="px-3 py-2 text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.factoryId ?? ""} type="select" options={factoryOpts} action={editFactory}>{e.factoryName ?? "—"}</EditableCell>
+                  ) : (e.factoryName ?? <span className="text-ink-soft">—</span>)}
+                </td>
+                <td className="px-3 py-2 text-right tnum text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.targetQty != null ? String(e.targetQty) : ""} type="number" align="right" action={editQty}>{e.targetQty ?? "—"}</EditableCell>
+                  ) : (e.targetQty ?? "—")}
+                </td>
+                <td className="px-3 py-2 text-right tnum text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.targetPriceUsd != null ? String(e.targetPriceUsd) : ""} type="number" align="right" action={editTargetPrice}>{e.targetPriceUsd ?? "—"}</EditableCell>
+                  ) : (e.targetPriceUsd ?? "—")}
+                </td>
                 <td className="px-3 py-2 text-right tnum">
                   {canEdit && !e.convertedPoId ? (
                     <input aria-label="Quoted price" defaultValue={e.quotedPriceUsd ?? ""} onBlur={(ev) => setQuote(e.id, ev.target.value)} inputMode="decimal" className="input tnum w-20 text-right text-xs" />
                   ) : (e.quotedPriceUsd ?? "—")}
                 </td>
-                <td className="px-3 py-2 tnum text-xs">{e.requiredShipDate ?? "—"}</td>
+                <td className="px-3 py-2 tnum text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.requiredShipDateRaw ?? ""} type="date" action={editShipDate}>{e.requiredShipDate ?? "—"}</EditableCell>
+                  ) : (e.requiredShipDate ?? "—")}
+                </td>
+                <td className="px-3 py-2 text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.notes ?? ""} type="text" action={editNotes}>{e.notes ?? "—"}</EditableCell>
+                  ) : (e.notes ?? <span className="text-ink-soft">—</span>)}
+                </td>
                 <td className="px-3 py-2 text-right">
                   {e.convertedPoId ? (
                     <Link href={`/orders/${e.convertedPoId}`} className="text-xs text-accent hover:underline">View order →</Link>
@@ -118,6 +166,15 @@ export function EnquiryManager({
                     <button type="button" onClick={() => convert(e.id)} className="rounded-sm bg-accent px-2 py-1 text-xs font-semibold text-white hover:opacity-90">Convert to order</button>
                   ) : null}
                 </td>
+                {canEdit && (
+                  <td className="px-3 py-2">
+                    {e.convertedPoId ? (
+                      <span className="text-[0.625rem] text-ink-soft">Converted</span>
+                    ) : (
+                      <RowDeleteButton action={async (id) => { const r = await deleteEnquiryAction(id); return r.ok ? {} : { error: r.error }; }} id={e.id} />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -146,6 +203,7 @@ export function EnquiryManager({
           <input name="targetQty" inputMode="numeric" placeholder="Qty" className="input tnum w-20 text-right text-xs" aria-label="Target qty" />
           <input name="targetPriceUsd" inputMode="decimal" placeholder="Target $" className="input tnum w-24 text-right text-xs" aria-label="Target price" />
           <input name="requiredShipDate" type="date" className="input text-xs" aria-label="Required ship date" />
+          <input name="notes" placeholder="Notes" className="input text-xs" aria-label="Notes" />
           <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Add enquiry</button>
         </form>
       )}

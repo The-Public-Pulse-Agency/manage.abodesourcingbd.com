@@ -121,16 +121,37 @@ const INVOICE_STATUSES = ["ISSUED", "PARTIALLY_PAID", "PAID"] as const;
 export async function updateInvoiceFields(
   actor: SessionUser,
   id: string,
-  input: { amount?: number; dueDate?: Date | null; status?: string },
+  // NOTE: type + currency are intentionally NOT editable — type flips AR/AP classification
+  // and currency corrupts the single-currency rollups (spec §14). Create-time only.
+  input: { amount?: number; dueDate?: Date | null; status?: string; number?: string; issueDate?: Date },
 ) {
   assertPermission(actor, "finance", "edit");
   const cid = tenantId(actor);
   const existing = await prisma.invoice.findFirst({ where: { id, companyId: cid }, select: { id: true } });
   if (!existing) throw new Error("Invoice not found");
-  const data: { amount?: Prisma.Decimal | number; dueDate?: Date | null; status?: (typeof INVOICE_STATUSES)[number] } = {};
+  const data: {
+    amount?: Prisma.Decimal | number;
+    dueDate?: Date | null;
+    status?: (typeof INVOICE_STATUSES)[number];
+    number?: string;
+    issueDate?: Date;
+  } = {};
   if (input.amount !== undefined && input.amount >= 0) data.amount = input.amount;
   if (input.dueDate !== undefined) data.dueDate = input.dueDate;
   if (input.status && (INVOICE_STATUSES as readonly string[]).includes(input.status)) data.status = input.status as (typeof INVOICE_STATUSES)[number];
-  await prisma.invoice.update({ where: { id }, data });
+  if (input.number !== undefined) {
+    const trimmed = input.number.trim();
+    if (!trimmed) throw new Error("Invoice number cannot be empty");
+    data.number = trimmed;
+  }
+  if (input.issueDate !== undefined) data.issueDate = input.issueDate;
+  try {
+    await prisma.invoice.update({ where: { id }, data });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new Error("An invoice with that number already exists");
+    }
+    throw e;
+  }
   await recordAudit({ userId: actor.id, entityType: "Invoice", entityId: id, action: "edit", after: input });
 }

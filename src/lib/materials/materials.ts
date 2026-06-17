@@ -77,6 +77,37 @@ export async function receiveMaterial(
   return updated;
 }
 
+export const materialUpdateSchema = z.object({
+  description: z.string().min(1).optional(),
+  supplier: z.string().nullable().optional(),
+  bookedQty: z.coerce.number().nonnegative().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  bookingRef: z.string().nullable().optional(),
+  etaDate: z.coerce.date().nullable().optional(),
+});
+export type MaterialUpdateInput = z.input<typeof materialUpdateSchema>;
+
+/** Correct an existing booking's details (no milestone re-stamping). Tenant-scoped. */
+export async function updateMaterial(actor: SessionUser, id: string, input: MaterialUpdateInput) {
+  assertPermission(actor, "productionQc", "edit");
+  const m = await prisma.materialBooking.findFirst({ where: { id, companyId: tenantId(actor) } });
+  if (!m) throw new Error("Material booking not found");
+  const data = materialUpdateSchema.parse(input);
+
+  const patch: Record<string, unknown> = {};
+  if (data.description !== undefined) patch.description = data.description.trim();
+  if (data.supplier !== undefined) patch.supplier = data.supplier?.trim() || null;
+  if (data.bookedQty !== undefined) patch.bookedQty = data.bookedQty != null ? String(data.bookedQty) : null;
+  if (data.unit !== undefined) patch.unit = data.unit?.trim() || null;
+  if (data.bookingRef !== undefined) patch.bookingRef = data.bookingRef?.trim() || null;
+  if (data.etaDate !== undefined) patch.etaDate = data.etaDate ?? null;
+
+  await prisma.materialBooking.updateMany({ where: { id, companyId: tenantId(actor) }, data: patch });
+  const updated = await prisma.materialBooking.findFirst({ where: { id, companyId: tenantId(actor) } });
+  await recordAudit({ userId: actor.id, entityType: "MaterialBooking", entityId: id, action: "edit", after: JSON.parse(JSON.stringify(patch)) });
+  return updated;
+}
+
 export async function removeMaterial(actor: SessionUser, id: string) {
   assertPermission(actor, "productionQc", "edit");
   await prisma.materialBooking.deleteMany({ where: { id, companyId: tenantId(actor) } });

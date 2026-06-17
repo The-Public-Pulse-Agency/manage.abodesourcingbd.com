@@ -1,8 +1,8 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/guard";
-import { createInvoice } from "./invoices";
-import { recordPayment } from "./payments";
+import { createInvoice, updateInvoiceFields } from "./invoices";
+import { recordPayment, updatePayment, deletePayment } from "./payments";
 
 export type ActionResult = { error?: string };
 
@@ -37,5 +37,110 @@ export async function recordPaymentAction(invoiceId: string, fd: FormData): Prom
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to record payment" };
+  }
+}
+
+// --- Inline invoice field setters (used by EditableCell on the invoices panel) ---
+
+export async function setInvoiceNumber(id: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateInvoiceFields(actor, id, { number: value });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update invoice number" };
+  }
+}
+
+export async function setInvoiceAmount(id: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateInvoiceFields(actor, id, { amount: Number(value) || 0 });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update amount" };
+  }
+}
+
+export async function setInvoiceStatus(id: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateInvoiceFields(actor, id, { status: value });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update status" };
+  }
+}
+
+export async function setInvoiceIssueDate(id: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    if (!value) return { error: "Issue date is required" };
+    await updateInvoiceFields(actor, id, { issueDate: new Date(value) });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update issue date" };
+  }
+}
+
+export async function setInvoiceDueDate(id: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateInvoiceFields(actor, id, { dueDate: value ? new Date(value) : null });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update due date" };
+  }
+}
+
+// --- Payment field setters + delete (used by the payments sub-view) ---
+
+export async function setPaymentAmount(paymentId: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updatePayment(actor, paymentId, { amount: Number(value) || 0 });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update payment" };
+  }
+}
+
+export async function setPaymentMethod(paymentId: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updatePayment(actor, paymentId, { method: value as "LC" | "TT" | "OTHER" });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update payment" };
+  }
+}
+
+export async function setPaymentDate(paymentId: string, value: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    if (!value) return { error: "Payment date is required" };
+    await updatePayment(actor, paymentId, { date: value });
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update payment" };
+  }
+}
+
+export async function deletePaymentAction(paymentId: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await deletePayment(actor, paymentId);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to delete payment" };
   }
 }

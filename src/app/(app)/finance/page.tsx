@@ -19,6 +19,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   ]);
   const invoices = book.rows;
 
+  const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const rows: InvoiceRow[] = invoices.map((inv) => ({
     id: inv.id,
     type: inv.type,
@@ -29,6 +30,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     currency: inv.currency,
     poId: inv.poId,
     poNumber: inv.po?.poNumber ?? null,
+    issueDate: isoDay(inv.issueDate),
+    dueDate: isoDay(inv.dueDate),
+    payments: inv.payments.map((p) => ({
+      id: p.id,
+      amount: Number(p.amount),
+      method: p.method,
+      paidDate: isoDay(p.date) ?? "",
+    })),
   }));
 
   const buckets = ["0-30", "31-60", "61-90", "90+"] as const;

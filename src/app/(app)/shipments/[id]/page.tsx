@@ -8,6 +8,11 @@ import { listForwarders, listPorts } from "@/lib/masterdata/logistics";
 import { formatDate, formatQty } from "@/lib/format";
 import { ShipmentTelexForm } from "./shipment-telex-form";
 import { DocumentsPanel } from "@/components/documents-panel";
+import { InvoicesPanel, type InvoiceRow } from "@/components/invoices-panel";
+import { listInvoices } from "@/lib/finance/invoices";
+import { outstanding } from "@/lib/finance/money";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { setShipmentReference, setShipmentLineSizeQty } from "@/lib/reports/inline-actions";
 
 function dateInput(d: Date | null): string {
   return d ? new Date(d).toISOString().slice(0, 10) : "";
@@ -33,6 +38,30 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     ? await Promise.all([listForwarders(actor), listPorts(actor)])
     : [[], []];
   const inv = shp.invoices.find((i) => i.type === "FACTORY") ?? shp.invoices[0];
+
+  // Distinct POs this shipment covers — used to surface "create invoice from shipment"
+  // by reusing InvoicesPanel scoped to each PO (the established order-detail pattern).
+  const canFinance = can(actor.role, "finance", "view");
+  const pos = canFinance
+    ? Array.from(new Map(shp.lines.map((l) => [l.orderLine.po.id, l.orderLine.po])).values())
+    : [];
+  const invoicesByPo = await Promise.all(
+    pos.map(async (po) => {
+      const invoices = await listInvoices(actor, { poId: po.id });
+      const rows: InvoiceRow[] = invoices.map((i) => ({
+        id: i.id,
+        type: i.type,
+        number: i.number,
+        amount: Number(i.amount),
+        outstanding: outstanding(i.amount, i.payments),
+        status: i.status,
+        currency: i.currency,
+        poId: i.poId,
+      }));
+      return { po, rows };
+    }),
+  );
+
   const canDocs = can(actor.role, "documents", "view");
   const documents = canDocs ? await listDocuments(actor, "Shipment", id) : [];
   const haveDocTypes = new Set(documents.map((d) => d.type));
@@ -50,6 +79,18 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-sm border border-line bg-surface p-5 sm:grid-cols-4">
+        <div>
+          <dt className="eyebrow">Reference</dt>
+          <dd className="mt-0.5 text-sm font-medium">
+            {canEdit ? (
+              <EditableCell id={shp.id} raw={shp.reference} action={setShipmentReference}>
+                <span className="font-mono">{shp.reference}</span>
+              </EditableCell>
+            ) : (
+              <span className="font-mono">{shp.reference}</span>
+            )}
+          </dd>
+        </div>
         <Meta label="Container" value={shp.containerNo ?? "—"} />
         <Meta label="Cartons" value={shp.cartons?.toString() ?? "—"} />
         <Meta label="Ex-factory" value={formatDate(shp.exFactoryDate)} />
@@ -114,7 +155,24 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
                       {l.sizes.map((s) => (
-                        <span key={s.id} className="tnum rounded-sm bg-paper px-1.5 py-0.5 text-xs">{s.label}·{s.qty}</span>
+                        <span key={s.id} className="tnum inline-flex items-center gap-0.5 rounded-sm bg-paper px-1.5 py-0.5 text-xs">
+                          <span>{s.label}·</span>
+                          {canEdit ? (
+                            <span className="w-10">
+                              <EditableCell
+                                id={s.id}
+                                raw={String(s.qty)}
+                                action={setShipmentLineSizeQty}
+                                type="number"
+                                align="right"
+                              >
+                                <span className="tnum">{s.qty}</span>
+                              </EditableCell>
+                            </span>
+                          ) : (
+                            <span>{s.qty}</span>
+                          )}
+                        </span>
                       ))}
                     </div>
                   </td>
@@ -125,6 +183,16 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           </tbody>
         </table>
       </div>
+
+      {canFinance && invoicesByPo.map(({ po, rows }) => (
+        <InvoicesPanel
+          key={po.id}
+          invoices={rows}
+          poId={po.id}
+          canManage={can(actor.role, "finance", "create")}
+          title={invoicesByPo.length > 1 ? `Invoices · ${po.poNumber}` : "Invoices"}
+        />
+      ))}
 
       {canDocs && (
         <div className="overflow-hidden rounded-md border border-line bg-surface elevate">

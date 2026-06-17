@@ -1,9 +1,46 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/guard";
-import { addMaterial, receiveMaterial, removeMaterial } from "./materials";
+import { addMaterial, receiveMaterial, removeMaterial, updateMaterial, type MaterialUpdateInput } from "./materials";
 
 export type ActionResult = { error?: string };
+
+const parseDate = (v: string) => (v ? new Date(`${v}T00:00:00.000Z`) : null);
+
+async function runUpdate(id: string, patch: MaterialUpdateInput): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateMaterial(actor, id, patch);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update material" };
+  }
+}
+
+export async function setMaterialDescription(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { description: value.trim() });
+}
+
+export async function setMaterialSupplier(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { supplier: value });
+}
+
+export async function setMaterialBookedQty(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { bookedQty: value.trim() === "" ? null : Number(value) });
+}
+
+export async function setMaterialUnit(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { unit: value });
+}
+
+export async function setMaterialBookingRef(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { bookingRef: value });
+}
+
+export async function setMaterialEta(id: string, value: string): Promise<ActionResult> {
+  return runUpdate(id, { etaDate: parseDate(value) });
+}
 
 export async function addMaterialAction(poId: string, fd: FormData): Promise<ActionResult> {
   const actor = await getCurrentUser();

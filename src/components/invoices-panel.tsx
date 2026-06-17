@@ -1,9 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createInvoiceAction, recordPaymentAction } from "@/lib/finance/form-actions";
+import {
+  createInvoiceAction,
+  recordPaymentAction,
+  setInvoiceNumber,
+  setInvoiceAmount,
+  setInvoiceStatus,
+  setInvoiceIssueDate,
+  setInvoiceDueDate,
+  setPaymentAmount,
+  setPaymentMethod,
+  setPaymentDate,
+  deletePaymentAction,
+} from "@/lib/finance/form-actions";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
+
+export type PaymentRow = {
+  id: string;
+  amount: number;
+  method: string;
+  paidDate: string; // YYYY-MM-DD
+};
 
 export type InvoiceRow = {
   id: string;
@@ -15,6 +36,9 @@ export type InvoiceRow = {
   currency: string;
   poId: string | null;
   poNumber?: string | null;
+  issueDate?: string | null; // YYYY-MM-DD
+  dueDate?: string | null; // YYYY-MM-DD
+  payments?: PaymentRow[];
 };
 
 const STATUS_CLS: Record<string, string> = {
@@ -22,6 +46,16 @@ const STATUS_CLS: Record<string, string> = {
   PARTIALLY_PAID: "bg-warn-soft text-warn",
   PAID: "bg-ok-soft text-ok",
 };
+const STATUS_OPTS = [
+  { value: "ISSUED", label: "ISSUED" },
+  { value: "PARTIALLY_PAID", label: "PARTIALLY PAID" },
+  { value: "PAID", label: "PAID" },
+];
+const METHOD_OPTS = [
+  { value: "TT", label: "TT" },
+  { value: "LC", label: "LC" },
+  { value: "OTHER", label: "OTHER" },
+];
 const TODAY = new Date().toISOString().slice(0, 10);
 
 export function InvoicesPanel({
@@ -40,6 +74,10 @@ export function InvoicesPanel({
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [payFor, setPayFor] = useState<string | null>(null);
+  const [openPayments, setOpenPayments] = useState<string | null>(null);
+
+  // Type / PO / Number / Amount / Outstanding / Issue / Due / Status (+ actions)
+  const colCount = 7 + (showPo ? 1 : 0) + (canManage ? 1 : 0);
 
   return (
     <div className="rounded-sm border border-line bg-surface">
@@ -55,18 +93,30 @@ export function InvoicesPanel({
             {showPo && <th className="px-3 py-1.5 font-semibold">PO</th>}
             <th className="px-3 py-1.5 text-right font-semibold">Amount</th>
             <th className="px-3 py-1.5 text-right font-semibold">Outstanding</th>
+            <th className="px-3 py-1.5 font-semibold">Issue</th>
+            <th className="px-3 py-1.5 font-semibold">Due</th>
             <th className="px-3 py-1.5 font-semibold">Status</th>
             {canManage && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
         <tbody>
           {invoices.length === 0 && (
-            <tr><td colSpan={showPo ? 7 : 6} className="px-3 py-4 text-center text-ink-soft">No invoices yet.</td></tr>
+            <tr><td colSpan={colCount} className="px-3 py-4 text-center text-ink-soft">No invoices yet.</td></tr>
           )}
-          {invoices.map((inv) => (
-            <tr key={inv.id} className="border-b border-line last:border-0 align-top">
+          {invoices.map((inv) => {
+            const payments = inv.payments ?? [];
+            const showingPayments = openPayments === inv.id;
+            return (
+            <Fragment key={inv.id}>
+            <tr className="border-b border-line last:border-0 align-top">
               <td className="px-3 py-1.5 font-mono text-xs">{inv.type}</td>
-              <td className="px-3 py-1.5 font-mono text-xs">{inv.number}</td>
+              <td className="px-3 py-1.5 font-mono text-xs">
+                {canManage ? (
+                  <EditableCell id={inv.id} raw={inv.number} type="text" action={setInvoiceNumber}>
+                    {inv.number}
+                  </EditableCell>
+                ) : inv.number}
+              </td>
               {showPo && (
                 <td className="px-3 py-1.5">
                   {inv.poId ? (
@@ -76,12 +126,46 @@ export function InvoicesPanel({
                   ) : "—"}
                 </td>
               )}
-              <td className="px-3 py-1.5 text-right tnum">{inv.amount.toFixed(2)} {inv.currency}</td>
+              <td className="px-3 py-1.5 text-right tnum">
+                {canManage ? (
+                  <EditableCell id={inv.id} raw={String(inv.amount)} type="number" align="right" action={setInvoiceAmount}>
+                    {inv.amount.toFixed(2)} {inv.currency}
+                  </EditableCell>
+                ) : <>{inv.amount.toFixed(2)} {inv.currency}</>}
+              </td>
               <td className="px-3 py-1.5 text-right tnum font-medium">{inv.outstanding.toFixed(2)}</td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canManage ? (
+                  <EditableCell id={inv.id} raw={inv.issueDate ?? ""} type="date" action={setInvoiceIssueDate}>
+                    {inv.issueDate ?? "—"}
+                  </EditableCell>
+                ) : (inv.issueDate ?? "—")}
+              </td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canManage ? (
+                  <EditableCell id={inv.id} raw={inv.dueDate ?? ""} type="date" action={setInvoiceDueDate}>
+                    {inv.dueDate ?? "—"}
+                  </EditableCell>
+                ) : (inv.dueDate ?? "—")}
+              </td>
               <td className="px-3 py-1.5">
-                <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[inv.status] ?? ""}`}>
-                  {inv.status.replace(/_/g, " ")}
-                </span>
+                {canManage ? (
+                  <EditableCell
+                    id={inv.id}
+                    raw={inv.status}
+                    type="select"
+                    options={STATUS_OPTS}
+                    action={setInvoiceStatus}
+                  >
+                    <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[inv.status] ?? ""}`}>
+                      {inv.status.replace(/_/g, " ")}
+                    </span>
+                  </EditableCell>
+                ) : (
+                  <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[inv.status] ?? ""}`}>
+                    {inv.status.replace(/_/g, " ")}
+                  </span>
+                )}
                 {canManage && inv.outstanding > 0 && (
                   <form
                     action={async (fd) => {
@@ -100,15 +184,69 @@ export function InvoicesPanel({
               </td>
               {canManage && (
                 <td className="px-3 py-1.5 text-right">
-                  {inv.outstanding > 0 && (
-                    <button type="button" onClick={() => setPayFor(payFor === inv.id ? null : inv.id)} className="text-xs text-ink-soft hover:text-accent">
-                      {payFor === inv.id ? "Cancel" : "Record payment"}
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setOpenPayments(showingPayments ? null : inv.id)}
+                      className="text-xs text-ink-soft hover:text-accent"
+                    >
+                      {showingPayments ? "Hide" : `Payments (${payments.length})`}
                     </button>
-                  )}
+                    {inv.outstanding > 0 && (
+                      <button type="button" onClick={() => setPayFor(payFor === inv.id ? null : inv.id)} className="text-xs text-ink-soft hover:text-accent">
+                        {payFor === inv.id ? "Cancel" : "Record payment"}
+                      </button>
+                    )}
+                  </div>
                 </td>
               )}
             </tr>
-          ))}
+            {canManage && showingPayments && (
+              <tr className="border-b border-line last:border-0 bg-paper">
+                <td colSpan={colCount} className="px-3 py-2">
+                  {payments.length === 0 ? (
+                    <p className="text-xs text-ink-soft">No payments recorded for this invoice.</p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left uppercase tracking-wide text-ink-soft">
+                          <th className="px-2 py-1 text-right font-semibold">Amount</th>
+                          <th className="px-2 py-1 font-semibold">Method</th>
+                          <th className="px-2 py-1 font-semibold">Date</th>
+                          <th className="px-2 py-1" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map((p) => (
+                          <tr key={p.id} className="border-t border-line">
+                            <td className="px-2 py-1 text-right tnum">
+                              <EditableCell id={p.id} raw={String(p.amount)} type="number" align="right" action={setPaymentAmount}>
+                                {p.amount.toFixed(2)}
+                              </EditableCell>
+                            </td>
+                            <td className="px-2 py-1">
+                              <EditableCell id={p.id} raw={p.method} type="select" options={METHOD_OPTS} action={setPaymentMethod}>
+                                {p.method}
+                              </EditableCell>
+                            </td>
+                            <td className="px-2 py-1 tnum">
+                              <EditableCell id={p.id} raw={p.paidDate} type="date" action={setPaymentDate}>
+                                {p.paidDate || "—"}
+                              </EditableCell>
+                            </td>
+                            <td className="px-2 py-1 text-right">
+                              <RowDeleteButton id={p.id} action={deletePaymentAction} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </td>
+              </tr>
+            )}
+            </Fragment>
+          );})}
         </tbody>
       </table>
       {poId && canManage && (

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RagChip } from "@/components/rag-chip";
-import { completeMilestoneAction } from "@/lib/tna/form-actions";
+import { completeMilestoneAction, rescheduleMilestoneAction } from "@/lib/tna/form-actions";
 
 type Milestone = {
   id: string;
@@ -18,6 +18,14 @@ function fmt(d: string | Date | null): string {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+/** Render a date value as a YYYY-MM-DD string for an <input type="date">. */
+function inputDate(d: string | Date | null): string {
+  if (!d) return "";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -37,10 +45,32 @@ export function TnaTimeline({
   const [dates, setDates] = useState<Record<string, string>>({});
 
   async function complete(id: string) {
-    setBusy(id);
+    setBusy(`actual:${id}`);
     setError(null);
     const day = dates[id] ?? TODAY;
     const res = await completeMilestoneAction(poId, id, `${day}T00:00:00.000Z`);
+    setBusy(null);
+    if (res.error) setError(res.error);
+    else router.refresh();
+  }
+
+  /** Persist a corrected actual (completion) date for an already-stamped milestone. */
+  async function correctActual(id: string, day: string) {
+    if (!day) return;
+    setBusy(`actual:${id}`);
+    setError(null);
+    const res = await completeMilestoneAction(poId, id, `${day}T00:00:00.000Z`);
+    setBusy(null);
+    if (res.error) setError(res.error);
+    else router.refresh();
+  }
+
+  /** Persist a new planned/target date for a milestone. */
+  async function reschedule(id: string, day: string) {
+    if (!day) return;
+    setBusy(`planned:${id}`);
+    setError(null);
+    const res = await rescheduleMilestoneAction(poId, id, `${day}T00:00:00.000Z`);
     setBusy(null);
     if (res.error) setError(res.error);
     else router.refresh();
@@ -68,8 +98,34 @@ export function TnaTimeline({
             <tr key={m.id} className="border-b border-line last:border-0">
               <td className="px-3 py-1.5 text-xs text-ink-soft">{m.stage.replace(/_/g, " ")}</td>
               <td className="px-3 py-1.5">{m.name}</td>
-              <td className="px-3 py-1.5 tnum text-xs">{fmt(m.plannedDate)}</td>
-              <td className="px-3 py-1.5 tnum text-xs">{fmt(m.actualDate)}</td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canEdit ? (
+                  <input
+                    type="date"
+                    aria-label={`Planned date for ${m.name}`}
+                    defaultValue={inputDate(m.plannedDate)}
+                    disabled={busy === `planned:${m.id}`}
+                    onChange={(e) => reschedule(m.id, e.target.value)}
+                    className="input px-1 py-0.5 text-xs disabled:opacity-50"
+                  />
+                ) : (
+                  fmt(m.plannedDate)
+                )}
+              </td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canEdit && m.actualDate ? (
+                  <input
+                    type="date"
+                    aria-label={`Actual date for ${m.name}`}
+                    defaultValue={inputDate(m.actualDate)}
+                    disabled={busy === `actual:${m.id}`}
+                    onChange={(e) => correctActual(m.id, e.target.value)}
+                    className="input px-1 py-0.5 text-xs disabled:opacity-50"
+                  />
+                ) : (
+                  fmt(m.actualDate)
+                )}
+              </td>
               <td className="px-3 py-1.5"><RagChip rag={m.rag} /></td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">
@@ -84,7 +140,7 @@ export function TnaTimeline({
                       />
                       <button
                         type="button"
-                        disabled={busy === m.id}
+                        disabled={busy === `actual:${m.id}`}
                         onClick={() => complete(m.id)}
                         className="rounded-sm border border-line px-2 py-0.5 text-xs hover:border-accent hover:text-accent disabled:opacity-50"
                       >

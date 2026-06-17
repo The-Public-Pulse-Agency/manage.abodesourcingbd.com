@@ -51,3 +51,43 @@ export async function listInspections(actor: SessionUser, poId: string) {
     orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
   });
 }
+
+export const updateInspectionSchema = z.object({
+  type: z.enum(inspectionTypes).optional(),
+  result: z.enum(inspectionResults).optional(),
+  date: z.coerce.date().optional(),
+  aql: z.string().nullable().optional(),
+  remarks: z.string().nullable().optional(),
+});
+export type UpdateInspectionInput = z.input<typeof updateInspectionSchema>;
+
+/** Correct an existing inspection's fields. Tenant-scoped; enums validated. */
+export async function updateInspection(actor: SessionUser, id: string, input: UpdateInspectionInput) {
+  assertPermission(actor, "productionQc", "edit");
+  const insp = await prisma.inspection.findFirst({ where: { id, companyId: tenantId(actor) } });
+  if (!insp) throw new Error("Inspection not found");
+  const data = updateInspectionSchema.parse(input);
+
+  const patch: Record<string, unknown> = {};
+  if (data.type !== undefined) patch.type = data.type;
+  if (data.result !== undefined) patch.result = data.result;
+  if (data.date !== undefined) patch.date = data.date;
+  if (data.aql !== undefined) patch.aql = data.aql?.trim() || null;
+  if (data.remarks !== undefined) patch.remarks = data.remarks?.trim() || null;
+
+  await prisma.inspection.updateMany({ where: { id, companyId: tenantId(actor) }, data: patch });
+  await recordAudit({
+    userId: actor.id,
+    entityType: "Inspection",
+    entityId: id,
+    action: "edit",
+    after: JSON.parse(JSON.stringify(patch)),
+  });
+  return prisma.inspection.findFirst({ where: { id, companyId: tenantId(actor) } });
+}
+
+export async function removeInspection(actor: SessionUser, id: string) {
+  assertPermission(actor, "productionQc", "delete");
+  await prisma.inspection.deleteMany({ where: { id, companyId: tenantId(actor) } });
+  await recordAudit({ userId: actor.id, entityType: "Inspection", entityId: id, action: "delete" });
+}

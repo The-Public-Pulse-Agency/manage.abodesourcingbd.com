@@ -71,6 +71,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     ]);
 
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
+  const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const invoiceRows: InvoiceRow[] = invoices.map((inv) => ({
     id: inv.id,
     type: inv.type,
@@ -80,6 +81,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     status: inv.status,
     currency: inv.currency,
     poId: inv.poId,
+    issueDate: isoDay(inv.issueDate),
+    dueDate: isoDay(inv.dueDate),
+    payments: inv.payments.map((p) => ({
+      id: p.id,
+      amount: Number(p.amount),
+      method: p.method,
+      paidDate: isoDay(p.date) ?? "",
+    })),
   }));
   const canCloseStatus = po.status === "SHIPPED" || po.status === "PARTLY_SHIPPED";
 
@@ -252,6 +261,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           poId={po.id}
           inspections={inspections}
           canCreate={can(role, "productionQc", "create") && isActive}
+          canEdit={can(role, "productionQc", "edit") && isActive}
         />
       )}
 
@@ -267,6 +277,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             unit: m.unit,
             bookingRef: m.bookingRef,
             etaDate: m.etaDate ? formatDate(m.etaDate) : null,
+            etaDateRaw: m.etaDate ? new Date(m.etaDate).toISOString().slice(0, 10) : "",
             receivedQty: m.receivedQty != null ? Number(m.receivedQty) : null,
             receivedDate: m.receivedDate ? formatDate(m.receivedDate) : null,
             status: m.status,

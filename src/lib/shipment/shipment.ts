@@ -161,6 +161,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
 }
 
 export const updateShipmentSchema = z.object({
+  reference: z.string().min(1).optional(),
   containerNo: z.string().optional(),
   cartons: z.number().int().nonnegative().optional(),
   mode: z.enum(shipmentModes).optional(),
@@ -212,6 +213,8 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
     return shipment;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const target = String(e.meta?.target ?? "");
+      if (target.includes("reference")) throw new Error(`A shipment with reference ${data.reference} already exists`);
       throw new Error(`BL number ${data.blNumber} is already used`);
     }
     throw e;
@@ -256,6 +259,82 @@ export async function deleteShipment(actor: SessionUser, id: string): Promise<vo
     }
   });
   await recordAudit({ userId: actor.id, entityType: "Shipment", entityId: id, action: "delete", before: { reference: shipment.reference } });
+}
+
+/**
+ * Edit the shipped quantity of a single per-size line item after creation.
+ * Re-validates the new qty against the order line's remaining balance the same way
+ * createShipment does (the requested qty must not exceed ordered minus OTHER shipments),
+ * then recomputes the affected PO's status exactly like createShipment / deleteShipment.
+ */
+export async function updateShipmentLineQty(actor: SessionUser, shipmentLineSizeId: string, qty: number): Promise<void> {
+  assertPermission(actor, "shipment", "edit");
+  const cid = tenantId(actor);
+  if (!Number.isInteger(qty) || qty <= 0) throw new Error("Quantity must be a positive whole number");
+
+  await prisma.$transaction(
+    async (tx) => {
+      const sls = await tx.shipmentLineSize.findFirst({
+        where: { id: shipmentLineSizeId, companyId: cid },
+        include: {
+          shipmentLine: {
+            include: {
+              shipment: { select: { companyId: true } },
+              orderLine: {
+                include: { sizes: true, shipmentLines: { include: { sizes: true } }, po: true },
+              },
+            },
+          },
+        },
+      });
+      if (!sls || sls.shipmentLine.shipment.companyId !== cid) throw new Error("Shipment line not found");
+      const ol = sls.shipmentLine.orderLine;
+
+      // Balance available to THIS size = ordered − everything shipped EXCEPT this exact size row.
+      const shipped: SizeQty[] = ol.shipmentLines.flatMap((sl) =>
+        sl.sizes.filter((s) => s.id !== sls.id).map((s) => ({ label: s.label, qty: s.qty })),
+      );
+      assertWithinBalance(
+        remainingBySize(ol.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped),
+        [{ label: sls.label, qty }],
+      );
+
+      await tx.shipmentLineSize.update({ where: { id: sls.id }, data: { qty } });
+
+      // Recompute the affected PO's status — mirror createShipment / deleteShipment.
+      const poId = ol.poId;
+      const po = await tx.purchaseOrder.findFirst({ where: { id: poId, companyId: cid }, select: { status: true } });
+      if (po) {
+        const lines = await tx.orderLine.findMany({
+          where: { poId, companyId: cid },
+          include: { sizes: true, shipmentLines: { include: { sizes: true } } },
+        });
+        const hasShip = lines.some((l) => l.shipmentLines.length > 0);
+        let next: "SHIPPED" | "PARTLY_SHIPPED" | "CONFIRMED" | null = null;
+        if (!hasShip) {
+          if (po.status === "SHIPPED" || po.status === "PARTLY_SHIPPED") next = "CONFIRMED";
+        } else {
+          next = isFullyShipped(lines) ? "SHIPPED" : "PARTLY_SHIPPED";
+        }
+        if (next && next !== po.status) {
+          await tx.purchaseOrder.updateMany({ where: { id: poId, companyId: cid }, data: { status: next } });
+        }
+      }
+
+      await recordAudit(
+        {
+          userId: actor.id,
+          entityType: "ShipmentLineSize",
+          entityId: sls.id,
+          action: "edit",
+          before: { label: sls.label, qty: sls.qty },
+          after: { label: sls.label, qty },
+        },
+        tx,
+      );
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 export async function listShipments(actor: SessionUser) {

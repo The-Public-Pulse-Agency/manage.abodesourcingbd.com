@@ -27,7 +27,9 @@ export const updateSampleSchema = z
   .object({
     status: z.enum(sampleStatuses),
     approvedDate: z.coerce.date().optional(),
-    remarks: z.string().optional(),
+    sentDate: z.coerce.date().nullish(),
+    colourId: z.string().nullish(),
+    remarks: z.string().nullish(),
   })
   .refine((v) => v.status !== "APPROVED" || v.approvedDate != null, {
     message: "approvedDate is required when status is APPROVED",
@@ -85,7 +87,10 @@ export async function updateSampleStatus(
     where: { id, companyId: tenantId(actor) },
     data: {
       status: data.status,
+      // undefined fields are skipped by Prisma, so a status-only advance leaves these untouched.
       remarks: data.remarks,
+      sentDate: data.sentDate,
+      colourId: data.colourId,
       // Couple approvedDate to status: set only when APPROVED, cleared otherwise.
       approvedDate: data.status === "APPROVED" ? data.approvedDate : null,
     },
@@ -102,6 +107,68 @@ export async function updateSampleStatus(
     after: { status: sample.status, approvedDate: sample.approvedDate?.toISOString() ?? null },
   });
   return sample;
+}
+
+export const editSampleFieldsSchema = z.object({
+  sentDate: z.coerce.date().nullish(),
+  colourId: z.string().nullish(),
+  remarks: z.string().nullish(),
+});
+export type EditSampleFieldsInput = z.input<typeof editSampleFieldsSchema>;
+
+/** Edit non-status sample fields (sent date, colour, remarks) without touching the status lifecycle. */
+export async function editSampleFields(
+  actor: SessionUser,
+  id: string,
+  input: EditSampleFieldsInput,
+) {
+  assertPermission(actor, "sampling", "edit");
+  const data = editSampleFieldsSchema.parse(input);
+  const before = await prisma.sampleRequest.findFirst({
+    where: { id, companyId: tenantId(actor) },
+  });
+  if (!before) throw new Error("Sample request not found");
+  await prisma.sampleRequest.updateMany({
+    where: { id, companyId: tenantId(actor) },
+    // undefined fields are skipped by Prisma; null explicitly clears the column.
+    data: { sentDate: data.sentDate, colourId: data.colourId, remarks: data.remarks },
+  });
+  const sample = await prisma.sampleRequest.findFirstOrThrow({
+    where: { id, companyId: tenantId(actor) },
+  });
+  await recordAudit({
+    userId: actor.id,
+    entityType: "SampleRequest",
+    entityId: id,
+    action: "edit",
+    before: {
+      sentDate: before.sentDate?.toISOString() ?? null,
+      colourId: before.colourId,
+      remarks: before.remarks,
+    },
+    after: {
+      sentDate: sample.sentDate?.toISOString() ?? null,
+      colourId: sample.colourId,
+      remarks: sample.remarks,
+    },
+  });
+  return sample;
+}
+
+export async function removeSampleRequest(actor: SessionUser, id: string) {
+  assertPermission(actor, "sampling", "delete");
+  const before = await prisma.sampleRequest.findFirst({
+    where: { id, companyId: tenantId(actor) },
+  });
+  if (!before) throw new Error("Sample request not found");
+  await prisma.sampleRequest.deleteMany({ where: { id, companyId: tenantId(actor) } });
+  await recordAudit({
+    userId: actor.id,
+    entityType: "SampleRequest",
+    entityId: id,
+    action: "delete",
+    before: { poId: before.poId, type: before.type, status: before.status },
+  });
 }
 
 export async function listSampleRequests(actor: SessionUser, poId: string) {

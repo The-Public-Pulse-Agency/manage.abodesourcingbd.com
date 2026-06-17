@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addMaterialAction, receiveMaterialAction, removeMaterialAction } from "@/lib/materials/form-actions";
+import {
+  addMaterialAction,
+  receiveMaterialAction,
+  removeMaterialAction,
+  setMaterialDescription,
+  setMaterialSupplier,
+  setMaterialBookedQty,
+  setMaterialUnit,
+  setMaterialBookingRef,
+  setMaterialEta,
+} from "@/lib/materials/form-actions";
 import { ConfirmButton } from "@/components/confirm-button";
+import { EditableCell } from "@/components/reports/editable-cell";
 
 export type MaterialRow = {
   id: string;
@@ -14,6 +25,7 @@ export type MaterialRow = {
   unit: string | null;
   bookingRef: string | null;
   etaDate: string | null;
+  etaDateRaw: string; // ISO yyyy-mm-dd for the date editor ("" when unset)
   receivedQty: number | null;
   receivedDate: string | null;
   status: string;
@@ -56,10 +68,36 @@ export function MaterialsPanel({ poId, materials, canEdit }: { poId: string; mat
           {materials.map((m) => (
             <tr key={m.id} className="border-b border-line last:border-0 align-top">
               <td className="px-3 py-1.5"><span className="rounded-sm bg-paper px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase">{m.kind}</span></td>
-              <td className="px-3 py-1.5">{m.description}{m.bookingRef ? <span className="ml-1 text-xs text-ink-soft">· {m.bookingRef}</span> : null}</td>
-              <td className="px-3 py-1.5">{m.supplier ?? "—"}</td>
-              <td className="px-3 py-1.5 text-right tnum">{m.bookedQty != null ? `${m.bookedQty}${m.unit ? ` ${m.unit}` : ""}` : "—"}</td>
-              <td className="px-3 py-1.5 tnum text-xs">{m.etaDate ?? "—"}</td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <div className="space-y-0.5">
+                    <EditableCell id={m.id} raw={m.description} type="text" action={setMaterialDescription}>{m.description}</EditableCell>
+                    <EditableCell id={m.id} raw={m.bookingRef ?? ""} type="text" placeholder="ref" action={setMaterialBookingRef}>
+                      <span className="text-xs text-ink-soft">{m.bookingRef ? `· ${m.bookingRef}` : ""}</span>
+                    </EditableCell>
+                  </div>
+                ) : (
+                  <>{m.description}{m.bookingRef ? <span className="ml-1 text-xs text-ink-soft">· {m.bookingRef}</span> : null}</>
+                )}
+              </td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <EditableCell id={m.id} raw={m.supplier ?? ""} type="text" action={setMaterialSupplier}>{m.supplier ?? "—"}</EditableCell>
+                ) : (m.supplier ?? "—")}
+              </td>
+              <td className="px-3 py-1.5 text-right tnum">
+                {canEdit ? (
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="w-20"><EditableCell id={m.id} raw={m.bookedQty != null ? String(m.bookedQty) : ""} type="number" align="right" action={setMaterialBookedQty}>{m.bookedQty != null ? m.bookedQty : "—"}</EditableCell></span>
+                    <span className="w-12"><EditableCell id={m.id} raw={m.unit ?? ""} type="text" placeholder="unit" action={setMaterialUnit}>{m.unit ?? ""}</EditableCell></span>
+                  </div>
+                ) : (m.bookedQty != null ? `${m.bookedQty}${m.unit ? ` ${m.unit}` : ""}` : "—")}
+              </td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canEdit ? (
+                  <EditableCell id={m.id} raw={m.etaDateRaw} type="date" action={setMaterialEta}>{m.etaDate ?? "—"}</EditableCell>
+                ) : (m.etaDate ?? "—")}
+              </td>
               <td className="px-3 py-1.5">
                 <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${STATUS_CLS[m.status] ?? ""}`}>
                   {m.status.replace(/_/g, " ")}

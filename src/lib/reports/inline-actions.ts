@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { updateOrderSchedule, deletePurchaseOrder } from "@/lib/orders/po";
 import { updateInvoiceFields } from "@/lib/finance/invoices";
-import { updateShipment, deleteShipment } from "@/lib/shipment/shipment";
+import { updateShipment, updateShipmentLineQty, deleteShipment } from "@/lib/shipment/shipment";
 
 type Res = { error?: string };
 
@@ -58,6 +58,14 @@ export async function setShipmentContainer(id: string, value: string): Promise<R
 
 export async function setShipmentEta(id: string, value: string): Promise<Res> {
   return run((a) => updateShipment(a, id, { etaDestination: parseDate(value) }).then(() => undefined));
+}
+
+export async function setShipmentReference(id: string, value: string): Promise<Res> {
+  return run((a) => updateShipment(a, id, { reference: value }).then(() => undefined));
+}
+
+export async function setShipmentLineSizeQty(shipmentLineSizeId: string, value: string): Promise<Res> {
+  return run((a) => updateShipmentLineQty(a, shipmentLineSizeId, Math.trunc(Number(value))));
 }
 
 export async function setInvoiceValue(id: string, value: string): Promise<Res> {

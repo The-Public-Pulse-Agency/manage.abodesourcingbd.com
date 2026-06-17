@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addInspectionAction } from "@/lib/qc/form-actions";
+import {
+  addInspectionAction,
+  setInspectionResult,
+  setInspectionType,
+  setInspectionDate,
+  setInspectionAql,
+  setInspectionRemarks,
+  deleteInspectionAction,
+} from "@/lib/qc/form-actions";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 type Inspection = {
   id: string;
@@ -10,6 +20,7 @@ type Inspection = {
   result: string;
   date: string | Date;
   aql: string | null;
+  remarks: string | null;
 };
 
 function fmt(d: string | Date): string {
@@ -17,19 +28,43 @@ function fmt(d: string | Date): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
+function isoDate(d: string | Date): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toISOString().slice(0, 10);
+}
+
 const TODAY = new Date().toISOString().slice(0, 10);
+const TYPE_OPTIONS = [
+  { value: "INLINE", label: "INLINE" },
+  { value: "FINAL", label: "FINAL" },
+];
+const RESULT_OPTIONS = [
+  { value: "PASS", label: "PASS" },
+  { value: "FAIL", label: "FAIL" },
+];
+
+function ResultBadge({ result }: { result: string }) {
+  return (
+    <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${result === "PASS" ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>
+      {result}
+    </span>
+  );
+}
 
 export function QcPanel({
   poId,
   inspections,
   canCreate,
+  canEdit = false,
 }: {
   poId: string;
   inspections: Inspection[];
   canCreate: boolean;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
+  const colSpan = canEdit ? 6 : 4;
 
   return (
     <div className="rounded-sm border border-line bg-surface">
@@ -44,22 +79,48 @@ export function QcPanel({
             <th className="px-3 py-1.5 font-semibold">Type</th>
             <th className="px-3 py-1.5 font-semibold">AQL</th>
             <th className="px-3 py-1.5 font-semibold">Result</th>
+            {canEdit && <th className="px-3 py-1.5 font-semibold">Remarks</th>}
+            {canEdit && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
         <tbody>
           {inspections.length === 0 && (
-            <tr><td colSpan={4} className="px-3 py-4 text-center text-ink-soft">No inspections yet.</td></tr>
+            <tr><td colSpan={colSpan} className="px-3 py-4 text-center text-ink-soft">No inspections yet.</td></tr>
           )}
           {inspections.map((i) => (
-            <tr key={i.id} className="border-b border-line last:border-0">
-              <td className="px-3 py-1.5 tnum text-xs">{fmt(i.date)}</td>
-              <td className="px-3 py-1.5 font-mono text-xs">{i.type}</td>
-              <td className="px-3 py-1.5 tnum text-xs">{i.aql ?? "—"}</td>
-              <td className="px-3 py-1.5">
-                <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${i.result === "PASS" ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>
-                  {i.result}
-                </span>
+            <tr key={i.id} className="border-b border-line last:border-0 align-top">
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canEdit ? (
+                  <EditableCell id={i.id} raw={isoDate(i.date)} type="date" action={setInspectionDate}>{fmt(i.date)}</EditableCell>
+                ) : fmt(i.date)}
               </td>
+              <td className="px-3 py-1.5 font-mono text-xs">
+                {canEdit ? (
+                  <EditableCell id={i.id} raw={i.type} type="select" options={TYPE_OPTIONS} action={setInspectionType}>{i.type}</EditableCell>
+                ) : i.type}
+              </td>
+              <td className="px-3 py-1.5 tnum text-xs">
+                {canEdit ? (
+                  <EditableCell id={i.id} raw={i.aql ?? ""} type="text" placeholder="—" action={setInspectionAql}>{i.aql ?? "—"}</EditableCell>
+                ) : (i.aql ?? "—")}
+              </td>
+              <td className="px-3 py-1.5">
+                {canEdit ? (
+                  <EditableCell id={i.id} raw={i.result} type="select" options={RESULT_OPTIONS} action={setInspectionResult}>
+                    <ResultBadge result={i.result} />
+                  </EditableCell>
+                ) : <ResultBadge result={i.result} />}
+              </td>
+              {canEdit && (
+                <td className="px-3 py-1.5 text-xs">
+                  <EditableCell id={i.id} raw={i.remarks ?? ""} type="text" placeholder="—" action={setInspectionRemarks}>{i.remarks ?? "—"}</EditableCell>
+                </td>
+              )}
+              {canEdit && (
+                <td className="px-3 py-1.5 text-right">
+                  <RowDeleteButton id={i.id} action={deleteInspectionAction} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -83,6 +144,7 @@ export function QcPanel({
           </select>
           <input name="date" type="date" defaultValue={TODAY} required className="input text-xs" aria-label="Inspection date" />
           <input name="aql" placeholder="AQL e.g. 2.5" className="input text-xs w-24" />
+          <input name="remarks" placeholder="Remarks" className="input text-xs" aria-label="Inspection remarks" />
           <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
             Add inspection
           </button>

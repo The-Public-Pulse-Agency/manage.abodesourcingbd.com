@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
-import { createEnquiry, updateEnquiry, convertToOrder } from "./enquiries";
+import { createEnquiry, updateEnquiry, convertToOrder, deleteEnquiry } from "./enquiries";
 
 export type ActionResult = { ok: true; poId?: string } | { ok: false; error: string };
 
@@ -29,7 +29,16 @@ export async function createEnquiryAction(fd: FormData): Promise<ActionResult> {
 
 export async function updateEnquiryAction(
   id: string,
-  input: { status?: string; quotedPriceUsd?: number; factoryId?: string; lostReason?: string },
+  input: {
+    status?: string;
+    quotedPriceUsd?: number;
+    targetQty?: number | null;
+    targetPriceUsd?: number | null;
+    requiredShipDate?: string | null;
+    notes?: string | null;
+    factoryId?: string;
+    lostReason?: string | null;
+  },
 ): Promise<ActionResult> {
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, error: "Not authenticated" };
@@ -39,6 +48,18 @@ export async function updateEnquiryAction(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update enquiry" };
+  }
+}
+
+export async function deleteEnquiryAction(id: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Not authenticated" };
+  try {
+    await deleteEnquiry(actor, id);
+    revalidatePath("/enquiries");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete enquiry" };
   }
 }
 

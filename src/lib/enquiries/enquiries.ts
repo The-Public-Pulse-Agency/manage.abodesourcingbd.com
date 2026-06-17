@@ -64,25 +64,49 @@ export async function getEnquiry(actor: SessionUser, id: string) {
 export const updateEnquirySchema = z.object({
   status: z.enum(STATUSES).optional(),
   quotedPriceUsd: z.coerce.number().nonnegative().optional(),
-  targetQty: z.coerce.number().int().positive().optional(),
-  lostReason: z.string().optional(),
+  targetQty: z.coerce.number().int().positive().nullish(),
+  targetPriceUsd: z.coerce.number().nonnegative().nullish(),
+  requiredShipDate: z.coerce.date().nullish(),
+  notes: z.string().nullish(),
+  lostReason: z.string().nullish(),
   factoryId: z.string().optional(),
 });
 
 export async function updateEnquiry(actor: SessionUser, id: string, input: z.input<typeof updateEnquirySchema>) {
   assertPermission(actor, "orders", "edit");
   const data = updateEnquirySchema.parse(input);
-  const patch: Record<string, string | number | null> = {};
+  const patch: Record<string, string | number | Date | null> = {};
   if (data.status) patch.status = data.status;
   if (data.quotedPriceUsd != null) patch.quotedPriceUsd = String(data.quotedPriceUsd);
-  if (data.targetQty != null) patch.targetQty = data.targetQty;
-  if (data.lostReason !== undefined) patch.lostReason = data.lostReason;
-  if (data.factoryId !== undefined) patch.factoryId = data.factoryId || null;
+  if (data.targetQty !== undefined) patch.targetQty = data.targetQty;
+  if (data.targetPriceUsd !== undefined) patch.targetPriceUsd = data.targetPriceUsd != null ? String(data.targetPriceUsd) : null;
+  if (data.requiredShipDate !== undefined) patch.requiredShipDate = data.requiredShipDate ?? null;
+  if (data.notes !== undefined) patch.notes = data.notes || null;
+  if (data.lostReason !== undefined) patch.lostReason = data.lostReason || null;
+  if (data.factoryId !== undefined) {
+    const fid = data.factoryId || null;
+    // Cross-tenant IDOR guard: a factory may only be assigned if it belongs to this tenant.
+    if (fid) {
+      const factory = await prisma.factory.findFirst({ where: { id: fid, companyId: tenantId(actor) } });
+      if (!factory) throw new Error("Factory not found");
+    }
+    patch.factoryId = fid;
+  }
   const res = await prisma.enquiry.updateMany({ where: { id, companyId: tenantId(actor) }, data: patch });
   if (res.count === 0) throw new Error("Enquiry not found");
   const enq = await prisma.enquiry.findFirst({ where: { id, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "Enquiry", entityId: id, action: "edit", after: patch });
   return enq;
+}
+
+/** Hard-delete an enquiry. Blocked once it has been converted to a purchase order. */
+export async function deleteEnquiry(actor: SessionUser, id: string) {
+  assertPermission(actor, "orders", "edit");
+  const enq = await prisma.enquiry.findFirst({ where: { id, companyId: tenantId(actor) } });
+  if (!enq) throw new Error("Enquiry not found");
+  if (enq.convertedPoId) throw new Error("Cannot delete an enquiry that has been converted to an order");
+  await prisma.enquiry.deleteMany({ where: { id, companyId: tenantId(actor) } });
+  await recordAudit({ userId: actor.id, entityType: "Enquiry", entityId: id, action: "delete" });
 }
 
 /** Convert a won enquiry into a DRAFT purchase order, pre-filled from the enquiry. */

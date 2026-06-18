@@ -1,0 +1,2 @@
+-- Add INSPECTION_REPORT to the document type enum (after TEST_CERT)
+ALTER TYPE "DocumentType" ADD VALUE IF NOT EXISTS 'INSPECTION_REPORT' AFTER 'TEST_CERT';

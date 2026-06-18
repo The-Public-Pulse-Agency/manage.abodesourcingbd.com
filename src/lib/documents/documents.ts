@@ -6,7 +6,7 @@ import { recordAudit } from "@/lib/audit";
 export const DOCUMENT_ENTITY_TYPES = ["PurchaseOrder", "Shipment"] as const;
 export type DocumentEntityType = (typeof DOCUMENT_ENTITY_TYPES)[number];
 
-const documentTypes = ["BL", "COMMERCIAL_INVOICE", "PACKING_LIST", "TEST_CERT", "SAMPLE_PHOTO", "OTHER"] as const;
+const documentTypes = ["BL", "COMMERCIAL_INVOICE", "PACKING_LIST", "TEST_CERT", "INSPECTION_REPORT", "SAMPLE_PHOTO", "OTHER"] as const;
 const FINANCE_DOC_TYPES: string[] = ["BL", "COMMERCIAL_INVOICE", "PACKING_LIST"];
 
 export const createDocumentSchema = z.object({

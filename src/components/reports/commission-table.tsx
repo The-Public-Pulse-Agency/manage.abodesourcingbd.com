@@ -19,7 +19,7 @@ export type CommRow = {
   paymentStatus: string; remarks: string;
 };
 type Opt = { value: string; label: string };
-export type FactoryInvoiceOpt = { id: string; number: string; amount: number; poNumber?: string };
+export type FactoryInvoiceOpt = { id: string; number: string; amount: number; poNumber?: string; type?: string };
 const PAY_OPTIONS = [{ value: "", label: "—" }, { value: "Due", label: "Due" }, { value: "Partial", label: "Partial" }, { value: "Paid", label: "Paid" }];
 
 export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoices = [] }: { rows: CommRow[]; canEdit: boolean; factories: Opt[]; buyers: Opt[]; factoryInvoices?: FactoryInvoiceOpt[] }) {
@@ -51,8 +51,8 @@ export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoi
           <select name="factoryId" className="select text-sm" aria-label="Factory"><option value="">Factory…</option>{factories.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
           {factoryInvoices.length > 0 && (
             <select className="select text-sm" aria-label="From factory invoice" defaultValue="" onChange={(e) => { pickInvoice(e.target.value); e.target.value = ""; }}>
-              <option value="">From factory invoice…</option>
-              {factoryInvoices.map((inv) => <option key={inv.id} value={inv.id}>{inv.number}{inv.poNumber ? ` · PO ${inv.poNumber}` : ""} — {inv.amount}</option>)}
+              <option value="">From invoice…</option>
+              {factoryInvoices.map((inv) => <option key={inv.id} value={inv.id}>{inv.type ? `${inv.type} ` : ""}{inv.number}{inv.poNumber ? ` · PO ${inv.poNumber}` : ""} — {inv.amount}</option>)}
             </select>
           )}
           <input name="factoryInvoiceNo" placeholder="Factory inv #" className="input text-sm" aria-label="Factory invoice no" value={facInvNo} onChange={(e) => setFacInvNo(e.target.value)} />

@@ -16,20 +16,24 @@ export default async function CommissionReportPage() {
   if (!actor || !can(actor.role, "finance", "view")) redirect("/dashboard");
   const canEdit = can(actor.role, "finance", "edit");
 
-  const [items, factories, buyers, factoryInvoicesRaw] = await Promise.all([
+  const [items, factories, buyers, allInvoices] = await Promise.all([
     listCommission(actor),
     listFactories(actor),
     listBuyers(actor),
-    listInvoices(actor, { type: "FACTORY" }),
+    listInvoices(actor, {}), // all invoices (BUYER + FACTORY) so any can pre-fill the ledger
   ]);
   const facName = new Map(factories.map((f) => [f.id, f.name]));
   const buyName = new Map(buyers.map((b) => [b.id, b.name]));
-  const factoryInvoices = factoryInvoicesRaw.map((inv) => ({
-    id: inv.id,
-    number: inv.number,
-    amount: Number(inv.amount),
-    poNumber: inv.po?.poNumber ?? undefined,
-  }));
+  // FACTORY invoices first (the ledger's primary source), then BUYER.
+  const factoryInvoices = allInvoices
+    .map((inv) => ({
+      id: inv.id,
+      number: inv.number,
+      amount: Number(inv.amount),
+      poNumber: inv.po?.poNumber ?? undefined,
+      type: inv.type,
+    }))
+    .sort((a, b) => (a.type === b.type ? 0 : a.type === "FACTORY" ? -1 : 1));
 
   const rows: CommRow[] = items.map((i) => {
     const fv = i.factoryInvoiceValue != null ? Number(i.factoryInvoiceValue) : null;

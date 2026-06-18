@@ -21,13 +21,19 @@ import {
  * seeded defaults for a system key if the row is missing (e.g. before backfill).
  */
 export async function resolvePermissions(companyId: string | null, roleKey: string): Promise<PermissionMap> {
-  if (roleKey === SUPERADMIN_KEY || !companyId) {
-    return DEFAULT_ROLE_PERMISSIONS[roleKey] ?? (roleKey === SUPERADMIN_KEY ? DEFAULT_ROLE_PERMISSIONS.SUPERADMIN : {});
+  // Platform perms are granted ONLY to a genuine tenant-less operator. A tenant-scoped row
+  // keyed SUPERADMIN (or any company-less non-superadmin) can never confer platform access.
+  if (roleKey === SUPERADMIN_KEY) {
+    return companyId === null ? DEFAULT_ROLE_PERMISSIONS.SUPERADMIN : {};
   }
+  if (!companyId) return {};
   const row = await prisma.role.findFirst({ where: { companyId, key: roleKey }, select: { permissions: true } });
   if (row?.permissions) return row.permissions as PermissionMap;
   return DEFAULT_ROLE_PERMISSIONS[roleKey] ?? {};
 }
+
+// Keys a custom role may never take — they shadow platform/system identifiers.
+const RESERVED_ROLE_KEYS = new Set<string>([SUPERADMIN_KEY, ...SYSTEM_ROLE_KEYS]);
 
 /** Seed the system roles for a company (idempotent). Used at signup + backfill. */
 export async function seedCompanyRoles(companyId: string, db: Prisma.TransactionClient = prisma): Promise<void> {
@@ -74,8 +80,11 @@ const createRoleSchema = z.object({ name: z.string().trim().min(2, "Role name is
 /** Derive a stable uppercase key from a name; ensure unique per company. */
 async function uniqueKey(companyId: string, name: string): Promise<string> {
   const base = name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 30) || "ROLE";
-  let key = base;
-  for (let i = 2; await prisma.role.findFirst({ where: { companyId, key }, select: { id: true } }); i++) key = `${base}_${i}`;
+  // Never let a custom role take a reserved key (would shadow SUPERADMIN / a system role).
+  let key = RESERVED_ROLE_KEYS.has(base) ? `${base}_2` : base;
+  for (let i = 2; RESERVED_ROLE_KEYS.has(key) || (await prisma.role.findFirst({ where: { companyId, key }, select: { id: true } })); i++) {
+    key = `${base}_${i}`;
+  }
   return key;
 }
 

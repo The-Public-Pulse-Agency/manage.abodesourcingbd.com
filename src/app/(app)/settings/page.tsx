@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listTemplates } from "@/lib/tna/templates";
+import { getCompanyProfile } from "@/lib/company/profile";
 import { TemplateManager, type TemplateRow } from "@/components/settings/template-manager";
+import { CompanyProfileForm } from "@/components/settings/company-profile-form";
 
 export default async function SettingsPage() {
   const actor = await getCurrentUser();
@@ -15,6 +17,12 @@ export default async function SettingsPage() {
   const rows: TemplateRow[] = templates.map((t) => ({
     id: t.id, key: t.key, name: t.name, stage: t.stage, offsetDays: t.offsetDays, position: t.position, active: t.active,
   }));
+
+  // Company profile + banking details (printed on generated invoices). Visible to anyone who
+  // can see master data; editable by those who can edit it (ADMIN).
+  const canSeeCompany = can(actor.role, "masterData", "view");
+  const companyProfile = canSeeCompany ? await getCompanyProfile(actor) : null;
+  const canEditCompany = can(actor.role, "masterData", "edit");
 
   return (
     <div className="space-y-6">
@@ -35,6 +43,19 @@ export default async function SettingsPage() {
         </div>
         <TemplateManager templates={rows} canEdit={canEdit} />
       </section>
+
+      {companyProfile && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Company &amp; banking details</h2>
+            <p className="text-sm text-ink-soft">
+              Printed on generated invoices (commercial &amp; commission). Bank fields are optional —
+              fill them in to show a &ldquo;Pay To&rdquo; block on your invoices; leave blank to omit it.
+            </p>
+          </div>
+          <CompanyProfileForm profile={companyProfile} canEdit={canEditCompany} />
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">Other settings</h2>

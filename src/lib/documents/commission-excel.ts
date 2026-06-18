@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { companyForDocument } from "@/lib/company/profile";
+import { appendCompanyBank } from "./company-block";
 
 const day = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "—");
 
@@ -11,9 +13,10 @@ export async function buildCommissionInvoiceWorkbook(actor: SessionUser, id: str
   const cid = tenantId(actor);
   const c = await prisma.commissionEntry.findFirst({ where: { id, companyId: cid } });
   if (!c) return null;
-  const [buyer, factory] = await Promise.all([
+  const [buyer, factory, company] = await Promise.all([
     c.buyerId ? prisma.buyer.findFirst({ where: { id: c.buyerId, companyId: cid }, select: { name: true } }) : null,
     c.factoryId ? prisma.factory.findFirst({ where: { id: c.factoryId, companyId: cid }, select: { name: true } }) : null,
+    companyForDocument(cid),
   ]);
 
   const factoryValue = Number(c.factoryInvoiceValue ?? 0);
@@ -66,6 +69,8 @@ export async function buildCommissionInvoiceWorkbook(actor: SessionUser, id: str
     const n = ws.addRow(["Remarks", c.remarks]);
     n.getCell(1).font = { bold: true };
   }
+
+  appendCompanyBank(ws, company);
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
   const safe = (c.ownInvoiceNo || c.id).replace(/[^A-Za-z0-9._-]/g, "_");

@@ -33,6 +33,13 @@ model Company {
   status    CompanyStatus @default(ACTIVE)
   packageId String?
   signupIp  String? // source IP at self-serve signup (abuse rate-limiting)
+  // Company profile + banking details printed on generated invoices (optional).
+  address         String?
+  bankName        String?
+  bankAccountName String?
+  bankAccountNo   String?
+  bankSwift       String?
+  bankBranch      String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

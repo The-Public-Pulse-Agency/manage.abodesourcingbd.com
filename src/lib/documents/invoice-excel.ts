@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { companyForDocument } from "@/lib/company/profile";
+import { appendCompanyBank } from "./company-block";
 
 const day = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "—");
 const num = (v: unknown) => Number(v ?? 0);
@@ -109,6 +111,10 @@ export async function buildInvoiceWorkbook(actor: SessionUser, invoiceId: string
   const total = ws.addRow(["", "", "INVOICE TOTAL", "", inv.currency, num(inv.amount)]);
   total.font = { bold: true };
   total.getCell(6).numFmt = "#,##0.00";
+
+  // Buyer invoices are receivable — show where the buyer should pay. (Factory invoices are
+  // payable to the factory, so we skip our own bank block there.)
+  if (isBuyer) appendCompanyBank(ws, await companyForDocument(tenantId(actor)));
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
   const safe = inv.number.replace(/[^A-Za-z0-9._-]/g, "_");

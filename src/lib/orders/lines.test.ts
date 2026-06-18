@@ -8,6 +8,7 @@ import { createPurchaseOrder } from "./po";
 import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
 import { setOrderLine, removeOrderLine } from "./lines";
+import { createInvoice } from "@/lib/finance/invoices";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
@@ -107,7 +108,7 @@ describe("setOrderLine", () => {
     ).rejects.toThrow(/style does not belong/i);
   });
 
-  it("refuses to edit lines once the PO is CONFIRMED", async () => {
+  it("still allows line correction on a CONFIRMED PO that has no shipments or invoices", async () => {
     const { po, style } = await seedPo();
     await setOrderLine(admin, po.id, {
       styleId: style.id,
@@ -115,12 +116,30 @@ describe("setOrderLine", () => {
     });
     await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
+    // safe window: nothing booked downstream yet → correction is allowed
+    await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 99, netFob: 1.5, sellFob: 2.0 }],
+    });
+    const sizes = await prisma.orderLineSize.findMany({ where: { orderLine: { poId: po.id } } });
+    expect(sizes.reduce((a, s) => a + s.qty, 0)).toBe(99);
+  });
+
+  it("locks line edits once an invoice exists on the PO", async () => {
+    const { po, style } = await seedPo();
+    await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 10, netFob: 1.5, sellFob: 2.0 }],
+    });
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+    await createInvoice(admin, { type: "BUYER", number: "INV-1", poId: po.id, amount: 20, issueDate: "2026-01-15" });
     await expect(
       setOrderLine(admin, po.id, {
         styleId: style.id,
         sizes: [{ label: "M", qty: 99, netFob: 1.5, sellFob: 2.0 }],
       }),
-    ).rejects.toThrow(/draft/i);
+    ).rejects.toThrow(/shipments or invoices/i);
   });
 });
 

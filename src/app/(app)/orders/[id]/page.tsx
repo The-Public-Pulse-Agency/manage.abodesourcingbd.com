@@ -42,8 +42,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const role = actor.role;
   const isDraft = po.status === "DRAFT";
   const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
-  const canEdit = can(actor, "orders", "edit") && isDraft;
-  const canDelete = can(actor, "orders", "delete") && isDraft;
+  // Base authority (draft + post-confirm safe window). The actual structure-edit flags
+  // (canEdit/canDelete) are narrowed below once we know shipments/invoices exist.
+  const canEditBase = can(actor, "orders", "edit") && isActive;
+  const canDeleteBase = can(actor, "orders", "delete") && isActive;
 
   const canTna = can(actor, "criticalPath", "view");
   const canSampling = can(actor, "sampling", "view");
@@ -58,8 +60,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices, costItems, materials, sub] =
     await Promise.all([
       listColours(actor),
-      canEdit ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
-      canEdit ? listSizeScales(actor) : Promise.resolve([]),
+      canEditBase ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
+      canEditBase ? listSizeScales(actor) : Promise.resolve([]),
       canTna ? listPoMilestones(actor, po.id, new Date()) : Promise.resolve([]),
       canSampling ? listSampleRequests(actor, po.id) : Promise.resolve([]),
       canPqc ? getProduction(actor, po.id) : Promise.resolve(null),
@@ -73,6 +75,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     ]);
 
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
+  // Lines (qty/style/colour) stay fully editable on a DRAFT order; post-confirm an orders:edit
+  // user may still correct them ONLY while nothing is booked downstream (no shipments, no
+  // invoices). Mirrors the server guard in lines.ts (which is authoritative).
+  const noBooking = !balance.some((l) => l.sizes.some((s) => s.shipped > 0)) && invoices.length === 0;
+  const canEdit = canEditBase && (isDraft || noBooking);
+  const canDelete = canDeleteBase && (isDraft || noBooking);
   // Prices (net/sell FOB) can be corrected post-confirm (orders:edit — ADMIN/merchandiser),
   // but only before revenue is booked (no invoice yet) and while the order isn't closed/cancelled.
   const canEditPrices =

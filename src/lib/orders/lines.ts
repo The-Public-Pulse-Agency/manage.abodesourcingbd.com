@@ -1,7 +1,35 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { setLineSchema, type SetLineInput } from "./schema";
+
+const STRUCTURE_TERMINAL = ["CLOSED", "CANCELLED"] as const;
+
+/**
+ * Lines (qty/style/colour/sizes) are freely editable on a DRAFT order. After confirmation an
+ * orders:edit user (ADMIN/merchandiser) may still correct them, but ONLY in a safe window:
+ * the order isn't closed/cancelled AND nothing has been booked downstream (no shipment lines,
+ * no invoices). Once goods ship or an invoice is raised, structure is locked.
+ */
+async function assertLineStructureEditable(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  poId: string,
+  status: string,
+): Promise<void> {
+  if (status === "DRAFT") return;
+  if ((STRUCTURE_TERMINAL as readonly string[]).includes(status)) {
+    throw new Error(`Only DRAFT orders can be edited (status: ${status})`);
+  }
+  const [shipped, invoiced] = await Promise.all([
+    tx.shipmentLine.count({ where: { orderLine: { poId, companyId } } }),
+    tx.invoice.count({ where: { poId, companyId } }),
+  ]);
+  if (shipped > 0 || invoiced > 0) {
+    throw new Error("This order has shipments or invoices — its lines can no longer be changed (you can still correct prices).");
+  }
+}
 
 export async function setOrderLine(actor: SessionUser, poId: string, input: SetLineInput) {
   assertPermission(actor, "orders", "edit");
@@ -15,9 +43,7 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
     if (!po) {
       throw new Error("Purchase order not found");
     }
-    if (po.status !== "DRAFT") {
-      throw new Error(`Only DRAFT orders can be edited (status: ${po.status})`);
-    }
+    await assertLineStructureEditable(tx, tenantId(actor), poId, po.status);
     // Cross-entity integrity: the style must belong to this order's brand.
     const style = await tx.style.findFirst({
       where: { id: data.styleId, companyId: tenantId(actor) },
@@ -129,9 +155,7 @@ export async function removeOrderLine(actor: SessionUser, lineId: string) {
   if (!line) {
     throw new Error("Order line not found");
   }
-  if (line.po.status !== "DRAFT") {
-    throw new Error(`Only DRAFT orders can be edited (status: ${line.po.status})`);
-  }
+  await prisma.$transaction((tx) => assertLineStructureEditable(tx, tenantId(actor), line.poId, line.po.status));
   await prisma.orderLine.deleteMany({ where: { id: lineId, companyId: tenantId(actor) } });
   await recordAudit({
     userId: actor.id,

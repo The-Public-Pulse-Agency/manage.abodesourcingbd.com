@@ -150,7 +150,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         />
       )}
 
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="overflow-x-auto rounded-sm border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">
@@ -219,7 +219,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       ))}
 
       {canDocs && (
-        <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
           <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Document checklist</h3>
             <span className="tnum text-xs text-ink-soft">{docsPresent}/{REQUIRED_DOCS.length} required</span>

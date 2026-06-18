@@ -89,7 +89,7 @@ export function TnaTimeline({
   }
 
   return (
-    <div className="overflow-hidden rounded-sm border border-line bg-surface">
+    <div className="overflow-x-auto rounded-sm border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Critical Path</h3>
         {error && <span className="text-xs text-bad">{error}</span>}

@@ -129,7 +129,7 @@ export default async function DashboardPage() {
 
       {/* Factory performance */}
       {factories.length > 0 && (
-        <div className="rise overflow-hidden rounded-lg border border-line bg-surface elevate" style={{ animationDelay: "300ms" }}>
+        <div className="rise overflow-x-auto rounded-lg border border-line bg-surface elevate" style={{ animationDelay: "300ms" }}>
           <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Factory performance</h3>
             <Link href="/reports/factories" className="link-accent text-xs text-ink-soft hover:text-accent">Factory info →</Link>
@@ -265,7 +265,7 @@ function Exception({ label, count, href, tone, icon }: { label: string; count: n
 
 function Panel({ title, href, linkLabel, children }: { title: string; href: string; linkLabel: string; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+    <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{title}</h3>
         <Link href={href} className="link-accent text-xs text-ink-soft hover:text-accent">{linkLabel} →</Link>

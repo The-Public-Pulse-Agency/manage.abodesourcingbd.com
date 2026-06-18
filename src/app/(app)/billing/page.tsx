@@ -83,7 +83,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <PlanForm amountBdt={sub.amountBdt} periodDays={sub.periodDays} planName={sub.planName} planNotes={sub.planNotes} minMarginPct={sub.minMarginPct} />
       )}
 
-      <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
         <div className="border-b border-line bg-paper px-4 py-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Payment history</h3>
         </div>

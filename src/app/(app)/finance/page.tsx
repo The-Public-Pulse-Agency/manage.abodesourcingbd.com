@@ -55,7 +55,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <Stat label="Realised margin" value={formatMoney(summary.realisedMargin)} accent />
       </div>
 
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="overflow-x-auto rounded-sm border border-line bg-surface">
         <div className="border-b border-line bg-paper px-4 py-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Aging (outstanding by age)</h3>
         </div>

@@ -34,7 +34,7 @@ export function NotificationsList({ items }: { items: NotificationRow[] }) {
   const hasUnread = items.some((i) => !i.read);
 
   return (
-    <div className="overflow-hidden rounded-sm border border-line bg-surface">
+    <div className="overflow-x-auto rounded-sm border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Notifications</h3>
         {hasUnread && (

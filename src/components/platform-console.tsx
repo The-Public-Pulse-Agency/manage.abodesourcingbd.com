@@ -69,7 +69,7 @@ export function PlatformConsole({ companies, packages }: { companies: CompanyRow
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">Packages</h2>
-        <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">

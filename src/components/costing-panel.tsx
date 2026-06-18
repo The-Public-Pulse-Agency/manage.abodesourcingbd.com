@@ -33,7 +33,7 @@ export function CostingPanel({
   const belowFloor = minMarginPct > 0 && marginPct !== null && marginPct < minMarginPct;
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+    <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Costing build-up</h3>
         {msg && <span className="text-xs text-bad">{msg}</span>}

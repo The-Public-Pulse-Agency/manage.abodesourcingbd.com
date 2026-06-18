@@ -51,7 +51,7 @@ export default async function FactoryInfoPage() {
 
       <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "120ms" }}>
         {factories.map((f) => (
-          <div key={f.id} className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+          <div key={f.id} className="overflow-x-auto rounded-lg border border-line bg-surface elevate">
             <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
               <div>
                 <h3 className="font-semibold">{f.name}</h3>

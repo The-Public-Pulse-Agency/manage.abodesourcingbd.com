@@ -143,7 +143,7 @@ function Kpi({ label, rail, children }: { label: string; rail: string; children:
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+    <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">
       <div className="border-b border-line bg-paper px-4 py-2.5"><h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{title}</h3></div>
       <div className="p-4">{children}</div>
     </div>

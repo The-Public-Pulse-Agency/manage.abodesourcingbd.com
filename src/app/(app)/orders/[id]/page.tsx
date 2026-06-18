@@ -140,7 +140,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="overflow-x-auto rounded-sm border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">
@@ -310,7 +310,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       )}
 
       {canShip && !isDraft && (
-        <div className="overflow-hidden rounded-sm border border-line bg-surface">
+        <div className="overflow-x-auto rounded-sm border border-line bg-surface">
           <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Shipping balance</h3>
             {can(actor, "shipment", "create") && isActive && hasBalance && (

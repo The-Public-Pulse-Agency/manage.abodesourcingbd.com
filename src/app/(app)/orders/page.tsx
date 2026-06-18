@@ -87,7 +87,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         </Link>
       </form>
 
-      <div className="overflow-hidden rounded-sm border border-line bg-surface">
+      <div className="overflow-x-auto rounded-sm border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">

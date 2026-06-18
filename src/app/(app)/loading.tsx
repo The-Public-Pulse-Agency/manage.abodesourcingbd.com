@@ -13,7 +13,7 @@ export default function Loading() {
             </div>
           ))}
         </div>
-        <div className="overflow-hidden rounded-md border border-line bg-surface elevate">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface elevate">
           <div className="border-b border-line bg-paper px-4 py-3">
             <div className="skeleton h-4 w-40" />
           </div>

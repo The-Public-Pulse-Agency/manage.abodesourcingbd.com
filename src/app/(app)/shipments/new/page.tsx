@@ -27,7 +27,7 @@ export default async function NewShipmentPage({
           <p className="eyebrow">Logistics</p>
           <h1 className="text-2xl font-semibold tracking-tight">New shipment — pick an order</h1>
         </div>
-        <div className="overflow-hidden rounded-sm border border-line bg-surface">
+        <div className="overflow-x-auto rounded-sm border border-line bg-surface">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">

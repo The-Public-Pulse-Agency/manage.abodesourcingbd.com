@@ -46,7 +46,7 @@ export default async function CriticalPathPage() {
         {overdue > 0 && <span className="text-bad"> · {overdue} overdue</span>}.
       </p>
 
-      <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface elevate">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink-soft">

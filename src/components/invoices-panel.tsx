@@ -66,6 +66,7 @@ export function InvoicesPanel({
   title = "Invoices",
   defaultNumber,
   defaultAmount,
+  shipmentId,
 }: {
   invoices: InvoiceRow[];
   poId?: string;
@@ -75,6 +76,8 @@ export function InvoicesPanel({
   // Optional pre-fill for the add-invoice form (e.g. from a shipment: reference + shipped value).
   defaultNumber?: string;
   defaultAmount?: number;
+  // When set, a created invoice is also linked to this shipment (shows on the shipped register).
+  shipmentId?: string;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
@@ -263,6 +266,7 @@ export function InvoicesPanel({
           }}
           className="flex flex-wrap items-end gap-2 border-t border-line p-3"
         >
+          {shipmentId && <input type="hidden" name="shipmentId" value={shipmentId} />}
           <select name="type" required className="select text-xs" aria-label="Invoice type">
             <option value="BUYER">BUYER (Abode→buyer)</option>
             <option value="FACTORY">FACTORY (payable)</option>

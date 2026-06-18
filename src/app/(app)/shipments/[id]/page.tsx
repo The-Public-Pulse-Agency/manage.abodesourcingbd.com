@@ -214,6 +214,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           title={invoicesByPo.length > 1 ? `Invoices · ${po.poNumber}` : "Invoices"}
           defaultNumber={shp.reference}
           defaultAmount={Math.round((shippedValueByPo.get(po.id) ?? 0) * 100) / 100}
+          shipmentId={shp.id}
         />
       ))}
 

@@ -1,6 +1,24 @@
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 
+type InvLite = { id: string; type: string; number: string; amount: unknown; status: string; currency: string; dueDate: Date | null };
+const INV_SELECT = { id: true, type: true, number: true, amount: true, status: true, currency: true, dueDate: true } as const;
+
+/**
+ * Pick the invoice to show for a shipment. Prefer one linked directly to the shipment
+ * (created from the shipment page), then fall back to an invoice on the shipment's PO — so
+ * PO-level invoices still surface on the register even when not shipment-linked.
+ * Receivable-first within each set: BUYER → FACTORY → lowest id.
+ */
+function pickShipmentInvoice(shipmentInvoices: InvLite[], poInvoices: InvLite[]): InvLite | null {
+  const pref = (list: InvLite[]): InvLite | null => {
+    if (list.length === 0) return null;
+    const byId = [...list].sort((a, b) => a.id.localeCompare(b.id));
+    return byId.find((i) => i.type === "BUYER") ?? byId.find((i) => i.type === "FACTORY") ?? byId[0];
+  };
+  return pref(shipmentInvoices) ?? pref(poInvoices);
+}
+
 export type ShippedRow = {
   id: string;
   reference: string;
@@ -64,7 +82,7 @@ export async function shippedGoodsReport(
       lines: {
         include: {
           sizes: true,
-          orderLine: { include: { colour: true, po: { include: { factory: true, buyer: true } } } },
+          orderLine: { include: { colour: true, po: { include: { factory: true, buyer: true, invoices: true } } } },
         },
       },
     },
@@ -78,9 +96,9 @@ export async function shippedGoodsReport(
     const sizes = [...new Set(s.lines.flatMap((l) => l.sizes.map((z) => z.label)))].join(", ");
     const colours = [...new Set(s.lines.map((l) => l.orderLine?.colour?.name).filter(Boolean) as string[])].join(", ");
     const qty = s.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
-    // Deterministic, receivable-first selection (see fn doc): BUYER → FACTORY → lowest id.
-    const byId = [...s.invoices].sort((a, b) => a.id.localeCompare(b.id));
-    const inv = byId.find((i) => i.type === "BUYER") ?? byId.find((i) => i.type === "FACTORY") ?? byId[0];
+    // Shipment-linked invoice preferred, else the shipment's PO invoice(s) (receivable-first).
+    const poInvoices = s.lines.flatMap((l) => l.orderLine?.po?.invoices ?? []) as InvLite[];
+    const inv = pickShipmentInvoice(s.invoices as InvLite[], poInvoices);
     return {
       id: s.id,
       reference: s.blNumber ?? s.reference,
@@ -109,29 +127,35 @@ export async function shippedGoodsReport(
 }
 
 /**
- * Headline KPIs over ALL matching shipments via DB aggregates (so they don't drift with
- * pagination). Receivable value & payment counts are taken from BUYER invoices (the register
- * is receivable-oriented) and are USD-scoped (single-currency contract — no FX mixing).
+ * Headline KPIs over ALL matching shipments (not just the visible page). Invoiced value +
+ * payment counts come from the SAME invoice each row shows (shipment-linked, else the PO's
+ * invoice), deduped so a PO invoice shared by two shipments isn't counted twice. USD-scoped
+ * for the value (single-currency contract — no FX mixing).
  */
 async function shippedReportKpis(companyId: string | null) {
-  const [shipments, qtyAgg, valueAgg, paid, awaiting] = await Promise.all([
+  const [shipments, qtyAgg, all] = await Promise.all([
     prisma.shipment.count({ where: { companyId } }),
-    prisma.shipmentLineSize.aggregate({
+    prisma.shipmentLineSize.aggregate({ where: { companyId }, _sum: { qty: true } }),
+    prisma.shipment.findMany({
       where: { companyId },
-      _sum: { qty: true },
+      select: {
+        invoices: { select: INV_SELECT },
+        lines: { select: { orderLine: { select: { po: { select: { invoices: { select: INV_SELECT } } } } } } },
+      },
+      take: 20_000,
     }),
-    prisma.invoice.aggregate({
-      where: { companyId, currency: "USD", type: "BUYER", shipmentId: { not: null } },
-      _sum: { amount: true },
-    }),
-    prisma.invoice.count({ where: { companyId, type: "BUYER", shipmentId: { not: null }, status: "PAID" } }),
-    prisma.invoice.count({ where: { companyId, type: "BUYER", shipmentId: { not: null }, status: { not: "PAID" } } }),
   ]);
-  return {
-    shipments,
-    totalQty: qtyAgg._sum.qty ?? 0,
-    receivableUsd: valueAgg._sum.amount ? Number(valueAgg._sum.amount) : 0,
-    paid,
-    awaiting,
-  };
+  // Select the displayed invoice per shipment, then dedupe by invoice id.
+  const selected = new Map<string, InvLite>();
+  for (const s of all) {
+    const poInvoices = s.lines.flatMap((l) => l.orderLine?.po?.invoices ?? []) as InvLite[];
+    const inv = pickShipmentInvoice(s.invoices as InvLite[], poInvoices);
+    if (inv) selected.set(inv.id, inv);
+  }
+  let receivableUsd = 0, paid = 0, awaiting = 0;
+  for (const inv of selected.values()) {
+    if (inv.currency === "USD") receivableUsd += Number(inv.amount);
+    if (inv.status === "PAID") paid += 1; else awaiting += 1;
+  }
+  return { shipments, totalQty: qtyAgg._sum.qty ?? 0, receivableUsd, paid, awaiting };
 }

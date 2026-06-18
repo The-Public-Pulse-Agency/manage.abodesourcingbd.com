@@ -14,6 +14,9 @@ export async function createInvoiceAction(poId: string, fd: FormData): Promise<A
       type: String(fd.get("type")) as "BUYER" | "FACTORY",
       number: String(fd.get("number") ?? ""),
       poId,
+      // When raised from the shipment page, also link the invoice to that shipment so it
+      // shows on the shipped register directly (not just via the PO fallback).
+      shipmentId: String(fd.get("shipmentId") || "") || undefined,
       amount: Number(fd.get("amount")) || 0,
       issueDate: String(fd.get("issueDate") || new Date().toISOString().slice(0, 10)),
       dueDate: String(fd.get("dueDate") || "") || undefined,

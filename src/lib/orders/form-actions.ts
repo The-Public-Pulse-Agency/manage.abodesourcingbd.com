@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { createPurchaseOrder } from "./po";
-import { setOrderLine, removeOrderLine } from "./lines";
+import { setOrderLine, removeOrderLine, updateLinePrices } from "./lines";
 import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
 import { closePurchaseOrder } from "./close";
@@ -66,6 +66,22 @@ export async function removeLineAction(poId: string, lineId: string): Promise<Ac
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to remove line" };
+  }
+}
+
+export async function updateLinePricesAction(
+  poId: string,
+  orderLineId: string,
+  prices: { sizeId: string; netFob: number; sellFob: number }[],
+): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await updateLinePrices(actor, orderLineId, prices);
+    revalidatePath(`/orders/${poId}`);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update prices" };
   }
 }
 

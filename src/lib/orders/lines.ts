@@ -67,6 +67,44 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
   return line;
 }
 
+const PRICE_LOCKED = ["CLOSED", "CANCELLED"] as const;
+
+/**
+ * Correct the FOB prices (net/sell) on an existing line's sizes WITHOUT changing qty/style —
+ * usable after an order is confirmed (e.g. a sell price was missed at entry). Blocked only on
+ * CLOSED/CANCELLED orders. Qty/structure stay locked; only prices change, so order value and
+ * margin recompute from the corrected prices everywhere.
+ */
+export async function updateLinePrices(
+  actor: SessionUser,
+  orderLineId: string,
+  prices: { sizeId: string; netFob: number; sellFob: number }[],
+) {
+  assertPermission(actor, "costing", "edit");
+  const cid = tenantId(actor);
+  const line = await prisma.orderLine.findFirst({
+    where: { id: orderLineId, companyId: cid },
+    include: { po: { select: { status: true } }, sizes: { select: { id: true } } },
+  });
+  if (!line) throw new Error("Order line not found");
+  if ((PRICE_LOCKED as readonly string[]).includes(line.po.status)) {
+    throw new Error(`Cannot edit prices on a ${line.po.status} order`);
+  }
+  const valid = new Set(line.sizes.map((s) => s.id));
+  await prisma.$transaction(async (tx) => {
+    for (const p of prices) {
+      if (!valid.has(p.sizeId)) continue;
+      const net = Math.max(0, Number(p.netFob) || 0);
+      const sell = Math.max(0, Number(p.sellFob) || 0);
+      await tx.orderLineSize.updateMany({
+        where: { id: p.sizeId, orderLineId, companyId: cid },
+        data: { netFob: String(net), sellFob: String(sell) },
+      });
+    }
+  });
+  await recordAudit({ userId: actor.id, entityType: "OrderLine", entityId: orderLineId, action: "edit", after: { pricesUpdated: prices.length } });
+}
+
 export async function removeOrderLine(actor: SessionUser, lineId: string) {
   assertPermission(actor, "orders", "delete");
   const line = await prisma.orderLine.findFirst({

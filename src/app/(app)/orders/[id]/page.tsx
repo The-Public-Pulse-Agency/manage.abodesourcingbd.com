@@ -28,6 +28,7 @@ import { ConfirmButton, ApproveCostingButton, CloseButton, RemoveLineButton, Lot
 import { TnaTimeline } from "./tna-timeline";
 import { SamplingPanel } from "./sampling-panel";
 import { ProductionPanel } from "./production-panel";
+import { LinePriceEditor } from "./line-price-editor";
 import { QcPanel } from "./qc-panel";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,6 +40,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   const role = actor.role;
   const isDraft = po.status === "DRAFT";
+  // Prices (net/sell FOB) can be corrected after confirm — locked only once CLOSED/CANCELLED.
+  const canEditPrices = can(role, "costing", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED";
   const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
   const canEdit = can(role, "orders", "edit") && isDraft;
   const canDelete = can(role, "orders", "delete") && isDraft;
@@ -163,6 +166,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                         </span>
                       ))}
                     </div>
+                    {canEditPrices && line.sizes.length > 0 && (
+                      <LinePriceEditor
+                        poId={po.id}
+                        lineId={line.id}
+                        sizes={line.sizes.map((s) => ({ id: s.id, label: s.label, qty: s.qty, netFob: Number(s.netFob), sellFob: Number(s.sellFob) }))}
+                      />
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tnum">{formatQty(t.qty)}</td>
                   <td className="px-3 py-2 text-right tnum">{formatMoney(t.value, po.currency)}</td>

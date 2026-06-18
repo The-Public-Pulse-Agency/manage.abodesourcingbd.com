@@ -10,7 +10,7 @@ export default async function EditBrandPage({
   params: Promise<{ id: string }>;
 }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "edit")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "edit")) redirect("/dashboard");
   const { id } = await params;
   const brand = await getBrand(actor, id);
   if (!brand) notFound();

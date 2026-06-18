@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ASSIGNABLE_ROLES as ROLES } from "@/lib/auth/permissions";
 import { createUserFromForm } from "@/lib/users/form-actions";
 
-export function CreateUserForm() {
+export function CreateUserForm({ roles }: { roles: { key: string; name: string }[] }) {
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   return (
@@ -50,9 +49,9 @@ export function CreateUserForm() {
       <label className="flex flex-col gap-1 text-sm text-ink-soft">
         Role
         <select name="role" required aria-label="Role" className="select">
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
+          {roles.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.name}
             </option>
           ))}
         </select>

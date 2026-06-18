@@ -9,7 +9,7 @@ const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentUser();
   if (!actor) return new Response("Unauthorized", { status: 401 });
-  if (!can(actor.role, "finance", "view")) return new Response("Forbidden", { status: 403 });
+  if (!can(actor, "finance", "view")) return new Response("Forbidden", { status: 403 });
   const { id } = await params;
   const doc = await buildInvoiceWorkbook(actor, id);
   if (!doc) return new Response("Not found", { status: 404 });

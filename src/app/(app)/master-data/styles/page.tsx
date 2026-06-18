@@ -11,10 +11,10 @@ import { StyleForm } from "./style-form";
 
 export default async function StylesPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
   const styles = await listStyles(actor, { includeInactive: true });
-  const canCreate = can(actor.role, "masterData", "create");
-  const canEdit = can(actor.role, "masterData", "edit");
+  const canCreate = can(actor, "masterData", "create");
+  const canEdit = can(actor, "masterData", "edit");
   const brands = canCreate ? await listBrands(actor) : [];
   type StyleRow = (typeof styles)[number];
   const columns: Column<StyleRow>[] = [
@@ -32,7 +32,7 @@ export default async function StylesPage() {
       ),
     });
   }
-  if (can(actor.role, "masterData", "delete")) {
+  if (can(actor, "masterData", "delete")) {
     columns.push({ header: "Delete", align: "right", cell: (s) => <RowDeleteButton action={deleteStyleAction} id={s.id} /> });
   }
   return (

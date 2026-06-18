@@ -1,4 +1,4 @@
-import { can, type Action, type Module, type Role } from "./permissions";
+import { can, type Action, type Module, type Role, type PermissionMap } from "./permissions";
 
 export class ForbiddenError extends Error {
   constructor(message = "Forbidden") {
@@ -7,7 +7,7 @@ export class ForbiddenError extends Error {
   }
 }
 
-export type SessionUser = { id: string; role: Role; companyId?: string | null };
+export type SessionUser = { id: string; role: Role; companyId?: string | null; permissions?: PermissionMap | null };
 
 /**
  * The tenant a query must be scoped to. Every OMS lib operation runs in a company
@@ -27,22 +27,26 @@ export function assertPermission(
   action: Action,
 ): SessionUser {
   if (!user) throw new ForbiddenError("Not authenticated");
-  if (!can(user.role, module, action)) {
+  if (!can(user, module, action)) {
     throw new ForbiddenError(`${user.role} cannot ${action} ${module}`);
   }
   return user;
 }
 
 /**
- * Reads the current session user (or null). For use inside server actions.
- * `auth` is imported lazily so pure unit tests of assertPermission do not load
- * the next-auth runtime.
+ * Reads the current session user (or null). Resolves the actor's permission map from its
+ * role so authorization is dynamic (custom roles supported). `auth`/role resolution are
+ * imported lazily so pure unit tests of assertPermission don't load the next-auth runtime.
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const { auth } = await import("@/auth");
   const session = await auth();
   if (!session?.user) return null;
-  return { id: session.user.id, role: session.user.role, companyId: session.user.companyId ?? null };
+  const companyId = session.user.companyId ?? null;
+  const role = session.user.role;
+  const { resolvePermissions } = await import("./roles");
+  const permissions = await resolvePermissions(companyId, role);
+  return { id: session.user.id, role, companyId, permissions };
 }
 
 /** Session-aware guard for server actions: loads the user and asserts. */

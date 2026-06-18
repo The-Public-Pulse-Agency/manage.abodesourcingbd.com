@@ -10,7 +10,7 @@ import { Pagination } from "@/components/pagination";
 
 export default async function FinancePage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "finance", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "finance", "view")) redirect("/dashboard");
 
   const sp = await searchParams;
   const [summary, book] = await Promise.all([
@@ -88,7 +88,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </table>
       </div>
 
-      <InvoicesPanel invoices={rows} canManage={can(actor.role, "finance", "create")} showPo title="All invoices" />
+      <InvoicesPanel invoices={rows} canManage={can(actor, "finance", "create")} showPo title="All invoices" />
       <Pagination page={book.page} totalPages={book.totalPages} total={book.total} pageSize={book.pageSize} params={sp} />
     </div>
   );

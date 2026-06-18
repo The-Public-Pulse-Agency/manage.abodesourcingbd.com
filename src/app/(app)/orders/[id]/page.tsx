@@ -34,7 +34,7 @@ import { QcPanel } from "./qc-panel";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
   const { id } = await params;
   const po = await getPurchaseOrder(actor, id);
   if (!po) notFound();
@@ -42,16 +42,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const role = actor.role;
   const isDraft = po.status === "DRAFT";
   const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
-  const canEdit = can(role, "orders", "edit") && isDraft;
-  const canDelete = can(role, "orders", "delete") && isDraft;
+  const canEdit = can(actor, "orders", "edit") && isDraft;
+  const canDelete = can(actor, "orders", "delete") && isDraft;
 
-  const canTna = can(role, "criticalPath", "view");
-  const canSampling = can(role, "sampling", "view");
-  const canPqc = can(role, "productionQc", "view");
-  const canShip = can(role, "shipment", "view");
-  const canDocs = can(role, "documents", "view");
-  const canFinance = can(role, "finance", "view");
-  const canCosting = can(role, "costing", "view");
+  const canTna = can(actor, "criticalPath", "view");
+  const canSampling = can(actor, "sampling", "view");
+  const canPqc = can(actor, "productionQc", "view");
+  const canShip = can(actor, "shipment", "view");
+  const canDocs = can(actor, "documents", "view");
+  const canFinance = can(actor, "finance", "view");
+  const canCosting = can(actor, "costing", "view");
 
   // Every read below is independent — run them concurrently so the page waits on the
   // single slowest query, not the sum of all of them.
@@ -76,7 +76,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // Prices (net/sell FOB) can be corrected post-confirm (orders:edit — ADMIN/merchandiser),
   // but only before revenue is booked (no invoice yet) and while the order isn't closed/cancelled.
   const canEditPrices =
-    can(role, "orders", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED" && invoices.length === 0;
+    can(actor, "orders", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED" && invoices.length === 0;
   const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const invoiceRows: InvoiceRow[] = invoices.map((inv) => ({
     id: inv.id,
@@ -201,7 +201,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           sellPerUnit={po.totals.qty > 0 ? po.totals.value / po.totals.qty : 0}
           marginPct={marginPct(po.totals)}
           minMarginPct={sub.minMarginPct}
-          canEdit={can(role, "costing", "edit") && isDraft}
+          canEdit={can(actor, "costing", "edit") && isDraft}
         />
       )}
 
@@ -232,7 +232,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 )}
               </p>
               <div className="flex items-center gap-3 pt-2">
-                {!po.costingApprovedAt && can(role, "costing", "approve") && (
+                {!po.costingApprovedAt && can(actor, "costing", "approve") && (
                   <ApproveCostingButton poId={po.id} />
                 )}
                 <ConfirmButton poId={po.id} />
@@ -252,7 +252,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <TnaTimeline
           poId={po.id}
           milestones={milestones}
-          canEdit={can(role, "criticalPath", "edit") && isActive}
+          canEdit={can(actor, "criticalPath", "edit") && isActive}
         />
       )}
       {canSampling && (
@@ -260,23 +260,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           poId={po.id}
           samples={samples}
           colours={colours.map((c) => ({ id: c.id, name: c.name }))}
-          canCreate={can(role, "sampling", "create") && isActive}
-          canEdit={can(role, "sampling", "edit") && isActive}
+          canCreate={can(actor, "sampling", "create") && isActive}
+          canEdit={can(actor, "sampling", "edit") && isActive}
         />
       )}
       {canPqc && !isDraft && production && (
         <ProductionPanel
           poId={po.id}
           production={production}
-          canEdit={can(role, "productionQc", "edit") && isActive}
+          canEdit={can(actor, "productionQc", "edit") && isActive}
         />
       )}
       {canPqc && !isDraft && (
         <QcPanel
           poId={po.id}
           inspections={inspections}
-          canCreate={can(role, "productionQc", "create") && isActive}
-          canEdit={can(role, "productionQc", "edit") && isActive}
+          canCreate={can(actor, "productionQc", "create") && isActive}
+          canEdit={can(actor, "productionQc", "edit") && isActive}
         />
       )}
 
@@ -297,7 +297,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             receivedDate: m.receivedDate ? formatDate(m.receivedDate) : null,
             status: m.status,
           }))}
-          canEdit={can(role, "productionQc", "edit") && isActive}
+          canEdit={can(actor, "productionQc", "edit") && isActive}
         />
       )}
 
@@ -305,7 +305,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="overflow-hidden rounded-sm border border-line bg-surface">
           <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Shipping balance</h3>
-            {can(role, "shipment", "create") && isActive && hasBalance && (
+            {can(actor, "shipment", "create") && isActive && hasBalance && (
               <Link
                 href={`/shipments/new?poId=${po.id}`}
                 className="rounded-sm bg-accent px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
@@ -351,7 +351,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           entityType="PurchaseOrder"
           entityId={po.id}
           documents={documents}
-          canCreate={can(role, "documents", "create") && isActive}
+          canCreate={can(actor, "documents", "create") && isActive}
         />
       )}
 
@@ -359,11 +359,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <InvoicesPanel
           invoices={invoiceRows}
           poId={po.id}
-          canManage={can(role, "finance", "create")}
+          canManage={can(actor, "finance", "create")}
         />
       )}
 
-      {canCloseStatus && can(role, "orders", "edit") && (
+      {canCloseStatus && can(actor, "orders", "edit") && (
         <div className="flex items-center gap-3 rounded-sm border border-line bg-surface p-5">
           <div className="space-y-0.5">
             <p className="eyebrow">Close</p>

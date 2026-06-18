@@ -11,12 +11,21 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
-  SUPERADMIN
-  ADMIN
-  MERCHANDISER
-  ACCOUNTS
-  MANAGEMENT
+// Roles are now dynamic, per-company rows with a granular permission map (see model Role).
+// User.role holds a role KEY (e.g. "ADMIN" or a custom "QC_LEAD"). SUPERADMIN is the special
+// platform-operator key (no company) and is never stored as a tenant Role row.
+model Role {
+  id          String   @id @default(cuid())
+  companyId   String? // null only for any future global roles; tenant roles set this
+  key         String // stable identifier referenced by User.role
+  name        String // display label
+  isSystem    Boolean  @default(false) // seeded defaults — cannot be deleted/renamed-key
+  permissions Json // { "<module>": ["view","create","edit","delete","approve"], ... }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, key])
+  @@index([companyId])
 }
 
 enum CompanyStatus {
@@ -62,7 +71,7 @@ model User {
   name          String
   email         String         @unique
   passwordHash  String
-  role          Role
+  role          String         @default("ADMIN") // role KEY → Role.key (per company)
   active        Boolean        @default(true)
   companyId     String?        // tenant; null only for the platform SUPERADMIN
   notifications Notification[]

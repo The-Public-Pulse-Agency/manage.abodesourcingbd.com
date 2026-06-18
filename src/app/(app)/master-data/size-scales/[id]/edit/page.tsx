@@ -11,7 +11,7 @@ export default async function EditSizeScalePage({
 }) {
   const { id } = await params;
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "edit")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "edit")) redirect("/dashboard");
   const scale = await getSizeScale(actor, id);
   if (!scale) notFound();
   return (

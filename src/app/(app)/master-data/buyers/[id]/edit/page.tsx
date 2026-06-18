@@ -10,7 +10,7 @@ export default async function EditBuyerPage({
   params: Promise<{ id: string }>;
 }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "edit")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "edit")) redirect("/dashboard");
   const { id } = await params;
   const buyer = await getBuyer(actor, id);
   if (!buyer) notFound();

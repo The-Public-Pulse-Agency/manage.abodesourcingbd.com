@@ -14,15 +14,15 @@ type FactoryRow = Awaited<ReturnType<typeof listFactories>>[number];
 
 export default async function FactoriesPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
   const factories = await listFactories(actor, { includeInactive: true });
   const columns: Column<FactoryRow>[] = [
     { header: "Name", cell: (f) => f.name },
     { header: "Code", cell: (f) => f.code },
     { header: "Type", cell: (f) => f.type },
-    { header: "Active", cell: (f) => (can(actor.role, "masterData", "edit") ? <ActiveToggle id={f.id} active={f.active} action={setFactoryActiveAction} /> : f.active ? "Yes" : "No") },
+    { header: "Active", cell: (f) => (can(actor, "masterData", "edit") ? <ActiveToggle id={f.id} active={f.active} action={setFactoryActiveAction} /> : f.active ? "Yes" : "No") },
   ];
-  if (can(actor.role, "masterData", "edit")) {
+  if (can(actor, "masterData", "edit")) {
     columns.push({
       header: "Edit",
       align: "right",
@@ -33,13 +33,13 @@ export default async function FactoriesPage() {
       ),
     });
   }
-  if (can(actor.role, "masterData", "delete")) {
+  if (can(actor, "masterData", "delete")) {
     columns.push({ header: "Delete", align: "right", cell: (f) => <RowDeleteButton action={deleteFactoryAction} id={f.id} /> });
   }
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Factories</h1>
-      {can(actor.role, "masterData", "create") && <FactoryForm />}
+      {can(actor, "masterData", "create") && <FactoryForm />}
       <MasterDataTable rows={factories} columns={columns} />
     </div>
   );

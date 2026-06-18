@@ -9,8 +9,8 @@ import { formatMoney, formatQty, formatDate } from "@/lib/format";
 
 export default async function EnquiriesPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
-  const canEdit = can(actor.role, "orders", "create");
+  if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
+  const canEdit = can(actor, "orders", "create");
 
   const [enquiries, buyers, brands, factories, kpis] = await Promise.all([
     listEnquiries(actor),

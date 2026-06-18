@@ -15,7 +15,7 @@ export default async function NewShipmentPage({
   searchParams: Promise<{ poId?: string }>;
 }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "shipment", "create")) redirect("/shipments");
+  if (!actor || !can(actor, "shipment", "create")) redirect("/shipments");
   const { poId } = await searchParams;
 
   if (!poId) {

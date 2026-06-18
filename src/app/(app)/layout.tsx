@@ -65,10 +65,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const unread = await unreadCount({ id: session.user.id, role: session.user.role });
+  const { resolvePermissions } = await import("@/lib/auth/roles");
+  const permissions = await resolvePermissions(companyId ?? null, session.user.role);
   return (
     <div className="flex min-h-screen flex-col bg-paper md:flex-row">
       <AppSidebar
         role={session.user.role}
+        permissions={permissions}
         name={session.user.name ?? session.user.email ?? ""}
         unread={unread}
       />

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ASSIGNABLE_ROLES as ROLES } from "@/lib/auth/permissions";
 import { updateUserFromForm } from "@/lib/users/form-actions";
 
 export function UserEditForm({
@@ -11,11 +10,13 @@ export function UserEditForm({
   name,
   email,
   role,
+  roles,
 }: {
   id: string;
   name: string;
   email: string;
   role: string;
+  roles: { key: string; name: string }[];
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -59,9 +60,9 @@ export function UserEditForm({
       <label className="flex flex-col gap-1 text-sm text-ink-soft">
         Role
         <select name="role" required aria-label="Role" defaultValue={role} className="select">
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
+          {roles.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.name}
             </option>
           ))}
         </select>

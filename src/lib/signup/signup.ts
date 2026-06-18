@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { slugCode } from "@/lib/text";
 import { seedTemplates } from "@/lib/tna/templates";
+import { seedCompanyRoles } from "@/lib/auth/roles";
 
 export const signUpSchema = z.object({
   companyName: z.string().min(2, "Company name is required"),
@@ -82,6 +83,7 @@ export async function signUp(
     await tx.subscription.create({ data: { id: cid, currentPeriodEnd: trialEnd } });
     // Seed defaults so the company can start immediately.
     await seedTemplates(cid, tx);
+    await seedCompanyRoles(cid, tx);
     for (const [name, sizes] of Object.entries(DEFAULT_SCALES)) {
       await tx.sizeScale.create({
         data: { name, companyId: cid, sizes: { create: sizes.map((label, position) => ({ label, position, companyId: cid })) } },

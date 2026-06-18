@@ -15,7 +15,7 @@ type SP = Record<string, string | undefined>;
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
   const sp = await searchParams;
   const channel =
     sp.channel && (orderChannels as readonly string[]).includes(sp.channel)
@@ -44,7 +44,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <p className="eyebrow">Merchandising</p>
           <h1 className="text-2xl font-semibold tracking-tight">Open Order Book</h1>
         </div>
-        {can(actor.role, "orders", "create") && (
+        {can(actor, "orders", "create") && (
           <Link
             href="/orders/new"
             className="rounded-sm bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"

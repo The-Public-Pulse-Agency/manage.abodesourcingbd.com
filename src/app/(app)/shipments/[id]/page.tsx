@@ -29,12 +29,12 @@ const REQUIRED_DOCS = [
 
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "shipment", "view")) redirect("/dashboard");
   const { id } = await params;
   const shp = await getShipment(actor, id);
   if (!shp) notFound();
 
-  const canEdit = can(actor.role, "shipment", "edit");
+  const canEdit = can(actor, "shipment", "edit");
   const [forwarders, ports] = canEdit
     ? await Promise.all([listForwarders(actor), listPorts(actor)])
     : [[], []];
@@ -42,7 +42,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
 
   // Distinct POs this shipment covers — used to surface "create invoice from shipment"
   // by reusing InvoicesPanel scoped to each PO (the established order-detail pattern).
-  const canFinance = can(actor.role, "finance", "view");
+  const canFinance = can(actor, "finance", "view");
   const pos = canFinance
     ? Array.from(new Map(shp.lines.map((l) => [l.orderLine.po.id, l.orderLine.po])).values())
     : [];
@@ -83,7 +83,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     }),
   );
 
-  const canDocs = can(actor.role, "documents", "view");
+  const canDocs = can(actor, "documents", "view");
   const documents = canDocs ? await listDocuments(actor, "Shipment", id) : [];
   const haveDocTypes = new Set(documents.map((d) => d.type));
   const docsPresent = REQUIRED_DOCS.filter((r) => haveDocTypes.has(r.type)).length;
@@ -210,7 +210,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           key={po.id}
           invoices={rows}
           poId={po.id}
-          canManage={can(actor.role, "finance", "create")}
+          canManage={can(actor, "finance", "create")}
           title={invoicesByPo.length > 1 ? `Invoices · ${po.poNumber}` : "Invoices"}
           defaultNumber={shp.reference}
           defaultAmount={Math.round((shippedValueByPo.get(po.id) ?? 0) * 100) / 100}
@@ -247,7 +247,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           entityType="Shipment"
           entityId={shp.id}
           documents={documents}
-          canCreate={can(actor.role, "documents", "create")}
+          canCreate={can(actor, "documents", "create")}
         />
       )}
     </div>

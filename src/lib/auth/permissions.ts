@@ -1,17 +1,21 @@
-// SUPERADMIN is the platform operator (no company); the rest are company-scoped roles.
-export const ROLES = ["SUPERADMIN", "ADMIN", "MERCHANDISER", "ACCOUNTS", "MANAGEMENT"] as const;
-export type Role = (typeof ROLES)[number];
+// Roles are dynamic, per-company rows (model Role) with a granular permission map.
+// A role is identified by a string KEY. SUPERADMIN is the special platform-operator key
+// (no company). The keys below are the SYSTEM roles seeded into every company by default.
+export const SYSTEM_ROLE_KEYS = ["ADMIN", "MERCHANDISER", "ACCOUNTS", "MANAGEMENT"] as const;
+export const SUPERADMIN_KEY = "SUPERADMIN";
 
-// Roles a company ADMIN may assign to a user. SUPERADMIN is deliberately excluded:
-// it is the cross-tenant platform operator and must never be grantable from within a
-// tenant (otherwise an ADMIN could self-escalate to platform-wide control).
-export const ASSIGNABLE_ROLES = ROLES.filter((r) => r !== "SUPERADMIN") as Exclude<Role, "SUPERADMIN">[];
+// Back-compat: the full set of seeded keys (platform + company system roles).
+export const ROLES = [SUPERADMIN_KEY, ...SYSTEM_ROLE_KEYS] as const;
+
+// A role key is now any string (custom roles allowed). Kept as a named alias for readability.
+export type Role = string;
 
 export const ACTIONS = ["view", "create", "edit", "delete", "approve"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export const MODULES = [
   "users",
+  "roles",
   "masterData",
   "orders",
   "criticalPath",
@@ -29,20 +33,28 @@ export const MODULES = [
 ] as const;
 export type Module = (typeof MODULES)[number];
 
+/** Modules a company role may be granted (platform modules are SUPERADMIN-only). */
+export const COMPANY_MODULES = MODULES.filter((m) => m !== "companies" && m !== "packages") as Exclude<Module, "companies" | "packages">[];
+
+export type PermissionMap = Partial<Record<Module, Action[]>>;
+
 // Shorthands for common action sets.
 const VIEW: Action[] = ["view"];
 const CRUD: Action[] = ["view", "create", "edit", "delete"];
 
-type Matrix = Record<Role, Partial<Record<Module, Action[]>>>;
-
-// Mirrors spec §7. Anything absent = no access.
-export const PERMISSIONS: Matrix = {
+/**
+ * Default permission maps for the seeded roles (mirrors spec §7). New companies are seeded
+ * with these; afterwards each company's roles are fully editable via the Role Manager.
+ * SUPERADMIN is the platform operator and is resolved from here (never a tenant Role row).
+ */
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionMap> = {
   SUPERADMIN: {
     companies: CRUD,
     packages: CRUD,
   },
   ADMIN: {
     users: CRUD,
+    roles: CRUD,
     masterData: CRUD,
     orders: CRUD,
     criticalPath: CRUD,
@@ -54,7 +66,7 @@ export const PERMISSIONS: Matrix = {
     finance: CRUD,
     dashboards: VIEW,
     auditLog: VIEW,
-  },
+  } as PermissionMap,
   MERCHANDISER: {
     masterData: ["view", "create", "edit"],
     orders: CRUD,
@@ -94,6 +106,30 @@ export const PERMISSIONS: Matrix = {
   },
 };
 
-export function can(role: Role, module: Module, action: Action): boolean {
-  return PERMISSIONS[role]?.[module]?.includes(action) ?? false;
+/** Human labels for the system roles (display only; custom roles carry their own name). */
+export const SYSTEM_ROLE_NAMES: Record<string, string> = {
+  ADMIN: "Admin",
+  MERCHANDISER: "Merchandiser",
+  ACCOUNTS: "Accounts",
+  MANAGEMENT: "Management",
+};
+
+/** Low-level check against a resolved permission map. */
+export function mapAllows(perms: PermissionMap | undefined | null, module: Module, action: Action): boolean {
+  return perms?.[module]?.includes(action) ?? false;
+}
+
+/**
+ * Authorization check for an actor. The actor carries its resolved `permissions` map (loaded
+ * from its Role row at session time); if absent we fall back to the role's seeded defaults so
+ * pure unit tests and the SUPERADMIN platform path keep working without a DB round-trip.
+ */
+export function can(
+  actor: { role: Role; permissions?: PermissionMap | null } | null | undefined,
+  module: Module,
+  action: Action,
+): boolean {
+  if (!actor) return false;
+  const perms = actor.permissions ?? DEFAULT_ROLE_PERMISSIONS[actor.role];
+  return mapAllows(perms, module, action);
 }

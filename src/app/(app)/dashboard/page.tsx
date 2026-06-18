@@ -11,13 +11,13 @@ import { CountUp } from "@/components/dashboard/count-up";
 export default async function DashboardPage() {
   const actor = await getCurrentUser();
   if (!actor) redirect("/login");
-  if (!can(actor.role, "dashboards", "view")) redirect("/orders");
+  if (!can(actor, "dashboards", "view")) redirect("/orders");
 
   const now = new Date();
   const [s, factories, pipeline] = await Promise.all([
     dashboardSummary(actor, { now }),
     factoryLeagueTable(actor, { now }),
-    can(actor.role, "orders", "view") ? enquiryPipelineKpis(actor) : Promise.resolve(null),
+    can(actor, "orders", "view") ? enquiryPipelineKpis(actor) : Promise.resolve(null),
   ]);
   const e = s.exceptions;
   const cashMax = Math.max(s.finance.receivable, s.finance.payable, 1);

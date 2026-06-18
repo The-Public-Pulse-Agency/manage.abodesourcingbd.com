@@ -18,7 +18,7 @@ type SP = { page?: string };
 
 export default async function ShippedReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "shipment", "view")) redirect("/dashboard");
   const sp = await searchParams;
   const report = await shippedGoodsReport(actor, { page: Math.max(1, Number(sp.page) || 1) });
   const { rows, kpis } = report;
@@ -48,7 +48,7 @@ export default async function ShippedReportPage({ searchParams }: { searchParams
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-ok" /></span>
             {kpis.shipments} shipments
           </span>
-          {can(actor.role, "shipment", "create") && (
+          {can(actor, "shipment", "create") && (
             <Link href="/shipments/new" className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90">+ New shipment</Link>
           )}
         </div>

@@ -191,7 +191,7 @@ export async function updateOrderSchedule(
   // A ship-date change must re-base the critical path so un-actualed milestone planned
   // dates move with it. rebaseMilestones asserts criticalPath:edit, so only call it when
   // the actor holds that permission — a schedule save shouldn't fail on a missing rebase right.
-  if (input.exFactoryDate !== undefined && can(actor.role, "criticalPath", "edit")) {
+  if (input.exFactoryDate !== undefined && can(actor, "criticalPath", "edit")) {
     await rebaseMilestones(actor, poId);
   }
 }

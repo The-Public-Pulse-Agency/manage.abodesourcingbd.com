@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { SYSTEM_ROLE_KEYS } from "@/lib/auth/permissions";
 import { hashPassword } from "@/lib/auth/password";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -8,6 +9,14 @@ import {
   type CreateUserInput,
   type UpdateUserInput,
 } from "./schema";
+
+/** The assigned role must be a real Role in the actor's company (and never SUPERADMIN). System
+ *  role keys are always valid (seeded into every company). */
+async function assertRoleInCompany(companyId: string, roleKey: string): Promise<void> {
+  if ((SYSTEM_ROLE_KEYS as readonly string[]).includes(roleKey)) return;
+  const role = await prisma.role.findFirst({ where: { companyId, key: roleKey }, select: { id: true } });
+  if (!role) throw new Error("Invalid role for this company");
+}
 
 export type PublicUser = {
   id: string;
@@ -33,6 +42,7 @@ export async function createUser(
 ): Promise<PublicUser> {
   assertPermission(actor, "users", "create");
   const data = createUserSchema.parse(input);
+  await assertRoleInCompany(tenantId(actor), data.role);
   const email = data.email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -103,6 +113,7 @@ export async function updateUser(
   assertPermission(actor, "users", "edit");
   const data = updateUserSchema.parse(input);
   const cid = tenantId(actor);
+  await assertRoleInCompany(cid, data.role);
 
   const current = await prisma.user.findFirst({
     where: { id: userId, companyId: cid },

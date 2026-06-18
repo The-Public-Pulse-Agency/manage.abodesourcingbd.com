@@ -12,9 +12,9 @@ type ColourRow = Awaited<ReturnType<typeof listColours>>[number];
 
 export default async function ColoursPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
   const colours = await listColours(actor);
-  const canEdit = can(actor.role, "masterData", "edit");
+  const canEdit = can(actor, "masterData", "edit");
   const columns: Column<ColourRow>[] = [
     { header: "Name", cell: (c) => c.name },
     { header: "Code", cell: (c) => c.code ?? "" },
@@ -33,13 +33,13 @@ export default async function ColoursPage() {
       ),
     });
   }
-  if (can(actor.role, "masterData", "delete")) {
+  if (can(actor, "masterData", "delete")) {
     columns.push({ header: "Delete", align: "right", cell: (c) => <RowDeleteButton action={deleteColourAction} id={c.id} /> });
   }
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Colours</h1>
-      {can(actor.role, "masterData", "create") && <ColourForm />}
+      {can(actor, "masterData", "create") && <ColourForm />}
       <MasterDataTable rows={colours} columns={columns} />
     </div>
   );

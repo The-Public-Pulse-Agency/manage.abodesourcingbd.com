@@ -10,8 +10,8 @@ import { CompanyProfileForm } from "@/components/settings/company-profile-form";
 export default async function SettingsPage() {
   const actor = await getCurrentUser();
   if (!actor) redirect("/login");
-  if (!can(actor.role, "criticalPath", "view")) redirect("/dashboard");
-  const canEdit = can(actor.role, "criticalPath", "edit");
+  if (!can(actor, "criticalPath", "view")) redirect("/dashboard");
+  const canEdit = can(actor, "criticalPath", "edit");
 
   const templates = await listTemplates(actor, true);
   const rows: TemplateRow[] = templates.map((t) => ({
@@ -20,9 +20,9 @@ export default async function SettingsPage() {
 
   // Company profile + banking details (printed on generated invoices). Visible to anyone who
   // can see master data; editable by those who can edit it (ADMIN).
-  const canSeeCompany = can(actor.role, "masterData", "view");
+  const canSeeCompany = can(actor, "masterData", "view");
   const companyProfile = canSeeCompany ? await getCompanyProfile(actor) : null;
-  const canEditCompany = can(actor.role, "masterData", "edit");
+  const canEditCompany = can(actor, "masterData", "edit");
 
   return (
     <div className="space-y-6">

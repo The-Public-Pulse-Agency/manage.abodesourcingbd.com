@@ -11,7 +11,7 @@ export default async function EditPortPage({
 }) {
   const { id } = await params;
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "edit")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "edit")) redirect("/dashboard");
   const port = await getPort(actor, id);
   if (!port) notFound();
   return (

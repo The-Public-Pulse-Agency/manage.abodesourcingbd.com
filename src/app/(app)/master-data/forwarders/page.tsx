@@ -14,15 +14,15 @@ type ForwarderRow = Awaited<ReturnType<typeof listForwarders>>[number];
 
 export default async function ForwardersPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
   const forwarders = await listForwarders(actor, { includeInactive: true });
-  const canEdit = can(actor.role, "masterData", "edit");
+  const canEdit = can(actor, "masterData", "edit");
   const columns: Column<ForwarderRow>[] = [
     { header: "Name", cell: (f) => f.name },
     { header: "Contact", cell: (f) => f.contact ?? "" },
     { header: "Active", cell: (f) => (canEdit ? <ActiveToggle id={f.id} active={f.active} action={setForwarderActiveAction} /> : f.active ? "Yes" : "No") },
   ];
-  if (can(actor.role, "masterData", "edit")) {
+  if (can(actor, "masterData", "edit")) {
     columns.push({
       header: "Edit",
       align: "right",
@@ -37,7 +37,7 @@ export default async function ForwardersPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Forwarders</h1>
-      {can(actor.role, "masterData", "create") && <ForwarderForm />}
+      {can(actor, "masterData", "create") && <ForwarderForm />}
       <MasterDataTable rows={forwarders} columns={columns} />
     </div>
   );

@@ -17,8 +17,8 @@ function validity(d: Date | null): CertRow["validityState"] {
 
 export default async function FactoryInfoPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
-  const canEdit = can(actor.role, "masterData", "edit");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
+  const canEdit = can(actor, "masterData", "edit");
   const factories = await listFactoriesWithCertificates(actor);
 
   const allCerts = factories.flatMap((f) => f.certificates);

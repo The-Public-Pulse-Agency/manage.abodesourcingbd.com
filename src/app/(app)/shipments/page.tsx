@@ -19,7 +19,7 @@ const PAY_CLS: Record<string, string> = {
 
 export default async function ShipmentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "shipment", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "shipment", "view")) redirect("/dashboard");
   const sp = await searchParams;
   const book = await listShipmentsPaged(actor, { page: Math.max(1, Number(sp.page) || 1) });
   const shipments = book.rows;
@@ -31,7 +31,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
           <p className="eyebrow">Logistics</p>
           <h1 className="text-2xl font-semibold tracking-tight">Shipment Tracker</h1>
         </div>
-        {can(actor.role, "shipment", "create") && (
+        {can(actor, "shipment", "create") && (
           <Link href="/shipments/new" className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90">
             + New shipment
           </Link>

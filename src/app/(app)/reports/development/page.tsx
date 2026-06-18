@@ -10,8 +10,8 @@ import { DevelopmentTable, type DevRow } from "@/components/reports/development-
 
 export default async function DevelopmentReportPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
-  const canEdit = can(actor.role, "orders", "create");
+  if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
+  const canEdit = can(actor, "orders", "create");
 
   const [items, factories, buyers] = await Promise.all([listDevelopment(actor), listFactories(actor), listBuyers(actor)]);
   const facName = new Map(factories.map((f) => [f.id, f.name]));

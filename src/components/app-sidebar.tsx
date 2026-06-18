@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { can, type Role } from "@/lib/auth/permissions";
+import { can, type Role, type PermissionMap } from "@/lib/auth/permissions";
 import { logoutAction } from "@/lib/auth/actions";
 
 const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; icon: string }[] = [
@@ -28,12 +28,14 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; i
   { href: "/master-data/forwarders", label: "Forwarders", module: "masterData", icon: "✈" },
   { href: "/master-data/import", label: "Import", module: "masterData", icon: "⇪" },
   { href: "/users", label: "Users", module: "users", icon: "◍" },
+  // NOTE: Role Manager UI (/roles) lands next session — backend (model Role + permissions) is ready.
 ];
 
-export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: string; unread?: number }) {
+export function AppSidebar({ role, permissions, name, unread = 0 }: { role: Role; permissions?: PermissionMap | null; name: string; unread?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const visible = ITEMS.filter((i) => can(role, i.module, "view"));
+  const actor = { role, permissions };
+  const visible = ITEMS.filter((i) => can(actor, i.module, "view"));
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
@@ -70,7 +72,7 @@ export function AppSidebar({ role, name, unread = 0 }: { role: Role; name: strin
 
   const footer = (
     <div className="border-t border-line px-3 py-3">
-      {can(role, "criticalPath", "edit") && (
+      {can(actor, "criticalPath", "edit") && (
         <Link
           href="/settings"
           onClick={() => setOpen(false)}

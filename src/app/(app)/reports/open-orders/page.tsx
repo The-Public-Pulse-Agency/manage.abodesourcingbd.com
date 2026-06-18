@@ -30,7 +30,7 @@ type SP = { page?: string; status?: string; factory?: string; buyer?: string; q?
 
 export default async function OpenOrdersReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
   const sp = await searchParams;
   const filter: OpenOrdersFilter = { status: sp.status, factoryId: sp.factory, buyerId: sp.buyer, q: sp.q };
 

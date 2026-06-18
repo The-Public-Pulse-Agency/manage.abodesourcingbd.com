@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/format";
 
 export default async function CriticalPathPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "criticalPath", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "criticalPath", "view")) redirect("/dashboard");
   const now = businessToday(new Date());
   const [items, summary] = await Promise.all([
     criticalPathBoard(actor, { now }),

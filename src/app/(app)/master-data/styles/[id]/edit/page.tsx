@@ -12,7 +12,7 @@ export default async function EditStylePage({
 }) {
   const { id } = await params;
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "edit")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "edit")) redirect("/dashboard");
   const style = await getStyle(actor, id);
   if (!style) notFound();
   const brands = await listBrands(actor);

@@ -7,8 +7,8 @@ import { DangerZone } from "./danger-zone";
 
 export default async function ImportPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "create")) redirect("/dashboard");
-  const canOrders = can(actor.role, "orders", "create");
+  if (!actor || !can(actor, "masterData", "create")) redirect("/dashboard");
+  const canOrders = can(actor, "orders", "create");
   const isAdmin = actor.role === "ADMIN";
 
   return (

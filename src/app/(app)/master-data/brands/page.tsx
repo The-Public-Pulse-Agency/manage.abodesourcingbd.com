@@ -12,7 +12,7 @@ type BrandRow = Awaited<ReturnType<typeof listBrands>>[number];
 
 export default async function BrandsPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "masterData", "view")) redirect("/dashboard");
+  if (!actor || !can(actor, "masterData", "view")) redirect("/dashboard");
   const [brands, buyers] = await Promise.all([
     listBrands(actor),
     listBuyers(actor, { includeInactive: true }),
@@ -23,7 +23,7 @@ export default async function BrandsPage() {
     { header: "Code", cell: (b) => b.code },
     { header: "Buyer", cell: (b) => buyerNameById.get(b.buyerId) ?? "—" },
   ];
-  if (can(actor.role, "masterData", "edit")) {
+  if (can(actor, "masterData", "edit")) {
     columns.push({
       header: "Edit",
       align: "right",
@@ -34,13 +34,13 @@ export default async function BrandsPage() {
       ),
     });
   }
-  if (can(actor.role, "masterData", "delete")) {
+  if (can(actor, "masterData", "delete")) {
     columns.push({ header: "Delete", align: "right", cell: (b) => <RowDeleteButton action={deleteBrandAction} id={b.id} /> });
   }
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Brands</h1>
-      {can(actor.role, "masterData", "create") && <BrandForm buyers={buyers} />}
+      {can(actor, "masterData", "create") && <BrandForm buyers={buyers} />}
       <MasterDataTable rows={brands} columns={columns} />
     </div>
   );

@@ -8,7 +8,7 @@ import { NewOrderForm } from "./new-order-form";
 
 export default async function NewOrderPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "orders", "create")) redirect("/orders");
+  if (!actor || !can(actor, "orders", "create")) redirect("/orders");
 
   const [buyers, brands, factories] = await Promise.all([
     listBuyers(actor),

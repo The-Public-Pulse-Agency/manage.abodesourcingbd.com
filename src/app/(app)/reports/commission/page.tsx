@@ -13,8 +13,8 @@ const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : ""
 
 export default async function CommissionReportPage() {
   const actor = await getCurrentUser();
-  if (!actor || !can(actor.role, "finance", "view")) redirect("/dashboard");
-  const canEdit = can(actor.role, "finance", "edit");
+  if (!actor || !can(actor, "finance", "view")) redirect("/dashboard");
+  const canEdit = can(actor, "finance", "edit");
 
   const [items, factories, buyers, allInvoices] = await Promise.all([
     listCommission(actor),

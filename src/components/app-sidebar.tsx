@@ -28,7 +28,7 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; i
   { href: "/master-data/forwarders", label: "Forwarders", module: "masterData", icon: "✈" },
   { href: "/master-data/import", label: "Import", module: "masterData", icon: "⇪" },
   { href: "/users", label: "Users", module: "users", icon: "◍" },
-  // NOTE: Role Manager UI (/roles) lands next session — backend (model Role + permissions) is ready.
+  { href: "/roles", label: "Roles", module: "roles", icon: "⚷" },
 ];
 
 export function AppSidebar({ role, permissions, name, unread = 0 }: { role: Role; permissions?: PermissionMap | null; name: string; unread?: number }) {

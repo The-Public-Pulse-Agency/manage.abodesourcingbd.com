@@ -65,7 +65,8 @@ export default async function SettingsPage() {
           <SettingLink href="/master-data/buyers" title="Buyers & brands" desc="Customers and their brands" />
           <SettingLink href="/master-data/size-scales" title="Size scales" desc="Size sets used on orders" />
           <SettingLink href="/master-data/colours" title="Colours" desc="Colour master list" />
-          <SettingLink href="/users" title="Users & roles" desc="Team access" />
+          <SettingLink href="/users" title="Users" desc="Team members & access" />
+          <SettingLink href="/roles" title="Roles & permissions" desc="Custom roles, granular permissions" />
         </div>
       </section>
     </div>

@@ -36,6 +36,25 @@ export type Module = (typeof MODULES)[number];
 /** Modules a company role may be granted (platform modules are SUPERADMIN-only). */
 export const COMPANY_MODULES = MODULES.filter((m) => m !== "companies" && m !== "packages") as Exclude<Module, "companies" | "packages">[];
 
+/** Human labels for modules (Role Manager matrix display). */
+export const MODULE_LABELS: Record<string, string> = {
+  users: "Users",
+  roles: "Roles",
+  masterData: "Master data",
+  orders: "Orders",
+  criticalPath: "Critical path",
+  sampling: "Sampling",
+  productionQc: "Production / QC",
+  costing: "Costing",
+  shipment: "Shipment",
+  documents: "Documents",
+  finance: "Finance",
+  dashboards: "Dashboards",
+  auditLog: "Audit log",
+  companies: "Companies",
+  packages: "Packages",
+};
+
 export type PermissionMap = Partial<Record<Module, Action[]>>;
 
 // Shorthands for common action sets.

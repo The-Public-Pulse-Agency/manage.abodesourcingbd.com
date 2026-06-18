@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { lineMills } from "@/lib/orders/money";
-import { productionProgress } from "./progress";
+import { productionProgress, type ProductionPct } from "./progress";
 
 export const productionSchema = z
   .object({
@@ -19,6 +19,8 @@ export const productionSchema = z
   });
 export type ProductionInput = z.input<typeof productionSchema>;
 
+const STATUS_BLOCK = ["DRAFT", "CANCELLED", "CLOSED"] as const;
+
 /** Sum size-wise ordered quantity across all of a PO's lines. */
 export async function orderedQtyFor(actor: SessionUser, poId: string): Promise<number> {
   const lines = await prisma.orderLine.findMany({
@@ -28,82 +30,105 @@ export async function orderedQtyFor(actor: SessionUser, poId: string): Promise<n
   return lines.reduce((sum, l) => sum + lineMills(l.sizes).qty, 0);
 }
 
-async function loadProductionPo(actor: SessionUser, poId: string) {
-  const po = await prisma.purchaseOrder.findFirst({
-    where: { id: poId, companyId: tenantId(actor) },
-  });
-  if (!po) throw new Error("Purchase order not found");
-  if (po.status === "DRAFT" || po.status === "CANCELLED" || po.status === "CLOSED") {
-    throw new Error(`Cannot record production on a ${po.status} order`);
-  }
-  return po;
-}
-
-export async function upsertProduction(actor: SessionUser, poId: string, input: ProductionInput) {
+/** Record cut/sew/finish progress for ONE order line (style/colour). Tenant-scoped. */
+export async function upsertProduction(actor: SessionUser, orderLineId: string, input: ProductionInput) {
   assertPermission(actor, "productionQc", "edit");
-  await loadProductionPo(actor, poId);
-  const data = productionSchema.parse(input);
-  // productionRecord is keyed on poId @unique, so a unique-key upsert can't be scoped by
-  // companyId. The PO was already tenant-verified above, so find-then-create/update under
-  // the tenant filter is equivalent and keeps cross-tenant rows unreachable.
-  const before = await prisma.productionRecord.findFirst({
-    where: { poId, companyId: tenantId(actor) },
+  const cid = tenantId(actor);
+  const line = await prisma.orderLine.findFirst({
+    where: { id: orderLineId, companyId: cid },
+    include: { sizes: true, po: { select: { id: true, status: true } } },
   });
+  if (!line) throw new Error("Order line not found");
+  if ((STATUS_BLOCK as readonly string[]).includes(line.po.status)) {
+    throw new Error(`Cannot record production on a ${line.po.status} order`);
+  }
+  const data = productionSchema.parse(input);
+  const ordered = lineMills(line.sizes).qty;
+  if (data.cutQty > ordered) throw new Error(`cutQty cannot exceed the line's ordered quantity (${ordered})`);
 
+  // orderLineId is @unique, so scope the find/update by tenant (the line was already verified).
+  const before = await prisma.productionRecord.findFirst({ where: { orderLineId, companyId: cid } });
   if (before) {
-    await prisma.productionRecord.updateMany({
-      where: { poId, companyId: tenantId(actor) },
-      data,
-    });
+    await prisma.productionRecord.updateMany({ where: { orderLineId, companyId: cid }, data });
   } else {
     try {
-      await prisma.productionRecord.create({
-        data: { companyId: tenantId(actor), poId, ...data },
-      });
+      await prisma.productionRecord.create({ data: { companyId: cid, poId: line.po.id, orderLineId, ...data } });
     } catch (e) {
-      // Concurrent first-time create: the losing INSERT hits @@unique([poId]); fall back to update.
+      // Concurrent first-time create loses the @unique(orderLineId) race → fall back to update.
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-        await prisma.productionRecord.updateMany({
-          where: { poId, companyId: tenantId(actor) },
-          data,
-        });
-      } else {
-        throw e;
-      }
+        await prisma.productionRecord.updateMany({ where: { orderLineId, companyId: cid }, data });
+      } else throw e;
     }
   }
 
-  const record = await prisma.productionRecord.findFirstOrThrow({
-    where: { poId, companyId: tenantId(actor) },
-  });
-
+  const record = await prisma.productionRecord.findFirstOrThrow({ where: { orderLineId, companyId: cid } });
   await recordAudit({
     userId: actor.id,
     entityType: "ProductionRecord",
     entityId: record.id,
     action: "edit",
-    before: before
-      ? { cutQty: before.cutQty, sewQty: before.sewQty, finishQty: before.finishQty }
-      : undefined,
+    before: before ? { cutQty: before.cutQty, sewQty: before.sewQty, finishQty: before.finishQty } : undefined,
     after: data,
   });
   return record;
 }
 
-export async function getProduction(actor: SessionUser, poId: string) {
+export type ProductionLine = {
+  orderLineId: string;
+  style: string;
+  colour: string;
+  orderedQty: number;
+  cutQty: number;
+  sewQty: number;
+  finishQty: number;
+  progress: ProductionPct;
+};
+
+export type ProductionView = {
+  orderedQty: number;
+  cutQty: number;
+  sewQty: number;
+  finishQty: number;
+  progress: ProductionPct;
+  lines: ProductionLine[];
+};
+
+/** Per-line production for a PO (style/colour breakdown) + the overall aggregate. */
+export async function getProduction(actor: SessionUser, poId: string): Promise<ProductionView> {
   assertPermission(actor, "productionQc", "view");
-  const po = await prisma.purchaseOrder.findFirst({
-    where: { id: poId, companyId: tenantId(actor) },
-  });
+  const cid = tenantId(actor);
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, companyId: cid } });
   if (!po) throw new Error("Purchase order not found");
-  const record = await prisma.productionRecord.findFirst({
-    where: { poId, companyId: tenantId(actor) },
+
+  const [lines, records] = await Promise.all([
+    prisma.orderLine.findMany({
+      where: { poId, companyId: cid },
+      include: { sizes: true, style: true, colour: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.productionRecord.findMany({ where: { poId, companyId: cid } }),
+  ]);
+  const byLine = new Map(records.map((r) => [r.orderLineId, r]));
+
+  let orderedQty = 0, cutQty = 0, sewQty = 0, finishQty = 0;
+  const lineRows: ProductionLine[] = lines.map((l) => {
+    const ordered = lineMills(l.sizes).qty;
+    const rec = byLine.get(l.id);
+    const q = { cutQty: rec?.cutQty ?? 0, sewQty: rec?.sewQty ?? 0, finishQty: rec?.finishQty ?? 0 };
+    orderedQty += ordered;
+    cutQty += q.cutQty;
+    sewQty += q.sewQty;
+    finishQty += q.finishQty;
+    return {
+      orderLineId: l.id,
+      style: l.style?.styleCode ?? l.style?.name ?? "—",
+      colour: l.colour?.name ?? "—",
+      orderedQty: ordered,
+      ...q,
+      progress: productionProgress(ordered, q),
+    };
   });
-  const orderedQty = await orderedQtyFor(actor, poId);
-  const q = {
-    cutQty: record?.cutQty ?? 0,
-    sewQty: record?.sewQty ?? 0,
-    finishQty: record?.finishQty ?? 0,
-  };
-  return { ...q, orderedQty, progress: productionProgress(orderedQty, q) };
+
+  const overall = { cutQty, sewQty, finishQty };
+  return { orderedQty, ...overall, progress: productionProgress(orderedQty, overall), lines: lineRows };
 }

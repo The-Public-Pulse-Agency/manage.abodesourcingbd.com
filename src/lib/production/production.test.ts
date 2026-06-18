@@ -22,7 +22,10 @@ async function refs() {
   return { buyer, brand, factory };
 }
 
-/** A confirmed PO with a single 1000-pc line. */
+const lineId = async (poId: string) =>
+  (await prisma.orderLine.findFirstOrThrow({ where: { poId }, orderBy: { createdAt: "asc" } })).id;
+
+/** A confirmed PO with a single 1000-pc line; returns the PO + its line id. */
 async function confirmedPo() {
   const r = await refs();
   const style = await createStyle(admin, { brandId: r.brand.id, styleCode: "TR010", name: "Tee" });
@@ -38,7 +41,7 @@ async function confirmedPo() {
   });
   await approveCosting(accounts, po.id);
   await confirmPurchaseOrder(admin, po.id);
-  return po;
+  return { po, line: await lineId(po.id) };
 }
 
 beforeEach(async () => {
@@ -50,27 +53,32 @@ afterAll(async () => {
 
 describe("upsertProduction", () => {
   it("records progress vs ordered qty and is idempotent", async () => {
-    const po = await confirmedPo();
-    await upsertProduction(admin, po.id, { cutQty: 500, sewQty: 250, finishQty: 100 });
-    await upsertProduction(admin, po.id, { cutQty: 900, sewQty: 800, finishQty: 700 });
+    const { po, line } = await confirmedPo();
+    await upsertProduction(admin, line, { cutQty: 500, sewQty: 250, finishQty: 100 });
+    await upsertProduction(admin, line, { cutQty: 900, sewQty: 800, finishQty: 700 });
     expect(await prisma.productionRecord.count({ where: { poId: po.id } })).toBe(1);
     const got = await getProduction(admin, po.id);
     expect(got.orderedQty).toBe(1000);
     expect(got.cutQty).toBe(900);
     expect(got.progress).toEqual({ cutPct: 90, sewPct: 80, finishPct: 70 });
+    expect(got.lines).toHaveLength(1);
+    expect(got.lines[0]).toMatchObject({ style: "TR010", orderedQty: 1000, cutQty: 900 });
   });
 
-  it("enforces finishQty <= sewQty <= cutQty", async () => {
-    const po = await confirmedPo();
-    await expect(upsertProduction(admin, po.id, { cutQty: 10, sewQty: 5, finishQty: 8 })).rejects.toThrow(
+  it("enforces finishQty <= sewQty <= cutQty and the line's ordered cap", async () => {
+    const { line } = await confirmedPo();
+    await expect(upsertProduction(admin, line, { cutQty: 10, sewQty: 5, finishQty: 8 })).rejects.toThrow(
       /finishqty cannot exceed sewqty/i,
     );
-    await expect(upsertProduction(admin, po.id, { cutQty: 5, sewQty: 9, finishQty: 0 })).rejects.toThrow(
+    await expect(upsertProduction(admin, line, { cutQty: 5, sewQty: 9, finishQty: 0 })).rejects.toThrow(
       /sewqty cannot exceed cutqty/i,
+    );
+    await expect(upsertProduction(admin, line, { cutQty: 1001, sewQty: 0, finishQty: 0 })).rejects.toThrow(
+      /ordered quantity/i,
     );
   });
 
-  it("rejects production on a DRAFT order and an unknown poId", async () => {
+  it("rejects production on a DRAFT order and an unknown line", async () => {
     const r = await refs();
     const style = await createStyle(admin, { brandId: r.brand.id, styleCode: "TR010", name: "Tee" });
     const draft = await createPurchaseOrder(admin, {
@@ -83,33 +91,28 @@ describe("upsertProduction", () => {
       styleId: style.id,
       sizes: [{ label: "M", qty: 10, netFob: 1, sellFob: 2 }],
     });
-    await expect(upsertProduction(admin, draft.id, { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(
-      /draft/i,
-    );
-    await expect(upsertProduction(admin, "nope", { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(
-      /not found/i,
-    );
+    const draftLine = await lineId(draft.id);
+    await expect(upsertProduction(admin, draftLine, { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(/draft/i);
+    await expect(upsertProduction(admin, "nope", { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(/not found/i);
   });
 
   it("forbids a view-only role", async () => {
-    const po = await confirmedPo();
-    await expect(upsertProduction(mgmt, po.id, { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(
-      ForbiddenError,
-    );
+    const { line } = await confirmedPo();
+    await expect(upsertProduction(mgmt, line, { cutQty: 1, sewQty: 0, finishQty: 0 })).rejects.toThrow(ForbiddenError);
   });
 
   it("survives concurrent first-time upserts (P2002-safe)", async () => {
-    const po = await confirmedPo();
+    const { po, line } = await confirmedPo();
     await Promise.all([
-      upsertProduction(admin, po.id, { cutQty: 100, sewQty: 50, finishQty: 10 }),
-      upsertProduction(admin, po.id, { cutQty: 200, sewQty: 150, finishQty: 100 }),
+      upsertProduction(admin, line, { cutQty: 100, sewQty: 50, finishQty: 10 }),
+      upsertProduction(admin, line, { cutQty: 200, sewQty: 150, finishQty: 100 }),
     ]);
     expect(await prisma.productionRecord.count({ where: { poId: po.id } })).toBe(1);
   });
 });
 
 describe("getProduction", () => {
-  it("sums ordered qty across multiple lines / size rows", async () => {
+  it("returns a per-line breakdown and sums ordered qty across lines", async () => {
     const r = await refs();
     const a = await createStyle(admin, { brandId: r.brand.id, styleCode: "TR010", name: "A" });
     const b = await createStyle(admin, { brandId: r.brand.id, styleCode: "TR020", name: "B" });
@@ -134,6 +137,8 @@ describe("getProduction", () => {
     await confirmPurchaseOrder(admin, po.id);
     const got = await getProduction(admin, po.id);
     expect(got.orderedQty).toBe(1000);
+    expect(got.lines).toHaveLength(2);
+    expect(got.lines.map((l) => l.orderedQty).sort((x, y) => x - y)).toEqual([300, 700]);
   });
 
   it("returns zeros for a PO with no lines (orderedQty 0, no divide-by-zero)", async () => {
@@ -147,5 +152,6 @@ describe("getProduction", () => {
     const got = await getProduction(admin, po.id);
     expect(got.orderedQty).toBe(0);
     expect(got.progress).toEqual({ cutPct: 0, sewPct: 0, finishPct: 0 });
+    expect(got.lines).toEqual([]);
   });
 });

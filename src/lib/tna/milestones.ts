@@ -128,6 +128,7 @@ export type MilestoneView = {
   position: number;
   plannedDate: Date | null;
   actualDate: Date | null;
+  note: string | null;
   rag: Rag;
 };
 
@@ -149,6 +150,17 @@ export async function listPoMilestones(
     position: m.position,
     plannedDate: m.plannedDate,
     actualDate: m.actualDate,
+    note: m.note,
     rag: computeRag(m.plannedDate, m.actualDate, now),
   }));
+}
+
+/** Set/clear a milestone's free-text note (e.g. "repeat style — no PP sample required"). */
+export async function setMilestoneNote(actor: SessionUser, id: string, note: string) {
+  assertPermission(actor, "criticalPath", "edit");
+  const existing = await prisma.taMilestone.findFirst({ where: { id, companyId: tenantId(actor) }, select: { id: true } });
+  if (!existing) throw new Error("Milestone not found");
+  const value = note.trim() || null;
+  await prisma.taMilestone.updateMany({ where: { id, companyId: tenantId(actor) }, data: { note: value } });
+  await recordAudit({ userId: actor.id, entityType: "TaMilestone", entityId: id, action: "edit", after: { note: value } });
 }

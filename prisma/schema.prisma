@@ -474,7 +474,7 @@ model PurchaseOrder {
   lines          OrderLine[]
   milestones     TaMilestone[]
   sampleRequests SampleRequest[]
-  production     ProductionRecord?
+  production     ProductionRecord[]
   inspections    Inspection[]
   invoices       Invoice[]
   costItems      CostItem[]
@@ -502,6 +502,7 @@ model OrderLine {
   sizeScale   SizeScale?      @relation(fields: [sizeScaleId], references: [id])
   sizes       OrderLineSize[]
   shipmentLines ShipmentLine[]
+  production  ProductionRecord?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -556,6 +557,7 @@ model TaMilestone {
   offsetDays  Int?
   plannedDate DateTime?
   actualDate  DateTime?
+  note        String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -606,15 +608,20 @@ model SampleRequest {
 }
 
 model ProductionRecord {
-  id        String        @id @default(cuid())
-  companyId String?
-  poId      String        @unique
-  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  cutQty    Int           @default(0)
-  sewQty    Int           @default(0)
-  finishQty Int           @default(0)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  companyId   String?
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  // Production is tracked per order line (style/colour); one record per line.
+  orderLineId String?       @unique
+  orderLine   OrderLine?    @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  cutQty      Int           @default(0)
+  sewQty      Int           @default(0)
+  finishQty   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([poId])
 }
 
 model Inspection {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RagChip } from "@/components/rag-chip";
-import { completeMilestoneAction, rescheduleMilestoneAction } from "@/lib/tna/form-actions";
+import { completeMilestoneAction, rescheduleMilestoneAction, setMilestoneNoteAction } from "@/lib/tna/form-actions";
 
 type Milestone = {
   id: string;
@@ -11,6 +11,7 @@ type Milestone = {
   stage: string;
   plannedDate: string | Date | null;
   actualDate: string | Date | null;
+  note: string | null;
   rag: string;
 };
 
@@ -76,6 +77,17 @@ export function TnaTimeline({
     else router.refresh();
   }
 
+  /** Persist a free-text remark/note for a milestone (e.g. "repeat — no PP sample required"). */
+  async function saveNote(id: string, note: string, original: string) {
+    if (note === original) return;
+    setBusy(`note:${id}`);
+    setError(null);
+    const res = await setMilestoneNoteAction(poId, id, note);
+    setBusy(null);
+    if (res.error) setError(res.error);
+    else router.refresh();
+  }
+
   return (
     <div className="overflow-hidden rounded-sm border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2">
@@ -90,6 +102,7 @@ export function TnaTimeline({
             <th className="px-3 py-1.5 font-semibold">Planned</th>
             <th className="px-3 py-1.5 font-semibold">Actual</th>
             <th className="px-3 py-1.5 font-semibold">Status</th>
+            <th className="px-3 py-1.5 font-semibold">Remarks</th>
             {canEdit && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
@@ -127,6 +140,21 @@ export function TnaTimeline({
                 )}
               </td>
               <td className="px-3 py-1.5"><RagChip rag={m.rag} /></td>
+              <td className="px-3 py-1.5 text-xs">
+                {canEdit ? (
+                  <input
+                    type="text"
+                    aria-label={`Remarks for ${m.name}`}
+                    defaultValue={m.note ?? ""}
+                    placeholder="Add note…"
+                    disabled={busy === `note:${m.id}`}
+                    onBlur={(e) => saveNote(m.id, e.target.value.trim(), m.note ?? "")}
+                    className="input w-40 px-1 py-0.5 text-xs disabled:opacity-50"
+                  />
+                ) : (
+                  <span className="text-ink-soft">{m.note || "—"}</span>
+                )}
+              </td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">
                   {!m.actualDate && (

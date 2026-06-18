@@ -72,11 +72,11 @@ export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoi
               <th className="px-3 py-2.5 text-right font-semibold">Comm %</th><th className="px-3 py-2.5 text-right font-semibold">Comm value</th>
               <th className="px-3 py-2.5 font-semibold">Own inv #</th><th className="px-3 py-2.5 font-semibold">Issue date</th>
               <th className="px-3 py-2.5 font-semibold">Due date</th><th className="px-3 py-2.5 font-semibold">Payment</th>
-              <th className="px-3 py-2.5 font-semibold">Remarks</th>{canEdit && <th className="px-3 py-2.5 font-semibold">Delete</th>}
+              <th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">Invoice</th>{canEdit && <th className="px-3 py-2.5 font-semibold">Delete</th>}
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={canEdit ? 12 : 11} className="px-3 py-10 text-center text-ink-soft">No commission entries yet{canEdit ? " — add one above." : "."}</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={canEdit ? 13 : 12} className="px-3 py-10 text-center text-ink-soft">No commission entries yet{canEdit ? " — add one above." : "."}</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 {canEdit ? <>
@@ -91,6 +91,7 @@ export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoi
                   <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={r.dueRaw} type="date" action={setCommDueDate}>{r.dueDisplay}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.paymentStatus} type="select" options={PAY_OPTIONS} action={setCommPaymentStatus}><span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${r.paymentStatus === "Paid" ? "bg-ok-soft text-ok" : r.paymentStatus ? "bg-warn-soft text-warn" : "bg-paper text-ink-soft"}`}>{t(r.paymentStatus)}</span></EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setCommRemarks}>{t(r.remarks)}</EditableCell></td>
+                  <td className="px-3 py-2"><a href={`/api/commission/${r.id}`} className="text-xs font-medium text-accent hover:underline" title="Download commission invoice (Excel)">Invoice ⬇</a></td>
                   <td className="px-3 py-2"><RowDeleteButton action={deleteCommissionAction} id={r.id} /></td>
                 </> : <>
                   <td className="px-3 py-2">{r.factory}</td>
@@ -104,6 +105,7 @@ export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoi
                   <td className="px-3 py-2 tnum text-xs">{r.dueDisplay}</td>
                   <td className="px-3 py-2 text-xs">{t(r.paymentStatus)}</td>
                   <td className="px-3 py-2 text-xs">{t(r.remarks)}</td>
+                  <td className="px-3 py-2"><a href={`/api/commission/${r.id}`} className="text-xs font-medium text-accent hover:underline" title="Download commission invoice (Excel)">Invoice ⬇</a></td>
                 </>}
               </tr>
             ))}

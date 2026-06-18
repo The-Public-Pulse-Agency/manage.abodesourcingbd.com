@@ -35,6 +35,8 @@ export async function updateEnquiryAction(
     targetQty?: number | null;
     targetPriceUsd?: number | null;
     requiredShipDate?: string | null;
+    priceQuotedDate?: string | null;
+    fabricComposition?: string | null;
     notes?: string | null;
     factoryId?: string;
     lostReason?: string | null;

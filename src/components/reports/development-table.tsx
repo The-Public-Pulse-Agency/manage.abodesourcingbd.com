@@ -6,14 +6,14 @@ import { EditableCell } from "./editable-cell";
 import { RowDeleteButton } from "./row-delete-button";
 import {
   createDevelopmentAction, deleteDevelopmentAction,
-  setDevLabDip, setDevKnitting, setDevFirstSample, setDevSecondSample, setDevFinalSample, setDevRemarks, setDevColour,
+  setDevLabDip, setDevKnitting, setDevFirstSample, setDevSecondSample, setDevFinalSample, setDevConfirmedPrice, setDevRemarks, setDevColour,
   setDevStyleRef, setDevFactory, setDevBuyer,
 } from "@/lib/development/form-actions";
 
 export type DevRow = {
   id: string; factory: string; buyer: string; factoryId: string; buyerId: string; styleRef: string; colour: string;
   labDip: string; knitting: string; firstSample: string; secondSample: string;
-  finalSampleRaw: string; finalSampleDisplay: string; remarks: string;
+  finalSampleRaw: string; finalSampleDisplay: string; confirmedPrice: string; remarks: string;
 };
 type Opt = { value: string; label: string };
 
@@ -47,13 +47,14 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
           <thead>
             <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
               <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Style</th>
-              <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Lab dip</th><th className="px-3 py-2.5 font-semibold">Knitting</th>
+              <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Lab dip</th><th className="px-3 py-2.5 font-semibold">Knitting/Dyeing</th>
               <th className="px-3 py-2.5 font-semibold">1st sample</th><th className="px-3 py-2.5 font-semibold">2nd sample</th><th className="px-3 py-2.5 font-semibold">Final sample sent</th>
+              <th className="px-3 py-2.5 font-semibold">Confirmed Price</th>
               <th className="px-3 py-2.5 font-semibold">Remarks</th>{canEdit && <th className="px-3 py-2.5 font-semibold">Delete</th>}
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={canEdit ? 11 : 10} className="px-3 py-10 text-center text-ink-soft">No development items yet{canEdit ? " — add one above." : "."}</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={canEdit ? 12 : 11} className="px-3 py-10 text-center text-ink-soft">No development items yet{canEdit ? " — add one above." : "."}</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 {canEdit ? <>
@@ -66,6 +67,7 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.firstSample} type="text" action={setDevFirstSample}>{txt(r.firstSample)}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.secondSample} type="text" action={setDevSecondSample}>{txt(r.secondSample)}</EditableCell></td>
                   <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={r.finalSampleRaw} type="date" action={setDevFinalSample}>{r.finalSampleDisplay}</EditableCell></td>
+                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.confirmedPrice} type="text" action={setDevConfirmedPrice}>{txt(r.confirmedPrice)}</EditableCell></td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setDevRemarks}>{txt(r.remarks)}</EditableCell></td>
                   <td className="px-3 py-2"><RowDeleteButton action={deleteDevelopmentAction} id={r.id} /></td>
                 </> : <>
@@ -74,7 +76,7 @@ export function DevelopmentTable({ rows, canEdit, factories, buyers }: { rows: D
                   <td className="px-3 py-2 font-mono text-xs">{r.styleRef}</td>
                   <td className="px-3 py-2 text-xs">{txt(r.colour)}</td><td className="px-3 py-2 text-xs">{txt(r.labDip)}</td><td className="px-3 py-2 text-xs">{txt(r.knitting)}</td>
                   <td className="px-3 py-2 text-xs">{txt(r.firstSample)}</td><td className="px-3 py-2 text-xs">{txt(r.secondSample)}</td>
-                  <td className="px-3 py-2 tnum text-xs">{r.finalSampleDisplay}</td><td className="px-3 py-2 text-xs">{txt(r.remarks)}</td>
+                  <td className="px-3 py-2 tnum text-xs">{r.finalSampleDisplay}</td><td className="px-3 py-2 text-xs">{txt(r.confirmedPrice)}</td><td className="px-3 py-2 text-xs">{txt(r.remarks)}</td>
                 </>}
               </tr>
             ))}

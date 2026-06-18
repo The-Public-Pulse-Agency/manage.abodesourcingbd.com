@@ -145,6 +145,8 @@ model Enquiry {
   targetQty        Int?
   targetPriceUsd   Decimal?      @db.Decimal(12, 4)
   quotedPriceUsd   Decimal?      @db.Decimal(12, 4)
+  priceQuotedDate  DateTime?
+  fabricComposition String?
   requiredShipDate DateTime?
   status           EnquiryStatus @default(NEW)
   lostReason       String?
@@ -170,6 +172,7 @@ model DevelopmentItem {
   firstSample     String?
   secondSample    String?
   finalSampleDate DateTime?
+  confirmedPrice  String?
   remarks         String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

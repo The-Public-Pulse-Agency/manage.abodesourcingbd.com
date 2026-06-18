@@ -36,6 +36,8 @@ export default async function EnquiriesPage() {
     quotedPriceUsd: e.quotedPriceUsd != null ? Number(e.quotedPriceUsd) : null,
     requiredShipDate: e.requiredShipDate ? formatDate(e.requiredShipDate) : null,
     requiredShipDateRaw: e.requiredShipDate ? e.requiredShipDate.toISOString().slice(0, 10) : null,
+    priceQuotedDateRaw: e.priceQuotedDate ? e.priceQuotedDate.toISOString().slice(0, 10) : null,
+    fabricComposition: e.fabricComposition,
     notes: e.notes,
     status: e.status,
     convertedPoId: e.convertedPoId,

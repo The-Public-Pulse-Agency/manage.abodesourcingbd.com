@@ -35,7 +35,7 @@ export async function createDevelopment(actor: SessionUser, input: CreateDevInpu
   return item;
 }
 
-const TEXT_FIELDS = ["labDip", "knitting", "firstSample", "secondSample", "remarks", "colour", "styleRef"] as const;
+const TEXT_FIELDS = ["labDip", "knitting", "firstSample", "secondSample", "remarks", "colour", "styleRef", "confirmedPrice"] as const;
 const ID_FIELDS = ["factoryId", "buyerId"] as const;
 
 /** Guard against cross-tenant references: the factory/buyer id must belong to the company. */

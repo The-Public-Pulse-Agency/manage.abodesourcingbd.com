@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/guard";
+import { getCurrentUser, tenantId } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
+import { prisma } from "@/lib/db";
 import { getShipment } from "@/lib/shipment/shipment";
 import { listDocuments } from "@/lib/documents/documents";
 import { listForwarders, listPorts } from "@/lib/masterdata/logistics";
@@ -45,18 +46,38 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   const pos = canFinance
     ? Array.from(new Map(shp.lines.map((l) => [l.orderLine.po.id, l.orderLine.po])).values())
     : [];
+  // Shipped sell-value per PO (this shipment's qty × order-line sell price), used to
+  // pre-fill the buyer-invoice amount so it doesn't have to be keyed in by hand.
+  const olIds = canFinance ? [...new Set(shp.lines.map((l) => l.orderLine.id))] : [];
+  const olSizes = olIds.length
+    ? await prisma.orderLineSize.findMany({
+        where: { orderLineId: { in: olIds }, companyId: tenantId(actor) },
+        select: { orderLineId: true, label: true, sellFob: true },
+      })
+    : [];
+  const sellBy = new Map(olSizes.map((s) => [`${s.orderLineId}:${s.label}`, Number(s.sellFob)]));
+  const shippedValueByPo = new Map<string, number>();
+  for (const l of shp.lines) {
+    const v = l.sizes.reduce((sum, z) => sum + z.qty * (sellBy.get(`${l.orderLine.id}:${z.label}`) ?? 0), 0);
+    shippedValueByPo.set(l.orderLine.po.id, (shippedValueByPo.get(l.orderLine.po.id) ?? 0) + v);
+  }
+
   const invoicesByPo = await Promise.all(
     pos.map(async (po) => {
       const invoices = await listInvoices(actor, { poId: po.id });
+      const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
       const rows: InvoiceRow[] = invoices.map((i) => ({
         id: i.id,
         type: i.type,
         number: i.number,
         amount: Number(i.amount),
-        outstanding: outstanding(i.amount, i.payments),
+        outstanding: i.status === "PAID" ? 0 : outstanding(i.amount, i.payments),
         status: i.status,
         currency: i.currency,
         poId: i.poId,
+        issueDate: isoDay(i.issueDate),
+        dueDate: isoDay(i.dueDate),
+        payments: i.payments.map((p) => ({ id: p.id, amount: Number(p.amount), method: p.method, paidDate: isoDay(p.date) ?? "" })),
       }));
       return { po, rows };
     }),
@@ -191,6 +212,8 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           poId={po.id}
           canManage={can(actor.role, "finance", "create")}
           title={invoicesByPo.length > 1 ? `Invoices · ${po.poNumber}` : "Invoices"}
+          defaultNumber={shp.reference}
+          defaultAmount={Math.round((shippedValueByPo.get(po.id) ?? 0) * 100) / 100}
         />
       ))}
 

@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
-import { outstanding } from "./money";
 import { recomputeInvoiceStatus } from "./payments";
 
 const invoiceTypes = ["BUYER", "FACTORY"] as const;
@@ -156,22 +155,11 @@ export async function updateInvoiceFields(
   }
   if (input.issueDate !== undefined) data.issueDate = input.issueDate;
 
-  // #18 manual-status-no-payment-validation: an explicit status must be consistent with
-  // the authoritative payment set. Outstanding is computed from the effective amount
-  // (the new amount if it's also being changed, else the current one) minus payments.
-  if (explicitStatus) {
-    const effectiveAmount = amountChanged ? (input.amount as number) : existing.amount;
-    const out = outstanding(effectiveAmount, existing.payments);
-    if (explicitStatus === "PAID" && out > 0) {
-      throw new Error("Cannot mark invoice PAID while it has an outstanding balance");
-    }
-    if (explicitStatus === "ISSUED" && existing.payments.length > 0) {
-      throw new Error("Cannot set invoice to ISSUED while payments exist");
-    }
-    if (explicitStatus === "PARTIALLY_PAID" && (existing.payments.length === 0 || out <= 0)) {
-      throw new Error("Cannot set invoice to PARTIALLY_PAID without a partial payment");
-    }
-  }
+  // Payment status is a user-controlled flag in this product: merchants mark an invoice
+  // ISSUED / PARTIALLY_PAID / PAID directly without necessarily recording individual
+  // payment lines, so an explicit status is accepted as an authoritative manual override.
+  // (When payments ARE recorded, recordPayment/updatePayment/deletePayment still
+  // auto-advance the status; and an amount edit without an explicit status re-derives it.)
 
   // #7 invoice-amount-edit-stale-status: changing the amount (or issueDate) without an
   // explicit status can leave a stored PAID/PARTIALLY_PAID diverged from the new amount vs

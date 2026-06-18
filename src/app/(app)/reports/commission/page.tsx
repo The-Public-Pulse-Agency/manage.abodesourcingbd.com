@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listCommission } from "@/lib/commission/commission";
+import { listInvoices } from "@/lib/finance/invoices";
 import { listFactories } from "@/lib/masterdata/factory";
 import { listBuyers } from "@/lib/masterdata/buyer";
 import { formatDate } from "@/lib/format";
@@ -15,9 +16,20 @@ export default async function CommissionReportPage() {
   if (!actor || !can(actor.role, "finance", "view")) redirect("/dashboard");
   const canEdit = can(actor.role, "finance", "edit");
 
-  const [items, factories, buyers] = await Promise.all([listCommission(actor), listFactories(actor), listBuyers(actor)]);
+  const [items, factories, buyers, factoryInvoicesRaw] = await Promise.all([
+    listCommission(actor),
+    listFactories(actor),
+    listBuyers(actor),
+    listInvoices(actor, { type: "FACTORY" }),
+  ]);
   const facName = new Map(factories.map((f) => [f.id, f.name]));
   const buyName = new Map(buyers.map((b) => [b.id, b.name]));
+  const factoryInvoices = factoryInvoicesRaw.map((inv) => ({
+    id: inv.id,
+    number: inv.number,
+    amount: Number(inv.amount),
+    poNumber: inv.po?.poNumber ?? undefined,
+  }));
 
   const rows: CommRow[] = items.map((i) => {
     const fv = i.factoryInvoiceValue != null ? Number(i.factoryInvoiceValue) : null;
@@ -68,6 +80,7 @@ export default async function CommissionReportPage() {
           canEdit={canEdit}
           factories={factories.map((f) => ({ value: f.id, label: f.name }))}
           buyers={buyers.map((b) => ({ value: b.id, label: b.name }))}
+          factoryInvoices={factoryInvoices}
         />
       </div>
     </div>

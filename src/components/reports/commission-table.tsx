@@ -19,28 +19,44 @@ export type CommRow = {
   paymentStatus: string; remarks: string;
 };
 type Opt = { value: string; label: string };
+export type FactoryInvoiceOpt = { id: string; number: string; amount: number; poNumber?: string };
 const PAY_OPTIONS = [{ value: "", label: "—" }, { value: "Due", label: "Due" }, { value: "Partial", label: "Partial" }, { value: "Paid", label: "Paid" }];
 
-export function CommissionTable({ rows, canEdit, factories, buyers }: { rows: CommRow[]; canEdit: boolean; factories: Opt[]; buyers: Opt[] }) {
+export function CommissionTable({ rows, canEdit, factories, buyers, factoryInvoices = [] }: { rows: CommRow[]; canEdit: boolean; factories: Opt[]; buyers: Opt[]; factoryInvoices?: FactoryInvoiceOpt[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [facInvNo, setFacInvNo] = useState("");
+  const [facInvValue, setFacInvValue] = useState("");
   const t = (v: string) => (v ? v : "—");
   const facOpts = [{ value: "", label: "—" }, ...factories];
   const buyOpts = [{ value: "", label: "—" }, ...buyers];
+
+  const pickInvoice = (id: string) => {
+    const inv = factoryInvoices.find((i) => i.id === id);
+    if (!inv) return;
+    setFacInvNo(inv.number);
+    setFacInvValue(String(inv.amount));
+  };
 
   return (
     <div className="space-y-3">
       {canEdit && (
         <form
-          action={async (fd) => { setBusy(true); const r = await createCommissionAction(fd); setBusy(false); if (r.error) setErr(r.error); else { setErr(null); router.refresh(); (document.getElementById("comm-add") as HTMLFormElement)?.reset(); } }}
+          action={async (fd) => { setBusy(true); const r = await createCommissionAction(fd); setBusy(false); if (r.error) setErr(r.error); else { setErr(null); setFacInvNo(""); setFacInvValue(""); router.refresh(); (document.getElementById("comm-add") as HTMLFormElement)?.reset(); } }}
           id="comm-add"
           className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface p-3 elevate"
         >
           <select name="buyerId" className="select text-sm" aria-label="Buyer"><option value="">Buyer…</option>{buyers.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}</select>
           <select name="factoryId" className="select text-sm" aria-label="Factory"><option value="">Factory…</option>{factories.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
-          <input name="factoryInvoiceNo" placeholder="Factory inv #" className="input text-sm" aria-label="Factory invoice no" />
-          <input name="factoryInvoiceValue" type="number" step="0.01" placeholder="Factory value" className="input text-sm w-28" aria-label="Factory value" />
+          {factoryInvoices.length > 0 && (
+            <select className="select text-sm" aria-label="From factory invoice" defaultValue="" onChange={(e) => { pickInvoice(e.target.value); e.target.value = ""; }}>
+              <option value="">From factory invoice…</option>
+              {factoryInvoices.map((inv) => <option key={inv.id} value={inv.id}>{inv.number}{inv.poNumber ? ` · PO ${inv.poNumber}` : ""} — {inv.amount}</option>)}
+            </select>
+          )}
+          <input name="factoryInvoiceNo" placeholder="Factory inv #" className="input text-sm" aria-label="Factory invoice no" value={facInvNo} onChange={(e) => setFacInvNo(e.target.value)} />
+          <input name="factoryInvoiceValue" type="number" step="0.01" placeholder="Factory value" className="input text-sm w-28" aria-label="Factory value" value={facInvValue} onChange={(e) => setFacInvValue(e.target.value)} />
           <input name="commissionPct" type="number" step="0.01" placeholder="Comm %" className="input text-sm w-20" aria-label="Commission percent" />
           <button type="submit" disabled={busy} className="rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">{busy ? "Adding…" : "+ Add commission"}</button>
           {err && <span className="text-xs text-bad">{err}</span>}

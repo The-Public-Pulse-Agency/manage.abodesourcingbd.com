@@ -36,6 +36,7 @@ export async function setDevKnitting(id: string, value: string): Promise<Res> { 
 export async function setDevFirstSample(id: string, value: string): Promise<Res> { return setField(id, "firstSample", value); }
 export async function setDevSecondSample(id: string, value: string): Promise<Res> { return setField(id, "secondSample", value); }
 export async function setDevFinalSample(id: string, value: string): Promise<Res> { return setField(id, "finalSampleDate", value); }
+export async function setDevConfirmedPrice(id: string, value: string): Promise<Res> { return setField(id, "confirmedPrice", value); }
 export async function setDevRemarks(id: string, value: string): Promise<Res> { return setField(id, "remarks", value); }
 export async function setDevColour(id: string, value: string): Promise<Res> { return setField(id, "colour", value); }
 export async function setDevStyleRef(id: string, value: string): Promise<Res> { return setField(id, "styleRef", value); }

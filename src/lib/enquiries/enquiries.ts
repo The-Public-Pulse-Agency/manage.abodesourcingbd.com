@@ -31,6 +31,8 @@ export const createEnquirySchema = z.object({
   targetQty: z.coerce.number().int().positive().optional(),
   targetPriceUsd: z.coerce.number().nonnegative().optional(),
   requiredShipDate: z.coerce.date().optional(),
+  priceQuotedDate: z.coerce.date().optional(),
+  fabricComposition: z.string().optional(),
   notes: z.string().optional(),
 });
 export type CreateEnquiryInput = z.input<typeof createEnquirySchema>;
@@ -54,6 +56,8 @@ export async function createEnquiry(actor: SessionUser, input: CreateEnquiryInpu
       targetQty: data.targetQty,
       targetPriceUsd: data.targetPriceUsd != null ? String(data.targetPriceUsd) : null,
       requiredShipDate: data.requiredShipDate,
+      priceQuotedDate: data.priceQuotedDate,
+      fabricComposition: data.fabricComposition,
       notes: data.notes,
     },
   });
@@ -84,6 +88,8 @@ export const updateEnquirySchema = z.object({
   targetQty: z.coerce.number().int().positive().nullish(),
   targetPriceUsd: z.coerce.number().nonnegative().nullish(),
   requiredShipDate: z.coerce.date().nullish(),
+  priceQuotedDate: z.coerce.date().nullish(),
+  fabricComposition: z.string().nullish(),
   notes: z.string().nullish(),
   lostReason: z.string().nullish(),
   factoryId: z.string().optional(),
@@ -114,6 +120,8 @@ export async function updateEnquiry(actor: SessionUser, id: string, input: z.inp
   if (data.targetQty !== undefined) patch.targetQty = data.targetQty;
   if (data.targetPriceUsd !== undefined) patch.targetPriceUsd = data.targetPriceUsd != null ? String(data.targetPriceUsd) : null;
   if (data.requiredShipDate !== undefined) patch.requiredShipDate = data.requiredShipDate ?? null;
+  if (data.priceQuotedDate !== undefined) patch.priceQuotedDate = data.priceQuotedDate ?? null;
+  if (data.fabricComposition !== undefined) patch.fabricComposition = data.fabricComposition || null;
   if (data.notes !== undefined) patch.notes = data.notes || null;
   if (data.lostReason !== undefined) patch.lostReason = data.lostReason || null;
   if (data.factoryId !== undefined) {

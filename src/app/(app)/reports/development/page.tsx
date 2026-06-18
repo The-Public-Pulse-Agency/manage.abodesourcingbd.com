@@ -31,6 +31,7 @@ export default async function DevelopmentReportPage() {
     secondSample: i.secondSample ?? "",
     finalSampleRaw: i.finalSampleDate ? new Date(i.finalSampleDate).toISOString().slice(0, 10) : "",
     finalSampleDisplay: i.finalSampleDate ? formatDate(i.finalSampleDate) : "—",
+    confirmedPrice: i.confirmedPrice ?? "",
     remarks: i.remarks ?? "",
   }));
   const sampled = rows.filter((r) => r.finalSampleRaw).length;

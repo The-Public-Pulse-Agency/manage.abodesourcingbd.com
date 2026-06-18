@@ -64,12 +64,17 @@ export function InvoicesPanel({
   canManage,
   showPo = false,
   title = "Invoices",
+  defaultNumber,
+  defaultAmount,
 }: {
   invoices: InvoiceRow[];
   poId?: string;
   canManage: boolean;
   showPo?: boolean;
   title?: string;
+  // Optional pre-fill for the add-invoice form (e.g. from a shipment: reference + shipped value).
+  defaultNumber?: string;
+  defaultAmount?: number;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
@@ -262,8 +267,8 @@ export function InvoicesPanel({
             <option value="BUYER">BUYER (Abode→buyer)</option>
             <option value="FACTORY">FACTORY (payable)</option>
           </select>
-          <input name="number" placeholder="Invoice number" required className="input text-xs" />
-          <input name="amount" inputMode="decimal" placeholder="Amount" required className="input tnum w-28 text-right text-xs" />
+          <input name="number" defaultValue={defaultNumber ?? ""} placeholder="Invoice number" required className="input text-xs" />
+          <input name="amount" defaultValue={defaultAmount && defaultAmount > 0 ? defaultAmount : ""} inputMode="decimal" placeholder="Amount" required className="input tnum w-28 text-right text-xs" />
           <input name="issueDate" type="date" defaultValue={TODAY} required className="input text-xs" aria-label="Issue date" title="Issue date" />
           <input name="dueDate" type="date" className="input text-xs" aria-label="Payment due date" title="Payment due date" />
           <button type="submit" className="rounded-sm bg-ink px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Add invoice</button>

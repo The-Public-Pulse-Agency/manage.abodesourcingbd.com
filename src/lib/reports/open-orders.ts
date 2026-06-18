@@ -3,10 +3,32 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { businessToday } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
+import { remainingBySize } from "@/lib/shipment/balance";
+
+type SizeForBalance = { label: string; qty: number; netFob: Decimalish; sellFob: Decimalish };
+type LineForBalance = { sizes: SizeForBalance[]; shipmentLines: { sizes: { label: string; qty: number }[] }[] };
+
+/**
+ * Open-book totals reflect the REMAINING balance (ordered − already shipped) per size, so
+ * a partly-shipped PO shows only the qty/value still to ship — not the full original order.
+ * Lines with no shipments fall through to their full ordered qty.
+ */
+function remainingTotals(lines: LineForBalance[]) {
+  return rollup(
+    lines.map((l) => {
+      const shipped = l.shipmentLines.flatMap((sl) => sl.sizes.map((s) => ({ label: s.label, qty: s.qty })));
+      const bal = remainingBySize(l.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped);
+      const balByLabel = new Map(bal.map((b) => [b.label, Math.max(0, b.balance)]));
+      const remainingSizes = l.sizes.map((s) => ({ ...s, qty: balByLabel.get(s.label) ?? s.qty }));
+      return lineMills(remainingSizes);
+    }),
+  );
+}
 
 // ON_HOLD is an active (non-finished, non-cancelled) status — held orders stay
 // visible in the canonical open-order book/pipeline.
 const OPEN_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED", "ON_HOLD"] as const;
+const SUMMARY_CAP = 20_000; // bound the per-PO balance projection at extreme scale
 
 export type StatusCell = { state: "done" | "overdue" | "pending" | "na"; date: Date | null };
 
@@ -89,8 +111,21 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
 }
 
 type PoForRow = Prisma.PurchaseOrderGetPayload<{
-  include: { buyer: true; factory: true; lines: { include: { sizes: true; colour: true; style: true } }; milestones: { select: { key: true; plannedDate: true; actualDate: true } } };
+  include: {
+    buyer: true;
+    factory: true;
+    lines: { include: { sizes: true; colour: true; style: true; shipmentLines: { include: { sizes: true } } } };
+    milestones: { select: { key: true; plannedDate: true; actualDate: true } };
+  };
 }>;
+
+// Shared include for the row queries (ordered sizes + per-line shipped sizes for the balance).
+const ROW_INCLUDE = {
+  buyer: true,
+  factory: true,
+  lines: { include: { sizes: true, colour: true, style: true, shipmentLines: { include: { sizes: true } } } },
+  milestones: { select: { key: true, plannedDate: true, actualDate: true } },
+} satisfies Prisma.PurchaseOrderInclude;
 
 function mapRow(po: PoForRow, today: Date): OpenOrderRow {
   // Case-tolerant: default template keys are UPPER_CASE; user-added ones are lower_case.
@@ -105,7 +140,9 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
   const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
   const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
   const styles = [...new Set(po.lines.map((l) => l.style?.styleCode).filter(Boolean) as string[])].join(", ");
-  const totals = rollup(po.lines.map((l) => lineMills(l.sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])));
+  // Open qty/value = remaining balance (ordered − shipped), so a partly-shipped PO shows
+  // only what's still to ship.
+  const totals = remainingTotals(po.lines as unknown as LineForBalance[]);
   return {
     id: po.id,
     poNumber: po.poNumber,
@@ -156,7 +193,7 @@ export async function listOpenOrders(
   const page = Math.min(Math.max(1, opts.page ?? 1), totalPages);
   const pos = await prisma.purchaseOrder.findMany({
     where,
-    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true, style: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
+    include: ROW_INCLUDE,
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     skip: (page - 1) * pageSize,
     take: pageSize,
@@ -181,36 +218,37 @@ export async function openOrdersSummary(actor: SessionUser, filter: OpenOrdersFi
   // currency tag, so only USD POs contribute to totalQty/totalValue.
   const where: Prisma.PurchaseOrderWhereInput = { ...whereFor(actor, filter), currency: "USD" };
 
-  // count() is the true matching-PO count (no in-app cap), so it never diverges from the
-  // value/qty rollup at scale; totals come from a flat size aggregate over the same
-  // where-clause (mirrors openOrderBookTotals in lib/orders/po.ts — accurate under any size).
-  const [count, sizes, pos] = await Promise.all([
+  // count() is the true matching-PO count (no in-app cap). KPIs + charts use the REMAINING
+  // balance (ordered − shipped), so a partly-shipped order contributes only its open qty/value
+  // — consistent with the per-row QTY/VALUE. Per-PO projection (bounded) because the balance
+  // needs each line's shipped sizes, which a flat SQL aggregate can't express.
+  const [count, pos] = await Promise.all([
     prisma.purchaseOrder.count({ where }),
-    prisma.orderLineSize.findMany({
-      where: { companyId: tenantId(actor), orderLine: { po: where } },
-      select: { qty: true, netFob: true, sellFob: true },
-    }),
     prisma.purchaseOrder.findMany({
       where,
-      select: { exFactoryDate: true, factory: { select: { name: true } }, buyer: { select: { name: true } }, lines: { select: { sizes: { select: { qty: true } } } } },
+      select: {
+        exFactoryDate: true,
+        factory: { select: { name: true } },
+        buyer: { select: { name: true } },
+        lines: { select: { sizes: { select: { label: true, qty: true, netFob: true, sellFob: true } }, shipmentLines: { select: { sizes: { select: { label: true, qty: true } } } } } },
+      },
+      take: SUMMARY_CAP,
     }),
   ]);
 
-  const totals = rollup([lineMills(sizes as { qty: number; netFob: Decimalish; sellFob: Decimalish }[])]);
-
-  // Chart aggregates (qty-by-factory, count-by-buyer, shipping≤30d) need per-PO grouping
-  // that a single aggregate can't express, so derive them from a light per-PO projection.
   const now = Date.now();
-  let shipping30 = 0;
+  let totalQty = 0, totalValue = 0, shipping30 = 0;
   const fac = new Map<string, number>(), buy = new Map<string, number>();
   for (const po of pos) {
-    const qty = po.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
-    fac.set(po.factory.name, (fac.get(po.factory.name) ?? 0) + qty);
+    const t = remainingTotals(po.lines as unknown as LineForBalance[]);
+    totalQty += t.qty;
+    totalValue += t.value;
+    fac.set(po.factory.name, (fac.get(po.factory.name) ?? 0) + t.qty);
     buy.set(po.buyer.name, (buy.get(po.buyer.name) ?? 0) + 1);
     if (po.exFactoryDate && +po.exFactoryDate >= now && +po.exFactoryDate <= now + 30 * 86_400_000) shipping30++;
   }
   const top = (m: Map<string, number>) => [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 7);
-  return { count, totalQty: totals.qty, totalValue: totals.value, shipping30, byFactory: top(fac), byBuyer: top(buy) };
+  return { count, totalQty, totalValue, shipping30, byFactory: top(fac), byBuyer: top(buy) };
 }
 
 /** All filtered rows for CSV export (bounded). */
@@ -219,7 +257,7 @@ export async function openOrdersForExport(actor: SessionUser, filter: OpenOrders
   const today = businessToday(new Date());
   const pos = await prisma.purchaseOrder.findMany({
     where: whereFor(actor, filter),
-    include: { buyer: true, factory: true, lines: { include: { sizes: true, colour: true, style: true } }, milestones: { select: { key: true, plannedDate: true, actualDate: true } } },
+    include: ROW_INCLUDE,
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     take: 5_000,
   });

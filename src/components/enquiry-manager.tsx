@@ -19,6 +19,8 @@ export type EnquiryRow = {
   quotedPriceUsd: number | null;
   requiredShipDate: string | null;
   requiredShipDateRaw: string | null;
+  priceQuotedDateRaw: string | null;
+  fabricComposition: string | null;
   notes: string | null;
   status: string;
   convertedPoId: string | null;
@@ -86,6 +88,10 @@ export function EnquiryManager({
     updateEnquiryAction(id, { targetPriceUsd: v ? Number(v) : null }).then(toRes);
   const editShipDate = (id: string, v: string) =>
     updateEnquiryAction(id, { requiredShipDate: v || null }).then(toRes);
+  const editPriceQuotedDate = (id: string, v: string) =>
+    updateEnquiryAction(id, { priceQuotedDate: v || null }).then(toRes);
+  const editFabricComposition = (id: string, v: string) =>
+    updateEnquiryAction(id, { fabricComposition: v || null }).then(toRes);
   const editNotes = (id: string, v: string) =>
     updateEnquiryAction(id, { notes: v || null }).then(toRes);
   const editFactory = (id: string, v: string) =>
@@ -107,6 +113,8 @@ export function EnquiryManager({
               <th className="px-3 py-2 text-right font-semibold">Target $</th>
               <th className="px-3 py-2 text-right font-semibold">Quoted $</th>
               <th className="px-3 py-2 font-semibold">Req. ship</th>
+              <th className="px-3 py-2 font-semibold">Price quoted date</th>
+              <th className="px-3 py-2 font-semibold">Fabric composition</th>
               <th className="px-3 py-2 font-semibold">Notes</th>
               <th className="px-3 py-2" />
               {canEdit && <th className="px-3 py-2 font-semibold">Delete</th>}
@@ -114,7 +122,7 @@ export function EnquiryManager({
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={canEdit ? 11 : 10} className="px-3 py-10 text-center text-ink-soft">No enquiries yet.</td></tr>
+              <tr><td colSpan={canEdit ? 13 : 12} className="px-3 py-10 text-center text-ink-soft">No enquiries yet.</td></tr>
             )}
             {rows.map((e) => (
               <tr key={e.id} className="border-b border-line last:border-0">
@@ -153,6 +161,16 @@ export function EnquiryManager({
                   {canEdit && !e.convertedPoId ? (
                     <EditableCell id={e.id} raw={e.requiredShipDateRaw ?? ""} type="date" action={editShipDate}>{e.requiredShipDate ?? "—"}</EditableCell>
                   ) : (e.requiredShipDate ?? "—")}
+                </td>
+                <td className="px-3 py-2 tnum text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.priceQuotedDateRaw ?? ""} type="date" action={editPriceQuotedDate}>{e.priceQuotedDateRaw ?? "—"}</EditableCell>
+                  ) : (e.priceQuotedDateRaw ?? "—")}
+                </td>
+                <td className="px-3 py-2 text-xs">
+                  {canEdit && !e.convertedPoId ? (
+                    <EditableCell id={e.id} raw={e.fabricComposition ?? ""} type="text" action={editFabricComposition}>{e.fabricComposition ?? "—"}</EditableCell>
+                  ) : (e.fabricComposition ?? <span className="text-ink-soft">—</span>)}
                 </td>
                 <td className="px-3 py-2 text-xs">
                   {canEdit && !e.convertedPoId ? (

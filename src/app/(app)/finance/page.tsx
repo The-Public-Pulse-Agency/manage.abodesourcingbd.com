@@ -25,7 +25,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     type: inv.type,
     number: inv.number,
     amount: Number(inv.amount),
-    outstanding: outstanding(inv.amount, inv.payments),
+    outstanding: inv.status === "PAID" ? 0 : outstanding(inv.amount, inv.payments),
     status: inv.status,
     currency: inv.currency,
     poId: inv.poId,

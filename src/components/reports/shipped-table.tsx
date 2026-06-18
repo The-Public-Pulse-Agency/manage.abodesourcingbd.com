@@ -92,12 +92,13 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
               <th className="px-3 py-2.5 font-semibold">Container</th>
               <th className="px-3 py-2.5 font-semibold">TC status</th>
               <th className="px-3 py-2.5 font-semibold">Remarks</th>
+              <th className="px-3 py-2.5 font-semibold">Invoice doc</th>
               <th className="px-3 py-2.5 font-semibold">Edit</th>
               <th className="px-3 py-2.5 font-semibold">Delete</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={18} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={19} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
@@ -130,6 +131,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell></td>
                 <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell></td>
                 <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell></td>
+                <td className="px-3 py-2">{r.invoiceId ? <a href={`/api/invoices/${r.invoiceId}`} className="text-xs font-medium text-accent hover:underline" title="Download invoice (Excel)">Invoice ⬇</a> : <span className="text-xs text-ink-soft">—</span>}</td>
                 <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
                 <td className="px-3 py-2"><RowDeleteButton action={deleteShipmentAction} id={r.id} /></td>
               </tr>
@@ -142,7 +144,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2.5 text-right tnum">{formatQty(totalQty)}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>
-                <td colSpan={7} />
+                <td colSpan={8} />
               </tr>
             </tfoot>
           )}

@@ -95,11 +95,11 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Dyeing</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
                 <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Print/Emb</th>
-                <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Delete</th>
+                <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Delete</th>
               </tr>
             </thead>
             <tbody>
-              {book.rows.length === 0 && <tr><td colSpan={24} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.length === 0 && <tr><td colSpan={25} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
               {book.rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
@@ -118,6 +118,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
                   <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell></td>
+                  <td className="px-3 py-2"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
                   <td className="px-3 py-2"><RowDeleteButton action={deleteOrderAction} id={r.id} /></td>
                 </tr>

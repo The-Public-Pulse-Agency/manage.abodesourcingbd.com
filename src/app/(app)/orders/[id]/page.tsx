@@ -102,6 +102,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <h1 className="font-mono text-2xl font-bold tracking-tight">{po.poNumber}</h1>
           <StatusPill status={po.status} />
           <span className="font-mono text-xs text-ink-soft">{po.channel}</span>
+          <a href={`/api/orders/${po.id}/po`} className="inline-flex items-center gap-1.5 rounded-sm border border-line px-2.5 py-1 text-xs font-medium text-ink-soft hover:border-accent hover:text-accent" title="Download PO (Excel)">PO ⬇</a>
         </div>
       </div>
 

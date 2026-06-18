@@ -119,11 +119,14 @@ export function InvoicesPanel({
             <tr className="border-b border-line last:border-0 align-top">
               <td className="px-3 py-1.5 font-mono text-xs">{inv.type}</td>
               <td className="px-3 py-1.5 font-mono text-xs">
-                {canManage ? (
-                  <EditableCell id={inv.id} raw={inv.number} type="text" action={setInvoiceNumber}>
-                    {inv.number}
-                  </EditableCell>
-                ) : inv.number}
+                <span className="inline-flex items-center gap-1.5">
+                  {canManage ? (
+                    <EditableCell id={inv.id} raw={inv.number} type="text" action={setInvoiceNumber}>
+                      {inv.number}
+                    </EditableCell>
+                  ) : inv.number}
+                  <a href={`/api/invoices/${inv.id}`} className="text-accent hover:underline" title="Download invoice (Excel)">⬇</a>
+                </span>
               </td>
               {showPo && (
                 <td className="px-3 py-1.5">

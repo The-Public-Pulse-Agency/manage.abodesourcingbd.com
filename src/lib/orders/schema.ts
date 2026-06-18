@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+// Suggested channels for the new-order datalist; channel is free text, so any custom
+// value (e.g. a buyer/agent name) is allowed too.
 export const orderChannels = ["RALAWISE", "RALATEAM", "DIRECT"] as const;
 
 export const createPoSchema = z.object({
@@ -7,7 +9,7 @@ export const createPoSchema = z.object({
   buyerId: z.string().min(1),
   brandId: z.string().min(1),
   factoryId: z.string().min(1),
-  channel: z.enum(orderChannels).default("DIRECT"),
+  channel: z.string().trim().min(1).max(40).default("DIRECT"),
   orderDate: z.coerce.date().optional(),
   crd: z.coerce.date().optional(),
   exFactoryDate: z.coerce.date().optional(),
@@ -44,7 +46,7 @@ export type SetLineInput = z.infer<typeof setLineSchema>;
 export const openOrderBookFilterSchema = z.object({
   factoryId: z.string().optional(),
   buyerId: z.string().optional(),
-  channel: z.enum(orderChannels).optional(),
+  channel: z.string().optional(),
   exFactoryBefore: z.coerce.date().optional(),
 });
 export type OpenOrderBookFilter = z.infer<typeof openOrderBookFilterSchema>;

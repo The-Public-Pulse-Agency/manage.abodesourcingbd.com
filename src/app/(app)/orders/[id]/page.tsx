@@ -29,6 +29,7 @@ import { TnaTimeline } from "./tna-timeline";
 import { SamplingPanel } from "./sampling-panel";
 import { ProductionPanel } from "./production-panel";
 import { LinePriceEditor } from "./line-price-editor";
+import { DeleteOrderButton } from "./delete-order-button";
 import { QcPanel } from "./qc-panel";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,8 +41,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   const role = actor.role;
   const isDraft = po.status === "DRAFT";
-  // Prices (net/sell FOB) can be corrected after confirm — locked only once CLOSED/CANCELLED.
-  const canEditPrices = can(role, "costing", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED";
   const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
   const canEdit = can(role, "orders", "edit") && isDraft;
   const canDelete = can(role, "orders", "delete") && isDraft;
@@ -74,6 +73,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     ]);
 
   const hasBalance = balance.some((l) => l.sizes.some((s) => s.balance > 0));
+  // Prices (net/sell FOB) can be corrected post-confirm (orders:edit — ADMIN/merchandiser),
+  // but only before revenue is booked (no invoice yet) and while the order isn't closed/cancelled.
+  const canEditPrices =
+    can(role, "orders", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED" && invoices.length === 0;
   const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const invoiceRows: InvoiceRow[] = invoices.map((inv) => ({
     id: inv.id,
@@ -106,6 +109,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <StatusPill status={po.status} />
           <span className="font-mono text-xs text-ink-soft">{po.channel}</span>
           <a href={`/api/orders/${po.id}/po`} className="inline-flex items-center gap-1.5 rounded-sm border border-line px-2.5 py-1 text-xs font-medium text-ink-soft hover:border-accent hover:text-accent" title="Download PO (Excel)">PO ⬇</a>
+          {canDelete && <DeleteOrderButton poId={po.id} />}
         </div>
       </div>
 

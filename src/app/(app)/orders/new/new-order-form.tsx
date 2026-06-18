@@ -27,11 +27,18 @@ export function NewOrderForm({
           <input name="poNumber" required className="input w-full" placeholder="e.g. 209531" />
         </Field>
         <Field label="Channel">
-          <select name="channel" defaultValue="DIRECT" className="select w-full">
+          <input
+            name="channel"
+            defaultValue="DIRECT"
+            list="channel-suggestions"
+            className="input w-full"
+            placeholder="DIRECT or a custom channel/buyer name"
+          />
+          <datalist id="channel-suggestions">
             {orderChannels.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c} />
             ))}
-          </select>
+          </datalist>
         </Field>
         <Field label="Buyer" required>
           <select

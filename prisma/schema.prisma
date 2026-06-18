@@ -422,12 +422,6 @@ model Style {
   @@unique([brandId, styleCode])
 }
 
-enum OrderChannel {
-  RALAWISE
-  RALATEAM
-  DIRECT
-}
-
 enum OrderStatus {
   DRAFT
   CONFIRMED
@@ -458,7 +452,7 @@ model PurchaseOrder {
   buyer         Buyer        @relation(fields: [buyerId], references: [id])
   brandId       String
   brand         Brand        @relation(fields: [brandId], references: [id])
-  channel       OrderChannel @default(DIRECT)
+  channel       String       @default("DIRECT")
   factoryId     String
   factory       Factory      @relation(fields: [factoryId], references: [id])
   lotId         String?

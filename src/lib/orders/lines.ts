@@ -67,29 +67,37 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
   return line;
 }
 
-const PRICE_LOCKED = ["CLOSED", "CANCELLED"] as const;
+// Prices may be corrected on un-finished orders that have NOT yet been booked downstream.
+// Once an invoice exists, the revenue is committed, so price edits are refused to avoid
+// silently restating booked value/margin.
+const PRICE_EDITABLE_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED", "ON_HOLD"] as const;
 
 /**
  * Correct the FOB prices (net/sell) on an existing line's sizes WITHOUT changing qty/style —
- * usable after an order is confirmed (e.g. a sell price was missed at entry). Blocked only on
- * CLOSED/CANCELLED orders. Qty/structure stay locked; only prices change, so order value and
- * margin recompute from the corrected prices everywhere.
+ * usable after an order is confirmed (e.g. a sell price was missed at entry). Gated by
+ * orders:edit (the same authority that historically owned line edits — excludes the
+ * read-only ACCOUNTS role from touching sell-side revenue). Allowed only on an explicit
+ * allow-list of pre-booking statuses AND only while no invoice exists for the PO.
  */
 export async function updateLinePrices(
   actor: SessionUser,
   orderLineId: string,
   prices: { sizeId: string; netFob: number; sellFob: number }[],
 ) {
-  assertPermission(actor, "costing", "edit");
+  assertPermission(actor, "orders", "edit");
   const cid = tenantId(actor);
   const line = await prisma.orderLine.findFirst({
     where: { id: orderLineId, companyId: cid },
-    include: { po: { select: { status: true } }, sizes: { select: { id: true } } },
+    include: { po: { select: { id: true, status: true } }, sizes: { select: { id: true, label: true, netFob: true, sellFob: true } } },
   });
   if (!line) throw new Error("Order line not found");
-  if ((PRICE_LOCKED as readonly string[]).includes(line.po.status)) {
+  if (!(PRICE_EDITABLE_STATUSES as readonly string[]).includes(line.po.status)) {
     throw new Error(`Cannot edit prices on a ${line.po.status} order`);
   }
+  // Refuse once revenue is booked: an invoice on the PO would be restated by a price change.
+  const invoiced = await prisma.invoice.count({ where: { poId: line.po.id, companyId: cid } });
+  if (invoiced > 0) throw new Error("Cannot edit prices after an invoice has been raised for this order");
+
   const valid = new Set(line.sizes.map((s) => s.id));
   await prisma.$transaction(async (tx) => {
     for (const p of prices) {
@@ -102,7 +110,14 @@ export async function updateLinePrices(
       });
     }
   });
-  await recordAudit({ userId: actor.id, entityType: "OrderLine", entityId: orderLineId, action: "edit", after: { pricesUpdated: prices.length } });
+  await recordAudit({
+    userId: actor.id,
+    entityType: "OrderLine",
+    entityId: orderLineId,
+    action: "edit",
+    before: { poId: line.po.id, sizes: line.sizes.map((s) => ({ sizeId: s.id, label: s.label, netFob: String(s.netFob), sellFob: String(s.sellFob) })) },
+    after: { poId: line.po.id, prices },
+  });
 }
 
 export async function removeOrderLine(actor: SessionUser, lineId: string) {

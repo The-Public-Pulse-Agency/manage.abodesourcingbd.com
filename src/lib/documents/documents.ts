@@ -19,6 +19,8 @@ export const createDocumentSchema = z.object({
     .string()
     .regex(/^https?:\/\//i, "Only http(s) URLs are allowed")
     .optional(),
+  // Private Vercel Blob pathname for uploaded files (served via the gated download proxy).
+  storageKey: z.string().optional(),
 });
 export type CreateDocumentInput = z.input<typeof createDocumentSchema>;
 
@@ -52,4 +54,10 @@ export async function createDocument(actor: SessionUser, input: CreateDocumentIn
 export async function listDocuments(actor: SessionUser, entityType: DocumentEntityType, entityId: string) {
   assertPermission(actor, "documents", "view");
   return prisma.document.findMany({ where: { entityType, entityId, companyId: tenantId(actor) }, orderBy: { createdAt: "desc" } });
+}
+
+/** A single document, tenant-scoped + permission-gated — backs the download proxy. */
+export async function getDocument(actor: SessionUser, id: string) {
+  assertPermission(actor, "documents", "view");
+  return prisma.document.findFirst({ where: { id, companyId: tenantId(actor) } });
 }

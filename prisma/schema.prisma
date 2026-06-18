@@ -808,6 +808,7 @@ model Document {
   type         DocumentType
   fileName     String
   fileUrl      String?
+  storageKey   String? // private Vercel Blob pathname (uploaded files); null for external links
   uploadedById String?
   createdAt    DateTime     @default(now())
 

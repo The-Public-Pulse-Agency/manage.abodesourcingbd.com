@@ -8,6 +8,17 @@ import { createDocument, type DocumentEntityType } from "./documents";
 type Res = { error?: string };
 
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
+// Server-side allow-list — never trust the client-supplied MIME blindly.
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
 
 /**
  * Upload an actual file (PDF/image) for a shipment or order, store it in Vercel Blob, and
@@ -22,6 +33,7 @@ export async function uploadDocumentAction(entityType: DocumentEntityType, entit
   const type = String(fd.get("type") ?? "OTHER");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a file to upload" };
   if (file.size > MAX_BYTES) return { error: "File too large (max 15 MB)" };
+  if (file.type && !ALLOWED_MIME.has(file.type)) return { error: "Unsupported file type — upload a PDF, image, or Office document." };
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return { error: "File storage isn't enabled yet — turn on Blob storage in the Vercel project, then retry." };
@@ -29,12 +41,14 @@ export async function uploadDocumentAction(entityType: DocumentEntityType, entit
 
   try {
     const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_") || "document";
+    // PRIVATE blob — sensitive trade docs must not be world-readable by URL. Served only via
+    // the tenant-gated /api/documents/[id]/download proxy after a documents:view check.
     const blob = await put(`${entityType}/${entityId}/${safeName}`, file, {
-      access: "public",
+      access: "private",
       addRandomSuffix: true,
-      contentType: file.type || undefined,
+      contentType: ALLOWED_MIME.has(file.type) ? file.type : "application/octet-stream",
     });
-    await createDocument(actor, { entityType, entityId, type: type as never, fileName: file.name, fileUrl: blob.url });
+    await createDocument(actor, { entityType, entityId, type: type as never, fileName: file.name, fileUrl: blob.url, storageKey: blob.pathname });
     revalidatePath(`/${entityType === "Shipment" ? "shipments" : "orders"}/${entityId}`);
     return {};
   } catch (e) {

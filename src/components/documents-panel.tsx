@@ -6,7 +6,7 @@ import type { DocumentEntityType } from "@/lib/documents/documents";
 import { createDocumentAction } from "@/lib/documents/form-actions";
 import { uploadDocumentAction } from "@/lib/documents/upload-actions";
 
-type Doc = { id: string; type: string; fileName: string; fileUrl: string | null; createdAt: string | Date };
+type Doc = { id: string; type: string; fileName: string; fileUrl: string | null; storageKey?: string | null; createdAt: string | Date };
 
 const TYPES = ["BL", "COMMERCIAL_INVOICE", "PACKING_LIST", "TEST_CERT", "INSPECTION_REPORT", "SAMPLE_PHOTO", "OTHER"];
 
@@ -48,8 +48,10 @@ export function DocumentsPanel({
             <tr><td colSpan={3} className="px-3 py-4 text-center text-ink-soft">No documents yet.</td></tr>
           )}
           {documents.map((doc) => {
-            // Defensive: only link http(s) URLs (blocks javascript:/data: URIs).
-            const safeHref = doc.fileUrl && /^https?:\/\//i.test(doc.fileUrl) ? doc.fileUrl : undefined;
+            // Always go through the tenant-gated proxy (streams private uploads, redirects
+            // external links) — never link a raw blob URL.
+            const hasFile = !!doc.storageKey || (!!doc.fileUrl && /^https?:\/\//i.test(doc.fileUrl));
+            const safeHref = hasFile ? `/api/documents/${doc.id}/download` : undefined;
             return (
             <tr key={doc.id} className="border-b border-line last:border-0">
               <td className="px-3 py-1.5 font-mono text-xs">{doc.type.replace(/_/g, " ")}</td>

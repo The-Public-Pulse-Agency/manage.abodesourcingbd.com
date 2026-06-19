@@ -65,7 +65,7 @@ describe("upsertProduction", () => {
     expect(got.lines[0]).toMatchObject({ style: "TR010", orderedQty: 1000, cutQty: 900 });
   });
 
-  it("enforces finishQty <= sewQty <= cutQty and the line's ordered cap", async () => {
+  it("enforces finishQty <= sewQty <= cutQty but ALLOWS over-production (cut > ordered)", async () => {
     const { line } = await confirmedPo();
     await expect(upsertProduction(admin, line, { cutQty: 10, sewQty: 5, finishQty: 8 })).rejects.toThrow(
       /finishqty cannot exceed sewqty/i,
@@ -73,9 +73,9 @@ describe("upsertProduction", () => {
     await expect(upsertProduction(admin, line, { cutQty: 5, sewQty: 9, finishQty: 0 })).rejects.toThrow(
       /sewqty cannot exceed cutqty/i,
     );
-    await expect(upsertProduction(admin, line, { cutQty: 1001, sewQty: 0, finishQty: 0 })).rejects.toThrow(
-      /ordered quantity/i,
-    );
+    // Factories cut extra — cut above the ordered 1000 is allowed (progress shows >100%).
+    const rec = await upsertProduction(admin, line, { cutQty: 1001, sewQty: 1001, finishQty: 1001 });
+    expect(rec.cutQty).toBe(1001);
   });
 
   it("rejects production on a DRAFT order and an unknown line", async () => {

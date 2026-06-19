@@ -43,8 +43,9 @@ export async function upsertProduction(actor: SessionUser, orderLineId: string, 
     throw new Error(`Cannot record production on a ${line.po.status} order`);
   }
   const data = productionSchema.parse(input);
-  const ordered = lineMills(line.sizes).qty;
-  if (data.cutQty > ordered) throw new Error(`cutQty cannot exceed the line's ordered quantity (${ordered})`);
+  // Over-production is allowed: factories routinely cut/produce above the order qty. The only
+  // constraints are the internal sequence (sew ≤ cut, finish ≤ sew) enforced in productionSchema;
+  // cut may exceed ordered (progress simply shows >100%).
 
   // orderLineId is @unique, so scope the find/update by tenant (the line was already verified).
   const before = await prisma.productionRecord.findFirst({ where: { orderLineId, companyId: cid } });

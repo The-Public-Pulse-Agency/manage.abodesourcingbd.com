@@ -48,7 +48,7 @@ export async function uploadDocumentAction(entityType: DocumentEntityType, entit
       addRandomSuffix: true,
       contentType: ALLOWED_MIME.has(file.type) ? file.type : "application/octet-stream",
     });
-    await createDocument(actor, { entityType, entityId, type: type as never, fileName: file.name, fileUrl: blob.url, storageKey: blob.pathname });
+    await createDocument(actor, { entityType, entityId, type: type as never, fileName: file.name, fileUrl: blob.url }, blob.pathname);
     revalidatePath(`/${entityType === "Shipment" ? "shipments" : "orders"}/${entityId}`);
     return {};
   } catch (e) {

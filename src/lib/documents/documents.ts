@@ -19,8 +19,6 @@ export const createDocumentSchema = z.object({
     .string()
     .regex(/^https?:\/\//i, "Only http(s) URLs are allowed")
     .optional(),
-  // Private Vercel Blob pathname for uploaded files (served via the gated download proxy).
-  storageKey: z.string().optional(),
 });
 export type CreateDocumentInput = z.input<typeof createDocumentSchema>;
 
@@ -32,7 +30,12 @@ async function assertEntityExists(actor: SessionUser, entityType: DocumentEntity
   if (!exists) throw new Error(`${entityType} ${entityId} not found`);
 }
 
-export async function createDocument(actor: SessionUser, input: CreateDocumentInput) {
+/**
+ * @param storageKey TRUSTED server-only value (the private Blob pathname from the upload
+ *   action). It is intentionally NOT part of the client-validated schema — accepting it from
+ *   client input would let a tenant point a Document at another tenant's blob (cross-tenant read).
+ */
+export async function createDocument(actor: SessionUser, input: CreateDocumentInput, storageKey?: string) {
   assertPermission(actor, "documents", "create");
   const data = createDocumentSchema.parse(input);
   // spec §7: Accounts may attach finance documents only.
@@ -40,7 +43,7 @@ export async function createDocument(actor: SessionUser, input: CreateDocumentIn
     throw new Error("Accounts may only attach finance documents (BL, commercial invoice, packing list)");
   }
   await assertEntityExists(actor, data.entityType, data.entityId);
-  const doc = await prisma.document.create({ data: { ...data, companyId: tenantId(actor), uploadedById: actor.id } });
+  const doc = await prisma.document.create({ data: { ...data, storageKey: storageKey ?? null, companyId: tenantId(actor), uploadedById: actor.id } });
   await recordAudit({
     userId: actor.id,
     entityType: "Document",

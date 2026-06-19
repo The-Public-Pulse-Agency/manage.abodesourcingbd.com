@@ -5,6 +5,8 @@ import { can } from "@/lib/auth/permissions";
 import { dashboardSummary } from "@/lib/dashboard/summary";
 import { factoryLeagueTable } from "@/lib/dashboard/factories";
 import { enquiryPipelineKpis } from "@/lib/enquiries/enquiries";
+import { listBuyerSamples } from "@/lib/buyer-samples/buyer-samples";
+import { listMovements, summarise } from "@/lib/sample-ledger/sample-ledger";
 import { formatMoney, formatQty, formatDate } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
 
@@ -19,6 +21,20 @@ export default async function DashboardPage() {
     factoryLeagueTable(actor, { now }),
     can(actor, "orders", "view") ? enquiryPipelineKpis(actor) : Promise.resolve(null),
   ]);
+  const canSampling = can(actor, "sampling", "view");
+  const [buyerSamples, movements] = canSampling
+    ? await Promise.all([listBuyerSamples(actor), listMovements(actor)])
+    : [null, null];
+  const sampleDash = movements ? summarise(movements).dashboard : null;
+  const sampleKpis = buyerSamples
+    ? {
+        count: buyerSamples.length,
+        pcsSent: buyerSamples.reduce((sum, b) => sum + (b.numSamples ?? 0), 0),
+        buyers: new Set(buyerSamples.map((b) => b.buyerName?.trim()).filter(Boolean)).size,
+        couriered: buyerSamples.filter((b) => b.awbNumber?.trim()).length,
+      }
+    : null;
+
   const e = s.exceptions;
   const cashMax = Math.max(s.finance.receivable, s.finance.payable, 1);
   const today = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -91,6 +107,37 @@ export default async function DashboardPage() {
         <Exception label="Payments overdue >30d" count={e.paymentOverdue} href="/finance" tone="warn" icon={<IconCash />} />
         <Exception label="Telex pending" count={e.telexPending.length} href="/shipments" tone="warn" icon={<IconShip />} />
       </div>
+
+      {/* Sampling */}
+      {canSampling && sampleKpis && sampleDash && (
+        <div className="rise space-y-4" style={{ animationDelay: "210ms" }}>
+          <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+            <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Sampling</h3>
+              <Link href="/reports/buyer-samples" className="link-accent text-xs text-ink-soft hover:text-accent">Buyer samples →</Link>
+            </div>
+            <div className="grid grid-cols-2 divide-x divide-y divide-line lg:grid-cols-4 lg:divide-y-0">
+              <SampleKpi icon={<IconBox />} rail="var(--accent)" label="Buyer samples" value={sampleKpis.count} />
+              <SampleKpi icon={<IconBox />} rail="var(--ok)" label="Sample pcs sent" value={sampleKpis.pcsSent} />
+              <SampleKpi icon={<IconTarget />} rail="var(--warn)" label="Buyers sampled" value={sampleKpis.buyers} />
+              <SampleKpi icon={<IconShip />} rail="var(--ink)" label="Couriered" value={sampleKpis.couriered} />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-line bg-surface elevate">
+            <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Dhaka office in / out</h3>
+              <Link href="/reports/sample-ledger" className="link-accent text-xs text-ink-soft hover:text-accent">Sample ledger →</Link>
+            </div>
+            <div className="grid grid-cols-2 divide-x divide-y divide-line lg:grid-cols-4 lg:divide-y-0">
+              <SampleKpi icon={<IconBox />} rail="var(--ok)" label="Samples received" value={sampleDash.totalReceived} />
+              <SampleKpi icon={<IconShip />} rail="var(--warn)" label="Samples sent" value={sampleDash.totalSent} />
+              <SampleKpi icon={<IconBox />} rail="var(--accent)" label="Currently in office" value={sampleDash.currentInOffice} />
+              <SampleKpi icon={<IconClock />} rail="var(--ink)" label="Pending dispatch" value={sampleDash.pendingDispatch} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Watchlists */}
       <div className="rise grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "240ms" }}>
@@ -178,6 +225,18 @@ function HeroCell({ icon, label, rail, children }: { icon: React.ReactNode; labe
         <span className="eyebrow">{label}</span>
       </div>
       {children}
+    </div>
+  );
+}
+
+function SampleKpi({ icon, label, rail, value }: { icon: React.ReactNode; label: string; rail: string; value: number }) {
+  return (
+    <div className="kpi p-5" style={{ "--kpi-rail": rail } as React.CSSProperties}>
+      <div className="mb-2 flex items-center gap-2 text-ink-soft">
+        <span style={{ color: rail }}>{icon}</span>
+        <span className="eyebrow">{label}</span>
+      </div>
+      <CountUp value={value} format="qty" className="tnum block text-[1.75rem] font-semibold leading-tight" />
     </div>
   );
 }

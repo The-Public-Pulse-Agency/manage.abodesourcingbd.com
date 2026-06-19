@@ -26,6 +26,7 @@ export type ShippedRow = {
   poId: string | null;
   factory: string;
   buyer: string;
+  brand: string;
   sizes: string;
   colours: string;
   qty: number;
@@ -83,7 +84,7 @@ export async function shippedGoodsReport(
       lines: {
         include: {
           sizes: true,
-          orderLine: { include: { colour: true, po: { include: { factory: true, buyer: true, invoices: true } } } },
+          orderLine: { include: { colour: true, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
         },
       },
     },
@@ -107,6 +108,7 @@ export async function shippedGoodsReport(
       poId: firstPo?.id ?? null,
       factory: firstPo?.factory?.name ?? "—",
       buyer: firstPo?.buyer?.name ?? "—",
+      brand: firstPo?.brand?.name ?? "—",
       sizes: sizes || "—",
       colours: colours || "—",
       qty,

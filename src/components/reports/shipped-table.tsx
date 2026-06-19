@@ -7,12 +7,13 @@ import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
 import { ExportButton } from "./export-button";
 import { RowDeleteButton } from "./row-delete-button";
+import { MultiSelect } from "./multi-select";
 import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
 
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Size", "Colour", "Qty", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Size", "Colour", "Qty", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -22,8 +23,8 @@ const PAY_CLS: Record<string, string> = {
 
 export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
   const [q, setQ] = useState("");
-  const [factory, setFactory] = useState("");
-  const [buyer, setBuyer] = useState("");
+  const [factorySel, setFactorySel] = useState<string[]>([]);
+  const [buyerSel, setBuyerSel] = useState<string[]>([]);
   const [pay, setPay] = useState("");
 
   const factories = useMemo(() => [...new Set(rows.map((r) => r.factory))].sort(), [rows]);
@@ -32,12 +33,12 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return rows.filter((r) =>
-      (!factory || r.factory === factory) &&
-      (!buyer || r.buyer === buyer) &&
+      (factorySel.length === 0 || factorySel.includes(r.factory)) &&
+      (buyerSel.length === 0 || buyerSel.includes(r.buyer)) &&
       (!pay || (pay === "PAID" ? r.paymentStatus === "PAID" : r.paymentStatus && r.paymentStatus !== "PAID")) &&
       (!needle || `${r.poNumber} ${r.reference} ${r.invoiceNumber ?? ""} ${r.factory} ${r.buyer} ${r.containerNo ?? ""}`.toLowerCase().includes(needle)),
     );
-  }, [rows, q, factory, buyer, pay]);
+  }, [rows, q, factorySel, buyerSel, pay]);
 
   const totalQty = filtered.reduce((a, r) => a + r.qty, 0);
   const totalValue = filtered.reduce((a, r) => a + (r.invoiceValue ?? 0), 0);
@@ -46,27 +47,21 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search BL, invoice, factory, container…" className="input min-w-[16rem] flex-1" aria-label="Search shipments" />
-        <select value={factory} onChange={(e) => setFactory(e.target.value)} className="select" aria-label="Filter factory">
-          <option value="">All factories</option>
-          {factories.map((f) => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <select value={buyer} onChange={(e) => setBuyer(e.target.value)} className="select" aria-label="Filter buyer">
-          <option value="">All buyers</option>
-          {buyers.map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
+        <MultiSelect allLabel="All factories" options={factories.map((f) => ({ value: f, label: f }))} selected={factorySel} onChange={setFactorySel} />
+        <MultiSelect allLabel="All buyers" options={buyers.map((b) => ({ value: b, label: b }))} selected={buyerSel} onChange={setBuyerSel} />
         <select value={pay} onChange={(e) => setPay(e.target.value)} className="select" aria-label="Filter payment">
           <option value="">Any payment</option>
           <option value="PAID">Paid</option>
           <option value="DUE">Due</option>
         </select>
-        {(q || factory || buyer || pay) && (
-          <button type="button" onClick={() => { setQ(""); setFactory(""); setBuyer(""); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
+        {(q || factorySel.length || buyerSel.length || pay) && (
+          <button type="button" onClick={() => { setQ(""); setFactorySel([]); setBuyerSel([]); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
         <div className="ml-auto flex items-center gap-3">
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.sizes, r.colours, r.qty, formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.sizes, r.colours, r.qty, formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -80,6 +75,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
               <th className="px-3 py-2.5 font-semibold">BL / Ref</th>
               <th className="px-3 py-2.5 font-semibold">Factory</th>
               <th className="px-3 py-2.5 font-semibold">Buyer</th>
+              <th className="px-3 py-2.5 font-semibold">Brand</th>
               <th className="px-3 py-2.5 font-semibold">Size</th>
               <th className="px-3 py-2.5 font-semibold">Colour</th>
               <th className="px-3 py-2.5 text-right font-semibold">Qty</th>
@@ -98,13 +94,14 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={19} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={20} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
                 <td className="px-3 py-2 font-mono text-xs text-ink-soft">{r.reference}</td>
                 <td className="px-3 py-2">{r.factory}</td>
                 <td className="px-3 py-2">{r.buyer}</td>
+                <td className="px-3 py-2">{r.brand}</td>
                 <td className="px-3 py-2 text-xs">{r.sizes}</td>
                 <td className="px-3 py-2 text-xs">{r.colours}</td>
                 <td className="px-3 py-2 text-right tnum">
@@ -143,7 +140,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
           {filtered.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-ink bg-paper font-semibold">
-                <td className="px-3 py-2.5" colSpan={6}>{formatQty(filtered.length)} shipments</td>
+                <td className="px-3 py-2.5" colSpan={7}>{formatQty(filtered.length)} shipments</td>
                 <td className="px-3 py-2.5 text-right tnum">{formatQty(totalQty)}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>

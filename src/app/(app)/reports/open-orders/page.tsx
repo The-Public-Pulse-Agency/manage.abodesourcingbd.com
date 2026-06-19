@@ -16,7 +16,7 @@ import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, delet
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 function Cell({ c }: { c: StatusCell }) {
@@ -32,7 +32,12 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
   const actor = await getCurrentUser();
   if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
   const sp = await searchParams;
-  const filter: OpenOrdersFilter = { status: sp.status, factoryId: sp.factory, buyerId: sp.buyer, q: sp.q };
+  const filter: OpenOrdersFilter = {
+    status: sp.status,
+    factoryIds: sp.factory ? sp.factory.split(",").filter(Boolean) : undefined,
+    buyerIds: sp.buyer ? sp.buyer.split(",").filter(Boolean) : undefined,
+    q: sp.q,
+  };
 
   const [book, summary, factories, buyers] = await Promise.all([
     listOpenOrders(actor, filter, { page: Math.max(1, Number(sp.page) || 1) }),
@@ -77,6 +82,8 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               resultLabel={`${book.rows.length} on this page · ${book.total} total`}
               selects={[
                 { param: "status", allLabel: "All statuses", options: ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED"].map((s) => ({ value: s, label: s.replace("_", " ").toLowerCase() })) },
+              ]}
+              multiSelects={[
                 { param: "factory", allLabel: "All factories", options: factories.map((f) => ({ value: f.id, label: f.name })) },
                 { param: "buyer", allLabel: "All buyers", options: buyers.map((b) => ({ value: b.id, label: b.name })) },
               ]}
@@ -90,7 +97,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
                 <th className="px-3 py-2.5 font-semibold">PO</th><th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">PO recvd</th>
-                <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Size</th>
+                <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Brand</th><th className="px-3 py-2.5 font-semibold">Size</th>
                 <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">CRD</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Fabric Wash Test</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
@@ -99,7 +106,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               </tr>
             </thead>
             <tbody>
-              {book.rows.length === 0 && <tr><td colSpan={25} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.length === 0 && <tr><td colSpan={26} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
               {book.rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
@@ -107,6 +114,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell></td>
                   <td className="px-3 py-2">{r.factory}</td>
                   <td className="px-3 py-2">{r.buyer}</td>
+                  <td className="px-3 py-2">{r.brand}</td>
                   <td className="px-3 py-2 text-xs">{r.sizes}</td>
                   <td className="px-3 py-2 text-xs">{r.colours}</td>
                   <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell></td>

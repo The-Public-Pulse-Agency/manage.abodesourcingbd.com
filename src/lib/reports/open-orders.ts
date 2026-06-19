@@ -39,6 +39,7 @@ export type OpenOrderRow = {
   poReceiveDate: Date | null;
   factory: string;
   buyer: string;
+  brand: string;
   sizes: string;
   colours: string;
   confirmedShipDate: Date | null;
@@ -66,7 +67,7 @@ export type OpenOrderRow = {
   remarks: string;
 };
 
-export type OpenOrdersFilter = { status?: string; factoryId?: string; buyerId?: string; q?: string };
+export type OpenOrdersFilter = { status?: string; factoryIds?: string[]; buyerIds?: string[]; q?: string };
 
 const KEY = {
   trims: "TRIMS_BOOKED",
@@ -94,8 +95,8 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
   return {
     companyId: tenantId(actor),
     status,
-    ...(f.factoryId ? { factoryId: f.factoryId } : {}),
-    ...(f.buyerId ? { buyerId: f.buyerId } : {}),
+    ...(f.factoryIds?.length ? { factoryId: { in: f.factoryIds } } : {}),
+    ...(f.buyerIds?.length ? { buyerId: { in: f.buyerIds } } : {}),
     ...(q
       ? {
           OR: [
@@ -114,6 +115,7 @@ type PoForRow = Prisma.PurchaseOrderGetPayload<{
   include: {
     buyer: true;
     factory: true;
+    brand: true;
     lines: { include: { sizes: true; colour: true; style: true; shipmentLines: { include: { sizes: true } } } };
     milestones: { select: { key: true; plannedDate: true; actualDate: true } };
   };
@@ -123,6 +125,7 @@ type PoForRow = Prisma.PurchaseOrderGetPayload<{
 const ROW_INCLUDE = {
   buyer: true,
   factory: true,
+  brand: true,
   lines: { include: { sizes: true, colour: true, style: true, shipmentLines: { include: { sizes: true } } } },
   milestones: { select: { key: true, plannedDate: true, actualDate: true } },
 } satisfies Prisma.PurchaseOrderInclude;
@@ -150,6 +153,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     poReceiveDate: po.orderDate,
     factory: po.factory.name,
     buyer: po.buyer.name,
+    brand: po.brand?.name ?? "—",
     sizes: sizes || "—",
     colours: colours || "—",
     confirmedShipDate: po.exFactoryDate,

@@ -643,6 +643,53 @@ model Inspection {
   @@index([poId])
 }
 
+/// Outbound buyer-sample dispatch log (samples couriered to a buyer).
+model BuyerSampleDispatch {
+  id            String    @id @default(cuid())
+  companyId     String?
+  buyerName     String?
+  sampleType    String?
+  artNo         String?
+  styleName     String?
+  factoryName   String?
+  courierName   String?
+  awbNumber     String?
+  sendDate      DateTime?
+  numSamples    Int?
+  approxArrival DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
+/// Dhaka office sample in/out ledger. direction = "IN" | "OUT"; balance/status are derived
+/// per artNo (total IN − total OUT).
+model SampleMovement {
+  id           String    @id @default(cuid())
+  companyId    String?
+  direction    String // "IN" (received) or "OUT" (sent)
+  movementDate DateTime?
+  sampleType   String?
+  qty          Int?
+  artNo        String? // auto-sync key
+  buyer        String?
+  poNumber     String? // IN
+  factoryName  String? // IN
+  colour       String? // IN
+  receivedFrom String? // IN
+  sentTo       String? // OUT — sent to / carried by
+  courierName  String? // OUT
+  awbNumber    String? // OUT
+  remarks      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([artNo])
+}
+
 enum ShipmentMode {
   SEA
   AIR

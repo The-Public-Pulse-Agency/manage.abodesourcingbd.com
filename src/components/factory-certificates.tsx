@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addCertificateAction, removeCertificateAction } from "@/lib/masterdata/certificate-form-actions";
+import { addCertificateAction, removeCertificateAction, setCertificateName, setCertificateNumber, setCertificateValidUntil } from "@/lib/masterdata/certificate-form-actions";
 import { ConfirmButton } from "@/components/confirm-button";
+import { EditableCell } from "@/components/reports/editable-cell";
 
-export type CertRow = { id: string; name: string; number: string | null; validUntil: string | null; validityState: "ok" | "expiring" | "expired" | "na" };
+export type CertRow = { id: string; name: string; number: string | null; validUntil: string | null; validUntilRaw: string; validityState: "ok" | "expiring" | "expired" | "na" };
 
 const VALID_CLS: Record<string, string> = {
   ok: "bg-ok-soft text-ok",
@@ -35,12 +36,28 @@ export function FactoryCertificates({ factoryId, certs, canEdit }: { factoryId: 
           )}
           {certs.map((c) => (
             <tr key={c.id} className="border-b border-line last:border-0">
-              <td className="px-3 py-1.5 font-medium">{c.name}</td>
-              <td className="px-3 py-1.5 font-mono text-xs">{c.number ?? "—"}</td>
+              <td className="px-3 py-1.5 font-medium">
+                {canEdit
+                  ? <EditableCell id={c.id} raw={c.name} type="text" action={setCertificateName}>{c.name}</EditableCell>
+                  : c.name}
+              </td>
+              <td className="px-3 py-1.5 font-mono text-xs">
+                {canEdit
+                  ? <EditableCell id={c.id} raw={c.number ?? ""} type="text" action={setCertificateNumber}>{c.number ?? "—"}</EditableCell>
+                  : (c.number ?? "—")}
+              </td>
               <td className="px-3 py-1.5">
-                <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${VALID_CLS[c.validityState]}`}>
-                  {c.validUntil ?? "—"}{c.validityState === "expired" ? " · expired" : c.validityState === "expiring" ? " · expiring" : ""}
-                </span>
+                {canEdit ? (
+                  <EditableCell id={c.id} raw={c.validUntilRaw} type="date" action={setCertificateValidUntil}>
+                    <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${VALID_CLS[c.validityState]}`}>
+                      {c.validUntil ?? "—"}{c.validityState === "expired" ? " · expired" : c.validityState === "expiring" ? " · expiring" : ""}
+                    </span>
+                  </EditableCell>
+                ) : (
+                  <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${VALID_CLS[c.validityState]}`}>
+                    {c.validUntil ?? "—"}{c.validityState === "expired" ? " · expired" : c.validityState === "expiring" ? " · expiring" : ""}
+                  </span>
+                )}
               </td>
               {canEdit && (
                 <td className="px-3 py-1.5 text-right">

@@ -67,6 +67,7 @@ export default async function FactoryInfoPage() {
                 name: c.name,
                 number: c.number,
                 validUntil: c.validUntil ? formatDate(c.validUntil) : null,
+                validUntilRaw: c.validUntil ? new Date(c.validUntil).toISOString().slice(0, 10) : "",
                 validityState: validity(c.validUntil),
               }))}
             />

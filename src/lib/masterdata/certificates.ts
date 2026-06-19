@@ -41,6 +41,29 @@ export async function addCertificate(actor: SessionUser, input: CertificateInput
   return c;
 }
 
+export type CertField = "name" | "number" | "validUntil";
+
+export async function updateCertificateField(actor: SessionUser, id: string, field: CertField, value: string) {
+  assertPermission(actor, "masterData", "edit");
+  const cid = tenantId(actor);
+  const existing = await prisma.factoryCertificate.findFirst({ where: { id, companyId: cid }, select: { id: true } });
+  if (!existing) throw new Error("Certificate not found");
+  const data: Record<string, string | Date | null> = {};
+  if (field === "name") {
+    const v = value.trim();
+    if (!v) throw new Error("Certificate name is required");
+    data.name = v;
+  } else if (field === "number") {
+    data.number = value.trim() || null;
+  } else if (field === "validUntil") {
+    data.validUntil = value ? new Date(`${value}T00:00:00.000Z`) : null;
+  } else {
+    throw new Error("Invalid field");
+  }
+  await prisma.factoryCertificate.update({ where: { id }, data });
+  await recordAudit({ userId: actor.id, entityType: "FactoryCertificate", entityId: id, action: "edit", after: data });
+}
+
 export async function removeCertificate(actor: SessionUser, id: string) {
   assertPermission(actor, "masterData", "edit");
   await prisma.factoryCertificate.deleteMany({ where: { id, companyId: tenantId(actor) } });

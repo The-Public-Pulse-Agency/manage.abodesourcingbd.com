@@ -29,6 +29,7 @@ import { TnaTimeline } from "./tna-timeline";
 import { SamplingPanel } from "./sampling-panel";
 import { ProductionPanel } from "./production-panel";
 import { LinePriceEditor } from "./line-price-editor";
+import { LineEditor } from "./line-editor";
 import { DeleteOrderButton } from "./delete-order-button";
 import { QcPanel } from "./qc-panel";
 
@@ -183,6 +184,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                         poId={po.id}
                         lineId={line.id}
                         sizes={line.sizes.map((s) => ({ id: s.id, label: s.label, qty: s.qty, netFob: Number(s.netFob), sellFob: Number(s.sellFob) }))}
+                      />
+                    )}
+                    {canEditPrices && (
+                      <LineEditor
+                        poId={po.id}
+                        lineId={line.id}
+                        styleId={line.styleId}
+                        colourId={line.colourId ?? ""}
+                        sizes={line.sizes.map((s) => ({ label: s.label, qty: s.qty, netFob: Number(s.netFob), sellFob: Number(s.sellFob) }))}
+                        styles={styles.map((s) => ({ value: s.id, label: `${s.styleCode} — ${s.name}` }))}
+                        colours={colours.map((c) => ({ value: c.id, label: c.name }))}
                       />
                     )}
                   </td>

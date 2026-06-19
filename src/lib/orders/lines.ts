@@ -100,6 +100,27 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
   return line;
 }
 
+export type EditLineInput = { styleId: string; colourId?: string; sizes: SetLineInput["sizes"] };
+
+/**
+ * Edit an EXISTING line in place — style, colour and per-size quantities — reusing setOrderLine
+ * (so the same DRAFT / safe-window / ADMIN-override guards apply). When the style or colour
+ * changes the line moves to a new (style,colour) key, so we create the new line first and then
+ * drop the old one; when the key is unchanged setOrderLine simply replaces the sizes in place.
+ */
+export async function editOrderLine(actor: SessionUser, lineId: string, input: EditLineInput) {
+  const cid = tenantId(actor);
+  const line = await prisma.orderLine.findFirst({
+    where: { id: lineId, companyId: cid },
+    select: { poId: true, styleId: true, colourKey: true, sizeScaleId: true },
+  });
+  if (!line) throw new Error("Order line not found");
+  const keyChanged = input.styleId !== line.styleId || (input.colourId ?? "") !== line.colourKey;
+  const payload = { styleId: input.styleId, colourId: input.colourId, sizeScaleId: line.sizeScaleId ?? undefined, sizes: input.sizes };
+  await setOrderLine(actor, line.poId, payload); // create/replace the (new) line
+  if (keyChanged) await removeOrderLine(actor, lineId); // drop the old line only after the new one exists
+}
+
 // Prices may be corrected on un-finished orders that have NOT yet been booked downstream.
 // Once an invoice exists, the revenue is committed, so price edits are refused to avoid
 // silently restating booked value/margin.

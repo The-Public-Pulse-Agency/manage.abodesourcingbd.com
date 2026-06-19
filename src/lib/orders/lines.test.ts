@@ -7,7 +7,7 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "./po";
 import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
-import { setOrderLine, removeOrderLine } from "./lines";
+import { setOrderLine, removeOrderLine, editOrderLine } from "./lines";
 import { createInvoice } from "@/lib/finance/invoices";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
@@ -149,6 +149,39 @@ describe("setOrderLine", () => {
     });
     const sizes = await prisma.orderLineSize.findMany({ where: { orderLine: { poId: po.id } } });
     expect(sizes.reduce((a, s) => a + s.qty, 0)).toBe(99);
+  });
+});
+
+describe("editOrderLine", () => {
+  it("edits size quantities in place (same style/colour)", async () => {
+    const { po, style } = await seedPo();
+    const line = await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 100, netFob: 1.5, sellFob: 2.0 }],
+    });
+    await editOrderLine(admin, line.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 50, netFob: 1.5, sellFob: 2.0 }],
+    });
+    const lines = await prisma.orderLine.findMany({ where: { poId: po.id }, include: { sizes: true } });
+    expect(lines).toHaveLength(1);
+    expect(lines[0].sizes.reduce((a, s) => a + s.qty, 0)).toBe(50);
+  });
+
+  it("moves a line to a different style, dropping the old one", async () => {
+    const { po, style } = await seedPo();
+    const style2 = await createStyle(admin, { brandId: style.brandId, styleCode: "TR020", name: "Polo" });
+    const line = await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 100, netFob: 1.5, sellFob: 2.0 }],
+    });
+    await editOrderLine(admin, line.id, {
+      styleId: style2.id,
+      sizes: [{ label: "M", qty: 100, netFob: 1.5, sellFob: 2.0 }],
+    });
+    const lines = await prisma.orderLine.findMany({ where: { poId: po.id } });
+    expect(lines).toHaveLength(1);
+    expect(lines[0].styleId).toBe(style2.id);
   });
 });
 

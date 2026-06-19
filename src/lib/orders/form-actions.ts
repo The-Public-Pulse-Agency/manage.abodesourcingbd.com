@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { createPurchaseOrder } from "./po";
-import { setOrderLine, removeOrderLine, updateLinePrices } from "./lines";
+import { setOrderLine, removeOrderLine, updateLinePrices, editOrderLine, type EditLineInput } from "./lines";
 import { confirmPurchaseOrder } from "./confirm";
 import { approveCosting } from "./costing";
 import { closePurchaseOrder } from "./close";
@@ -82,6 +82,18 @@ export async function updateLinePricesAction(
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to update prices" };
+  }
+}
+
+export async function editLineAction(poId: string, lineId: string, input: EditLineInput): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await editOrderLine(actor, lineId, input);
+    revalidatePath(`/orders/${poId}`);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update line" };
   }
 }
 

@@ -11,6 +11,18 @@ export async function listMovements(actor: SessionUser) {
   });
 }
 
+// Distinct PO numbers for the tenant — used to power autocomplete on the sampling forms.
+export async function listPoNumbers(actor: SessionUser): Promise<string[]> {
+  assertPermission(actor, "sampling", "view");
+  const rows = await prisma.purchaseOrder.findMany({
+    where: { companyId: tenantId(actor) },
+    select: { poNumber: true },
+    distinct: ["poNumber"],
+    orderBy: { poNumber: "asc" },
+  });
+  return rows.map((r) => r.poNumber.trim()).filter(Boolean);
+}
+
 export const createMovementSchema = z.object({
   direction: z.enum(["IN", "OUT"]),
   movementDate: z.string().optional(),

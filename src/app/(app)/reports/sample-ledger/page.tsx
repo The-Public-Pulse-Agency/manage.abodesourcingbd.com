@@ -1,10 +1,18 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { listMovements, summarise } from "@/lib/sample-ledger/sample-ledger";
+import { listMovements, listPoNumbers, summarise } from "@/lib/sample-ledger/sample-ledger";
+import { listStyles } from "@/lib/masterdata/style";
+import { listBuyers } from "@/lib/masterdata/buyer";
+import { listFactories } from "@/lib/masterdata/factory";
 import { formatDate } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
-import { SampleLedger, type MovementRow } from "@/components/reports/sample-ledger";
+import { SampleLedger, type MovementRow, type ArtInfo } from "@/components/reports/sample-ledger";
+
+const dedupeSort = (values: Array<string | null | undefined>): string[] =>
+  Array.from(new Set(values.map((v) => (v ?? "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
 
 export default async function SampleLedgerPage() {
   const actor = await getCurrentUser();
@@ -13,6 +21,42 @@ export default async function SampleLedgerPage() {
 
   const items = await listMovements(actor);
   const { perArt, dashboard } = summarise(items);
+
+  // ---- Autocomplete suggestion sources (tenant-scoped via the list* helpers) ----
+  const [styles, buyerList, factoryList, poNumberList] = await Promise.all([
+    listStyles(actor),
+    listBuyers(actor),
+    listFactories(actor),
+    listPoNumbers(actor),
+  ]);
+
+  const artNos = dedupeSort([...styles.map((s) => s.styleCode), ...items.map((i) => i.artNo)]);
+  const buyers = dedupeSort([...buyerList.map((b) => b.name), ...items.map((i) => i.buyer)]);
+  const factories = dedupeSort([...factoryList.map((f) => f.name), ...items.map((i) => i.factoryName)]);
+  const poNumbers = dedupeSort([...poNumberList, ...items.map((i) => i.poNumber)]);
+  const sampleTypes = dedupeSort(items.map((i) => i.sampleType));
+
+  // Auto-fill lookup: most recent matching record per artNo (prefer IN rows).
+  // `items` is already sorted newest-first, so the first match wins.
+  const artInfo: Record<string, ArtInfo> = {};
+  for (const i of items) {
+    const key = (i.artNo ?? "").trim();
+    if (!key) continue;
+    const cur = artInfo[key];
+    const info: ArtInfo = {
+      buyer: i.buyer?.trim() || undefined,
+      sampleType: i.sampleType?.trim() || undefined,
+      factory: i.factoryName?.trim() || undefined,
+      colour: i.colour?.trim() || undefined,
+    };
+    if (!cur) {
+      artInfo[key] = info;
+    } else if (i.direction === "IN" && !cur._fromIn) {
+      // Prefer the most recent IN row over any earlier non-IN match.
+      artInfo[key] = info;
+    }
+    if (i.direction === "IN") artInfo[key]._fromIn = true;
+  }
 
   const toRow = (i: (typeof items)[number]): MovementRow => ({
     id: i.id,
@@ -59,7 +103,18 @@ export default async function SampleLedgerPage() {
       )}
 
       <div className="rise" style={{ animationDelay: "120ms" }}>
-        <SampleLedger inRows={inRows} outRows={outRows} perArt={perArt} canEdit={canEdit} />
+        <SampleLedger
+          inRows={inRows}
+          outRows={outRows}
+          perArt={perArt}
+          canEdit={canEdit}
+          artNos={artNos}
+          buyers={buyers}
+          factories={factories}
+          poNumbers={poNumbers}
+          sampleTypes={sampleTypes}
+          artInfo={artInfo}
+        />
       </div>
     </div>
   );

@@ -17,7 +17,12 @@ export type BuyerSampleRow = {
   approxArrivalRaw: string; approxArrivalDisplay: string; notes: string;
 };
 
-export function BuyerSampleTable({ rows, canEdit }: { rows: BuyerSampleRow[]; canEdit: boolean }) {
+export function BuyerSampleTable({
+  rows, canEdit, artNos, buyers, factories, sampleTypes, styleNames,
+}: {
+  rows: BuyerSampleRow[]; canEdit: boolean;
+  artNos: string[]; buyers: string[]; factories: string[]; sampleTypes: string[]; styleNames: string[];
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -25,17 +30,22 @@ export function BuyerSampleTable({ rows, canEdit }: { rows: BuyerSampleRow[]; ca
 
   return (
     <div className="space-y-3">
+      <datalist id="bs-buyers">{buyers.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="bs-sample-types">{sampleTypes.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="bs-art-nos">{artNos.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="bs-style-names">{styleNames.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="bs-factories">{factories.map((o) => <option key={o} value={o} />)}</datalist>
       {canEdit && (
         <form
           action={async (fd) => { setBusy(true); const r = await createBuyerSampleAction(fd); setBusy(false); if (r.error) setErr(r.error); else { setErr(null); router.refresh(); (document.getElementById("buyer-sample-add") as HTMLFormElement)?.reset(); } }}
           id="buyer-sample-add"
           className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface p-3 elevate"
         >
-          <input name="buyerName" placeholder="Buyer" className="input text-sm" aria-label="Buyer" />
-          <input name="sampleType" placeholder="Sample type" className="input text-sm" aria-label="Sample type" />
-          <input name="artNo" required placeholder="Art no" className="input text-sm" aria-label="Art no" />
-          <input name="styleName" placeholder="Style" className="input text-sm" aria-label="Style" />
-          <input name="factoryName" placeholder="Factory" className="input text-sm" aria-label="Factory" />
+          <input name="buyerName" list="bs-buyers" placeholder="Buyer" className="input text-sm" aria-label="Buyer" />
+          <input name="sampleType" list="bs-sample-types" placeholder="Sample type" className="input text-sm" aria-label="Sample type" />
+          <input name="artNo" required list="bs-art-nos" placeholder="Art no" className="input text-sm" aria-label="Art no" />
+          <input name="styleName" list="bs-style-names" placeholder="Style" className="input text-sm" aria-label="Style" />
+          <input name="factoryName" list="bs-factories" placeholder="Factory" className="input text-sm" aria-label="Factory" />
           <input name="courierName" placeholder="Courier" className="input text-sm" aria-label="Courier" />
           <input name="awbNumber" placeholder="AWB" className="input text-sm" aria-label="AWB" />
           <input name="sendDate" type="date" className="input text-sm" aria-label="Send date" />

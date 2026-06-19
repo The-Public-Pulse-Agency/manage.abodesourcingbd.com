@@ -2,9 +2,17 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listBuyerSamples } from "@/lib/buyer-samples/buyer-samples";
+import { listStyles } from "@/lib/masterdata/style";
+import { listBuyers } from "@/lib/masterdata/buyer";
+import { listFactories } from "@/lib/masterdata/factory";
 import { formatDate } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
 import { BuyerSampleTable, type BuyerSampleRow } from "@/components/reports/buyer-sample-table";
+
+const dedupeSort = (values: Array<string | null | undefined>): string[] =>
+  Array.from(new Set(values.map((v) => (v ?? "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
 
 export default async function BuyerSamplesReportPage() {
   const actor = await getCurrentUser();
@@ -12,6 +20,18 @@ export default async function BuyerSamplesReportPage() {
   const canEdit = can(actor, "sampling", "create");
 
   const items = await listBuyerSamples(actor);
+
+  // ---- Autocomplete suggestion sources (tenant-scoped via the list* helpers) ----
+  const [styles, buyerList, factoryList] = await Promise.all([
+    listStyles(actor),
+    listBuyers(actor),
+    listFactories(actor),
+  ]);
+  const artNos = dedupeSort([...styles.map((s) => s.styleCode), ...items.map((i) => i.artNo)]);
+  const buyerNames = dedupeSort([...buyerList.map((b) => b.name), ...items.map((i) => i.buyerName)]);
+  const factories = dedupeSort([...factoryList.map((f) => f.name), ...items.map((i) => i.factoryName)]);
+  const sampleTypes = dedupeSort(items.map((i) => i.sampleType));
+  const styleNames = dedupeSort([...styles.map((s) => s.name), ...items.map((i) => i.styleName)]);
 
   const rows: BuyerSampleRow[] = items.map((i) => ({
     id: i.id,
@@ -49,7 +69,15 @@ export default async function BuyerSamplesReportPage() {
       </div>
 
       <div className="rise" style={{ animationDelay: "120ms" }}>
-        <BuyerSampleTable rows={rows} canEdit={canEdit} />
+        <BuyerSampleTable
+          rows={rows}
+          canEdit={canEdit}
+          artNos={artNos}
+          buyers={buyerNames}
+          factories={factories}
+          sampleTypes={sampleTypes}
+          styleNames={styleNames}
+        />
       </div>
     </div>
   );

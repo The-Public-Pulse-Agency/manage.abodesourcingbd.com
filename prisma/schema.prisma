@@ -783,6 +783,7 @@ model ShipmentLine {
   orderLineId String
   orderLine   OrderLine          @relation(fields: [orderLineId], references: [id])
   sizes       ShipmentLineSize[]
+  note        String? // auto-set on over-shipment, e.g. "Over-ship: XS-2XL +300 pcs"
   createdAt   DateTime           @default(now())
 
   @@unique([shipmentId, orderLineId])

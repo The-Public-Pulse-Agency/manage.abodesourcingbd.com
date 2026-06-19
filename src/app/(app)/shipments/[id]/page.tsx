@@ -196,6 +196,9 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                         </span>
                       ))}
                     </div>
+                    {l.note && (
+                      <div className="mt-1 inline-flex rounded-sm bg-warn-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-warn">⚠ {l.note}</div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tnum">{formatQty(qty)}</td>
                 </tr>

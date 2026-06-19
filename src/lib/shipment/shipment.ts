@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
-import { remainingBySize, assertWithinBalance, type SizeQty } from "./balance";
+import { remainingBySize, assertWithinBalance, excessBySize, overShipNote, type SizeQty } from "./balance";
 
 const shipmentModes = ["SEA", "AIR"] as const;
 const telexStatuses = ["PENDING", "RECEIVED", "RELEASED"] as const;
@@ -65,6 +65,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
     return await prisma.$transaction(
       async (tx) => {
         const affectedPoIds = new Set<string>();
+        const lineNotes = new Map<string, string>(); // orderLineId → over-ship note
         for (const l of data.lines) {
           const ol = await tx.orderLine.findFirst({
             where: { id: l.orderLineId, companyId: tenantId(actor) },
@@ -76,10 +77,10 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
           }
           affectedPoIds.add(ol.poId);
           const shipped: SizeQty[] = ol.shipmentLines.flatMap((sl) => sl.sizes.map((s) => ({ label: s.label, qty: s.qty })));
-          assertWithinBalance(
-            remainingBySize(ol.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped),
-            l.sizes,
-          );
+          const balances = remainingBySize(ol.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped);
+          assertWithinBalance(balances, l.sizes); // over-ship allowed; only rejects unknown sizes
+          const note = overShipNote(excessBySize(balances, l.sizes));
+          if (note) lineNotes.set(l.orderLineId, note);
         }
 
         const created = await tx.shipment.create({
@@ -99,6 +100,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
               create: data.lines.map((l) => ({
                 companyId: tenantId(actor),
                 orderLineId: l.orderLineId,
+                note: lineNotes.get(l.orderLineId) ?? null,
                 sizes: {
                   create: l.sizes.map((s) => ({ companyId: tenantId(actor), label: s.label, qty: s.qty })),
                 },
@@ -321,6 +323,13 @@ export async function updateShipmentLineQty(actor: SessionUser, shipmentLineSize
       );
 
       await tx.shipmentLineSize.update({ where: { id: sls.id }, data: { qty } });
+
+      // Recompute this shipment line's over-ship note (its sizes vs ordered minus OTHER lines).
+      const slId = sls.shipmentLine.id;
+      const thisLineSizes = ol.shipmentLines.find((sl) => sl.id === slId)?.sizes ?? [];
+      const requested = thisLineSizes.map((s) => ({ label: s.label, qty: s.id === sls.id ? qty : s.qty }));
+      const balForLine = remainingBySize(ol.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped);
+      await tx.shipmentLine.update({ where: { id: slId }, data: { note: overShipNote(excessBySize(balForLine, requested)) } });
 
       // Recompute the affected PO's status — mirror createShipment / deleteShipment.
       const poId = ol.poId;

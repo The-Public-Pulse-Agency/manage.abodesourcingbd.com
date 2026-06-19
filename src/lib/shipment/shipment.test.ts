@@ -56,15 +56,30 @@ describe("createShipment", () => {
     expect((await prisma.purchaseOrder.findUniqueOrThrow({ where: { id: po.id } })).status).toBe("SHIPPED");
   });
 
-  it("tracks balance across multiple shipments and rejects over-ship", async () => {
+  it("tracks balance across multiple shipments", async () => {
     const r = await refs();
     const { po, line } = await confirmedPo(r, "209531", 100);
     await createShipment(admin, { reference: "SHP-3", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 40 }] }] });
     await createShipment(admin, { reference: "SHP-3b", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 30 }] }] });
     expect((await getPoBalance(admin, po.id))[0].sizes[0]).toMatchObject({ shipped: 70, balance: 30 });
+  });
+
+  it("ALLOWS over-shipment and records an excess note on the shipment line", async () => {
+    const r = await refs();
+    const { line } = await confirmedPo(r, "209531", 100);
+    // balance is 100; ship 130 → +30 over, allowed
+    const shp = await createShipment(admin, { reference: "SHP-OVER", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 130 }] }] });
+    const sl = await prisma.shipmentLine.findFirstOrThrow({ where: { shipmentId: shp.id } });
+    expect(sl.note).toMatch(/over-ship/i);
+    expect(sl.note).toContain("M +30");
+  });
+
+  it("rejects a size that isn't on the order line", async () => {
+    const r = await refs();
+    const { line } = await confirmedPo(r, "209531", 100);
     await expect(
-      createShipment(admin, { reference: "SHP-4", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 40 }] }] }),
-    ).rejects.toThrow(/exceeds balance/i);
+      createShipment(admin, { reference: "SHP-X", lines: [{ orderLineId: line.id, sizes: [{ label: "XXL", qty: 5 }] }] }),
+    ).rejects.toThrow(/not in the order line/i);
   });
 
   it("rejects the same order line listed twice in one shipment", async () => {

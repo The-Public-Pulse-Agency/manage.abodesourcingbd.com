@@ -39,6 +39,7 @@ export type ShippedRow = {
   containerNo: string | null;
   tcStatus: string | null;
   remarks: string;
+  overShip: string | null;
 };
 
 export type ShippedReport = {
@@ -119,6 +120,7 @@ export async function shippedGoodsReport(
       containerNo: s.containerNo,
       tcStatus: s.tcStatus,
       remarks: s.remarks ?? "",
+      overShip: s.lines.map((l) => l.note).filter(Boolean).join("; ") || null,
     };
   });
 

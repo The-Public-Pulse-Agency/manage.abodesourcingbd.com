@@ -107,7 +107,10 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2">{r.buyer}</td>
                 <td className="px-3 py-2 text-xs">{r.sizes}</td>
                 <td className="px-3 py-2 text-xs">{r.colours}</td>
-                <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
+                <td className="px-3 py-2 text-right tnum">
+                  {formatQty(r.qty)}
+                  {r.overShip && <div title={r.overShip} className="mt-0.5 inline-flex rounded-sm bg-warn-soft px-1 py-0.5 text-[0.5625rem] font-semibold uppercase text-warn">⚠ over</div>}
+                </td>
                 <td className="px-3 py-2 tnum text-xs">{formatDate(r.shipDate)}</td>
                 <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.etaDestination)} type="date" action={setShipmentEta}>{formatDate(r.etaDestination)}</EditableCell></td>
                 <td className="px-3 py-2">{r.invoiceNumber ? <Link href={`/shipments/${r.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.invoiceNumber}</Link> : <span className="font-mono text-xs text-ink-soft">—</span>}</td>

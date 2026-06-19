@@ -17,8 +17,12 @@ async function assertLineStructureEditable(
   companyId: string,
   poId: string,
   status: string,
+  isAdmin: boolean,
 ): Promise<void> {
   if (status === "DRAFT") return;
+  // ADMIN force-edit override: corrects a wrong entry even after the order is confirmed,
+  // shipped, or invoiced (restating its value/balance is accepted — it's a deliberate fix).
+  if (isAdmin) return;
   if ((STRUCTURE_TERMINAL as readonly string[]).includes(status)) {
     throw new Error(`Only DRAFT orders can be edited (status: ${status})`);
   }
@@ -27,9 +31,12 @@ async function assertLineStructureEditable(
     tx.invoice.count({ where: { poId, companyId } }),
   ]);
   if (shipped > 0 || invoiced > 0) {
-    throw new Error("This order has shipments or invoices — its lines can no longer be changed (you can still correct prices).");
+    throw new Error("This order has shipments or invoices — only an Admin can change its lines now (you can still correct prices).");
   }
 }
+
+/** The privileged force-edit override is the ADMIN system role. */
+const isAdmin = (actor: SessionUser) => actor.role === "ADMIN";
 
 export async function setOrderLine(actor: SessionUser, poId: string, input: SetLineInput) {
   assertPermission(actor, "orders", "edit");
@@ -43,7 +50,7 @@ export async function setOrderLine(actor: SessionUser, poId: string, input: SetL
     if (!po) {
       throw new Error("Purchase order not found");
     }
-    await assertLineStructureEditable(tx, tenantId(actor), poId, po.status);
+    await assertLineStructureEditable(tx, tenantId(actor), poId, po.status, isAdmin(actor));
     // Cross-entity integrity: the style must belong to this order's brand.
     const style = await tx.style.findFirst({
       where: { id: data.styleId, companyId: tenantId(actor) },
@@ -117,12 +124,14 @@ export async function updateLinePrices(
     include: { po: { select: { id: true, status: true } }, sizes: { select: { id: true, label: true, netFob: true, sellFob: true } } },
   });
   if (!line) throw new Error("Order line not found");
-  if (!(PRICE_EDITABLE_STATUSES as readonly string[]).includes(line.po.status)) {
-    throw new Error(`Cannot edit prices on a ${line.po.status} order`);
+  // ADMIN may force-correct prices on any order (incl. invoiced); others only pre-booking.
+  if (!isAdmin(actor)) {
+    if (!(PRICE_EDITABLE_STATUSES as readonly string[]).includes(line.po.status)) {
+      throw new Error(`Cannot edit prices on a ${line.po.status} order`);
+    }
+    const invoiced = await prisma.invoice.count({ where: { poId: line.po.id, companyId: cid } });
+    if (invoiced > 0) throw new Error("Cannot edit prices after an invoice has been raised for this order");
   }
-  // Refuse once revenue is booked: an invoice on the PO would be restated by a price change.
-  const invoiced = await prisma.invoice.count({ where: { poId: line.po.id, companyId: cid } });
-  if (invoiced > 0) throw new Error("Cannot edit prices after an invoice has been raised for this order");
 
   const valid = new Set(line.sizes.map((s) => s.id));
   await prisma.$transaction(async (tx) => {
@@ -155,7 +164,7 @@ export async function removeOrderLine(actor: SessionUser, lineId: string) {
   if (!line) {
     throw new Error("Order line not found");
   }
-  await prisma.$transaction((tx) => assertLineStructureEditable(tx, tenantId(actor), line.poId, line.po.status));
+  await prisma.$transaction((tx) => assertLineStructureEditable(tx, tenantId(actor), line.poId, line.po.status, isAdmin(actor)));
   await prisma.orderLine.deleteMany({ where: { id: lineId, companyId: tenantId(actor) } });
   await recordAudit({
     userId: actor.id,

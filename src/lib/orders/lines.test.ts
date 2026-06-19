@@ -11,6 +11,7 @@ import { setOrderLine, removeOrderLine } from "./lines";
 import { createInvoice } from "@/lib/finance/invoices";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
+const merch = { id: "merch-1", role: "MERCHANDISER" as const, companyId: "test-co" };
 const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
 
 async function seedPo() {
@@ -125,7 +126,7 @@ describe("setOrderLine", () => {
     expect(sizes.reduce((a, s) => a + s.qty, 0)).toBe(99);
   });
 
-  it("locks line edits once an invoice exists on the PO", async () => {
+  it("locks line edits for a non-admin once an invoice exists, but ADMIN can force-edit", async () => {
     const { po, style } = await seedPo();
     await setOrderLine(admin, po.id, {
       styleId: style.id,
@@ -134,12 +135,20 @@ describe("setOrderLine", () => {
     await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
     await createInvoice(admin, { type: "BUYER", number: "INV-1", poId: po.id, amount: 20, issueDate: "2026-01-15" });
+    // A merchandiser is blocked once invoiced...
     await expect(
-      setOrderLine(admin, po.id, {
+      setOrderLine(merch, po.id, {
         styleId: style.id,
         sizes: [{ label: "M", qty: 99, netFob: 1.5, sellFob: 2.0 }],
       }),
-    ).rejects.toThrow(/shipments or invoices/i);
+    ).rejects.toThrow(/only an admin/i);
+    // ...but ADMIN can force-correct a wrong entry even after invoicing.
+    await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [{ label: "M", qty: 99, netFob: 1.5, sellFob: 2.0 }],
+    });
+    const sizes = await prisma.orderLineSize.findMany({ where: { orderLine: { poId: po.id } } });
+    expect(sizes.reduce((a, s) => a + s.qty, 0)).toBe(99);
   });
 });
 

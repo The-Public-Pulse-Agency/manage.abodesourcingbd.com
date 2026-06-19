@@ -42,10 +42,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const role = actor.role;
   const isDraft = po.status === "DRAFT";
   const isActive = po.status !== "CANCELLED" && po.status !== "CLOSED";
-  // Base authority (draft + post-confirm safe window). The actual structure-edit flags
-  // (canEdit/canDelete) are narrowed below once we know shipments/invoices exist.
-  const canEditBase = can(actor, "orders", "edit") && isActive;
-  const canDeleteBase = can(actor, "orders", "delete") && isActive;
+  const isAdmin = role === "ADMIN"; // privileged force-edit override (fix wrong entries)
+  // Editor data (styles/size-scales) loads whenever the actor can edit orders; the actual
+  // structure-edit flags (canEdit/canDelete) are narrowed below once shipments/invoices known.
+  const canEditBase = can(actor, "orders", "edit");
+  const canDeleteBase = can(actor, "orders", "delete");
 
   const canTna = can(actor, "criticalPath", "view");
   const canSampling = can(actor, "sampling", "view");
@@ -79,12 +80,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // user may still correct them ONLY while nothing is booked downstream (no shipments, no
   // invoices). Mirrors the server guard in lines.ts (which is authoritative).
   const noBooking = !balance.some((l) => l.sizes.some((s) => s.shipped > 0)) && invoices.length === 0;
-  const canEdit = canEditBase && (isDraft || noBooking);
-  const canDelete = canDeleteBase && (isDraft || noBooking);
-  // Prices (net/sell FOB) can be corrected post-confirm (orders:edit — ADMIN/merchandiser),
-  // but only before revenue is booked (no invoice yet) and while the order isn't closed/cancelled.
-  const canEditPrices =
-    can(actor, "orders", "edit") && po.status !== "CLOSED" && po.status !== "CANCELLED" && invoices.length === 0;
+  // ADMIN can force-edit lines/prices on any status (even shipped/invoiced) to fix wrong entries;
+  // everyone else only on a DRAFT or the post-confirm safe window (active + nothing booked).
+  const canEdit = canEditBase && (isAdmin || (isActive && (isDraft || noBooking)));
+  const canDelete = canDeleteBase && (isAdmin || (isActive && (isDraft || noBooking)));
+  const canEditPrices = can(actor, "orders", "edit") && (isAdmin || (isActive && invoices.length === 0));
   const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const invoiceRows: InvoiceRow[] = invoices.map((inv) => ({
     id: inv.id,
@@ -213,46 +213,53 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         />
       )}
 
-      {canEdit ? (
-        <>
-          <SizeGridForm
-            poId={po.id}
-            styles={styles.map((s) => ({ id: s.id, name: `${s.styleCode} — ${s.name}` }))}
-            colours={colours.map((c) => ({ id: c.id, name: c.name }))}
-            sizeScales={sizeScales.map((s) => ({
-              id: s.id,
-              name: s.name,
-              sizes: s.sizes.map((z) => ({ label: z.label })),
-            }))}
-          />
-          <div className="flex flex-wrap items-end justify-between gap-4 rounded-sm border border-line bg-surface p-5">
-            <div className="space-y-1">
-              <p className="eyebrow">Confirm</p>
-              <p className="text-sm text-ink-soft">
-                Costing must be approved, then Confirm locks the order &amp; builds the critical path.
-              </p>
-              <p className="text-sm">
-                Costing:{" "}
-                {po.costingApprovedAt ? (
-                  <span className="font-medium text-ok">approved ✓</span>
-                ) : (
-                  <span className="font-medium text-warn">pending approval</span>
-                )}
-              </p>
-              <div className="flex items-center gap-3 pt-2">
-                {!po.costingApprovedAt && can(actor, "costing", "approve") && (
-                  <ApproveCostingButton poId={po.id} />
-                )}
-                <ConfirmButton poId={po.id} />
-              </div>
-            </div>
-            <LotWidget poId={po.id} factoryId={po.factoryId} />
-          </div>
-        </>
-      ) : (
-        <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-ink-soft">
-          This order is <span className="font-semibold">{po.status}</span> — order lines are locked.
+      {canEdit && !isDraft && (
+        <p className="rounded-sm border border-warn bg-warn-soft px-4 py-2 text-xs font-medium text-warn">
+          ⚠ Admin override — this {po.status} order's lines/prices are editable. Changes restate its value, balance &amp; margin.
         </p>
+      )}
+      {canEdit && (
+        <SizeGridForm
+          poId={po.id}
+          styles={styles.map((s) => ({ id: s.id, name: `${s.styleCode} — ${s.name}` }))}
+          colours={colours.map((c) => ({ id: c.id, name: c.name }))}
+          sizeScales={sizeScales.map((s) => ({
+            id: s.id,
+            name: s.name,
+            sizes: s.sizes.map((z) => ({ label: z.label })),
+          }))}
+        />
+      )}
+      {isDraft ? (
+        <div className="flex flex-wrap items-end justify-between gap-4 rounded-sm border border-line bg-surface p-5">
+          <div className="space-y-1">
+            <p className="eyebrow">Confirm</p>
+            <p className="text-sm text-ink-soft">
+              Costing must be approved, then Confirm locks the order &amp; builds the critical path.
+            </p>
+            <p className="text-sm">
+              Costing:{" "}
+              {po.costingApprovedAt ? (
+                <span className="font-medium text-ok">approved ✓</span>
+              ) : (
+                <span className="font-medium text-warn">pending approval</span>
+              )}
+            </p>
+            <div className="flex items-center gap-3 pt-2">
+              {!po.costingApprovedAt && can(actor, "costing", "approve") && (
+                <ApproveCostingButton poId={po.id} />
+              )}
+              <ConfirmButton poId={po.id} />
+            </div>
+          </div>
+          <LotWidget poId={po.id} factoryId={po.factoryId} />
+        </div>
+      ) : (
+        !canEdit && (
+          <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-ink-soft">
+            This order is <span className="font-semibold">{po.status}</span> — order lines are locked.
+          </p>
+        )
       )}
 
       {/* Critical Path + execution panels */}

@@ -16,7 +16,7 @@ import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, delet
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Dyeing", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Print/Emb", "TOP sample", "Final inspection", "Remarks"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 function Cell({ c }: { c: StatusCell }) {
@@ -93,8 +93,8 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Size</th>
                 <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">CRD</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
-                <th className="px-3 py-2.5 font-semibold">Dyeing</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
-                <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Print/Emb</th>
+                <th className="px-3 py-2.5 font-semibold">Fabric Wash Test</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
+                <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Garments Wash Test</th>
                 <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Delete</th>
               </tr>
             </thead>

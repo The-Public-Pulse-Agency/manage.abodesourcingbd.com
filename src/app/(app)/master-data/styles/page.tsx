@@ -15,11 +15,13 @@ export default async function StylesPage() {
   const styles = await listStyles(actor, { includeInactive: true });
   const canCreate = can(actor, "masterData", "create");
   const canEdit = can(actor, "masterData", "edit");
-  const brands = canCreate ? await listBrands(actor) : [];
+  const brands = await listBrands(actor);
+  const brandName = new Map(brands.map((b) => [b.id, b.name]));
   type StyleRow = (typeof styles)[number];
   const columns: Column<StyleRow>[] = [
     { header: "Code", cell: (s) => s.styleCode },
     { header: "Name", cell: (s) => s.name },
+    { header: "Brand", cell: (s) => brandName.get(s.brandId) ?? "—" },
   ];
   if (canEdit) {
     columns.push({

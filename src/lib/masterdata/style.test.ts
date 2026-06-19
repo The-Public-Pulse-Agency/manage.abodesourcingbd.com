@@ -38,6 +38,17 @@ describe("style", () => {
     ).rejects.toThrow(/already exists/i);
   });
 
+  it("blocks case/whitespace-variant duplicates and trims on create", async () => {
+    const brand = await seedBrand();
+    const s = await createStyle(admin, { brandId: brand.id, styleCode: "  TR010 ", name: "  Tee  " });
+    expect(s.styleCode).toBe("TR010"); // trimmed
+    expect(s.name).toBe("Tee");
+    // "tr010" / "TR010 " collide case/space-insensitively under the same brand
+    await expect(
+      createStyle(admin, { brandId: brand.id, styleCode: "tr010", name: "X" }),
+    ).rejects.toThrow(/already exists/i);
+  });
+
   it("lists styles for a brand", async () => {
     const brand = await seedBrand();
     await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "A" });

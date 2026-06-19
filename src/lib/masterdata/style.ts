@@ -20,8 +20,11 @@ export type UpdateStyleInput = z.infer<typeof updateStyleSchema>;
 export async function createStyle(actor: SessionUser, input: CreateStyleInput) {
   assertPermission(actor, "masterData", "create");
   const data = createStyleSchema.parse(input);
+  // Normalise so "AQ Polo", "aq polo" and "AQ Polo " can't coexist under one brand.
+  data.styleCode = data.styleCode.trim();
+  data.name = data.name.trim();
   const dup = await prisma.style.findFirst({
-    where: { brandId: data.brandId, styleCode: data.styleCode, companyId: tenantId(actor) },
+    where: { brandId: data.brandId, styleCode: { equals: data.styleCode, mode: "insensitive" }, companyId: tenantId(actor) },
   });
   if (dup) throw new Error(`Style ${data.styleCode} already exists for this brand`);
   const style = await prisma.style.create({ data: { ...data, companyId: tenantId(actor) } });
@@ -47,11 +50,22 @@ export async function updateStyle(
 ) {
   assertPermission(actor, "masterData", "edit");
   const data = updateStyleSchema.parse(input);
+  if (data.styleCode !== undefined) data.styleCode = data.styleCode.trim();
+  if (data.name !== undefined) data.name = data.name.trim();
   const existing = await prisma.style.findFirst({
     where: { id, companyId: tenantId(actor) },
-    select: { id: true },
+    select: { id: true, brandId: true },
   });
   if (!existing) throw new Error("Style not found");
+  // Case/space-insensitive guard against colliding with another style under the same brand.
+  if (data.styleCode) {
+    const brandId = data.brandId ?? existing.brandId;
+    const clash = await prisma.style.findFirst({
+      where: { id: { not: id }, brandId, styleCode: { equals: data.styleCode, mode: "insensitive" }, companyId: tenantId(actor) },
+      select: { id: true },
+    });
+    if (clash) throw new Error("Style code already exists for this brand");
+  }
   try {
     const style = await prisma.style.update({ where: { id }, data });
     await recordAudit({

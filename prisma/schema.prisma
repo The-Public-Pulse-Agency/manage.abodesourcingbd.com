@@ -621,6 +621,11 @@ model ProductionRecord {
   cutQty      Int           @default(0)
   sewQty      Int           @default(0)
   finishQty   Int           @default(0)
+  // Per-line status remarks shown above the cut/sew/finish bars.
+  shadeApproval    String?
+  fabricWashTest   String?
+  garmentsWashTest String?
+  topSampleStatus  String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

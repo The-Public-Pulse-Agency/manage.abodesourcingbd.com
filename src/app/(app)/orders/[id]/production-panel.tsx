@@ -13,8 +13,19 @@ type Line = {
   cutQty: number;
   sewQty: number;
   finishQty: number;
+  shadeApproval: string;
+  fabricWashTest: string;
+  garmentsWashTest: string;
+  topSampleStatus: string;
   progress: Pct;
 };
+
+const REMARK_LABELS = [
+  ["shadeApproval", "Bulk fabric shade approval"],
+  ["fabricWashTest", "Fabric wash test status"],
+  ["garmentsWashTest", "Garments wash test status"],
+  ["topSampleStatus", "Top / shipment samples status"],
+] as const;
 type Production = {
   orderedQty: number;
   cutQty: number;
@@ -58,6 +69,12 @@ function LineRow({ poId, line, canEdit }: { poId: string; line: Line; canEdit: b
   const [cut, setCut] = useState(String(line.cutQty));
   const [sew, setSew] = useState(String(line.sewQty));
   const [fin, setFin] = useState(String(line.finishQty));
+  const [remarks, setRemarks] = useState({
+    shadeApproval: line.shadeApproval,
+    fabricWashTest: line.fabricWashTest,
+    garmentsWashTest: line.garmentsWashTest,
+    topSampleStatus: line.topSampleStatus,
+  });
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -68,6 +85,7 @@ function LineRow({ poId, line, canEdit }: { poId: string; line: Line; canEdit: b
       cutQty: Number(cut) || 0,
       sewQty: Number(sew) || 0,
       finishQty: Number(fin) || 0,
+      ...remarks,
     });
     setBusy(false);
     if (res.error) setMsg(res.error);
@@ -84,7 +102,36 @@ function LineRow({ poId, line, canEdit }: { poId: string; line: Line; canEdit: b
         </div>
         {msg && <span className="text-xs text-bad">{msg}</span>}
       </div>
-      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+      {/* Status remarks — shown above the cut/sew/finish bars. */}
+      {canEdit ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {REMARK_LABELS.map(([key, label]) => (
+            <label key={key} className="flex flex-col gap-1">
+              <span className="eyebrow">{label}</span>
+              <input
+                aria-label={label}
+                value={remarks[key]}
+                onChange={(e) => setRemarks((r) => ({ ...r, [key]: e.target.value }))}
+                placeholder="—"
+                className="input text-sm"
+              />
+            </label>
+          ))}
+        </div>
+      ) : (
+        REMARK_LABELS.some(([key]) => line[key]) && (
+          <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {REMARK_LABELS.filter(([key]) => line[key]).map(([key, label]) => (
+              <div key={key} className="flex flex-col">
+                <dt className="eyebrow">{label}</dt>
+                <dd className="text-sm">{line[key]}</dd>
+              </div>
+            ))}
+          </dl>
+        )
+      )}
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <Bar label="Cut" qty={line.cutQty} pct={line.progress.cutPct} />
         <Bar label="Sew" qty={line.sewQty} pct={line.progress.sewPct} />
         <Bar label="Finish" qty={line.finishQty} pct={line.progress.finishPct} />

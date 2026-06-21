@@ -6,11 +6,18 @@ import { recordAudit } from "@/lib/audit";
 import { lineMills } from "@/lib/orders/money";
 import { productionProgress, type ProductionPct } from "./progress";
 
+// Per-line status remarks normalise empty → null so a cleared field is actually cleared.
+const remark = z.string().optional().transform((v) => (v && v.trim() ? v.trim() : null));
+
 export const productionSchema = z
   .object({
     cutQty: z.number().int().nonnegative(),
     sewQty: z.number().int().nonnegative(),
     finishQty: z.number().int().nonnegative(),
+    shadeApproval: remark,
+    fabricWashTest: remark,
+    garmentsWashTest: remark,
+    topSampleStatus: remark,
   })
   .refine((v) => v.sewQty <= v.cutQty, { message: "sewQty cannot exceed cutQty", path: ["sewQty"] })
   .refine((v) => v.finishQty <= v.sewQty, {
@@ -82,6 +89,10 @@ export type ProductionLine = {
   cutQty: number;
   sewQty: number;
   finishQty: number;
+  shadeApproval: string;
+  fabricWashTest: string;
+  garmentsWashTest: string;
+  topSampleStatus: string;
   progress: ProductionPct;
 };
 
@@ -126,6 +137,10 @@ export async function getProduction(actor: SessionUser, poId: string): Promise<P
       colour: l.colour?.name ?? "—",
       orderedQty: ordered,
       ...q,
+      shadeApproval: rec?.shadeApproval ?? "",
+      fabricWashTest: rec?.fabricWashTest ?? "",
+      garmentsWashTest: rec?.garmentsWashTest ?? "",
+      topSampleStatus: rec?.topSampleStatus ?? "",
       progress: productionProgress(ordered, q),
     };
   });

@@ -52,6 +52,26 @@ afterAll(async () => {
 });
 
 describe("upsertProduction", () => {
+  it("stores per-line status remarks and round-trips them via getProduction", async () => {
+    const { po, line } = await confirmedPo();
+    await upsertProduction(admin, line, {
+      cutQty: 100, sewQty: 50, finishQty: 10,
+      shadeApproval: "  Approved 12 Jun  ", fabricWashTest: "Pass",
+      garmentsWashTest: "Pending", topSampleStatus: "Sent",
+    });
+    const view = await getProduction(admin, po.id);
+    expect(view.lines[0]).toMatchObject({
+      shadeApproval: "Approved 12 Jun", // trimmed
+      fabricWashTest: "Pass",
+      garmentsWashTest: "Pending",
+      topSampleStatus: "Sent",
+    });
+    // Clearing a remark (empty string) persists as cleared.
+    await upsertProduction(admin, line, { cutQty: 100, sewQty: 50, finishQty: 10, fabricWashTest: "" });
+    const after = await getProduction(admin, po.id);
+    expect(after.lines[0].fabricWashTest).toBe("");
+  });
+
   it("records progress vs ordered qty and is idempotent", async () => {
     const { po, line } = await confirmedPo();
     await upsertProduction(admin, line, { cutQty: 500, sewQty: 250, finishQty: 100 });

@@ -9,12 +9,20 @@ export type ActionResult = { error?: string };
 export async function saveProductionAction(
   poId: string,
   orderLineId: string,
-  qty: { cutQty: number; sewQty: number; finishQty: number },
+  input: {
+    cutQty: number;
+    sewQty: number;
+    finishQty: number;
+    shadeApproval?: string;
+    fabricWashTest?: string;
+    garmentsWashTest?: string;
+    topSampleStatus?: string;
+  },
 ): Promise<ActionResult> {
   const actor = await getCurrentUser();
   if (!actor) return { error: "Not authenticated" };
   try {
-    await upsertProduction(actor, orderLineId, qty);
+    await upsertProduction(actor, orderLineId, input);
     revalidatePath(`/orders/${poId}`);
     return {};
   } catch (e) {

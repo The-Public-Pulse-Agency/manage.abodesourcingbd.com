@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createUserFromForm } from "@/lib/users/form-actions";
 
 export function CreateUserForm({ roles }: { roles: { key: string; name: string }[] }) {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   return (
@@ -13,11 +15,14 @@ export function CreateUserForm({ roles }: { roles: { key: string; name: string }
         if (res.ok) {
           setMessage("User created");
           setIsError(false);
+          (document.getElementById("create-user-form") as HTMLFormElement | null)?.reset();
+          router.refresh(); // re-render the server list so the new user appears immediately
         } else {
           setMessage(res.error);
           setIsError(true);
         }
       }}
+      id="create-user-form"
       className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-surface p-4 elevate"
     >
       <label className="flex flex-col gap-1 text-sm text-ink-soft">

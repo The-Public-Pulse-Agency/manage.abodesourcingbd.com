@@ -31,6 +31,7 @@ const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; i
   { href: "/master-data/import", label: "Import", module: "masterData", icon: "⇪" },
   { href: "/users", label: "Users", module: "users", icon: "◍" },
   { href: "/roles", label: "Roles", module: "roles", icon: "⚷" },
+  { href: "/audit", label: "Activity Log", module: "auditLog", icon: "❑" },
 ];
 
 export function AppSidebar({ role, permissions, name, unread = 0 }: { role: Role; permissions?: PermissionMap | null; name: string; unread?: number }) {

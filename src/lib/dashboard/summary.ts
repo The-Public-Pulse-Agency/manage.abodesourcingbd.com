@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
-import { financeSummary } from "@/lib/finance/summary";
+import { can } from "@/lib/auth/permissions";
+import { financeSummary, type FinanceSummary } from "@/lib/finance/summary";
 import { criticalPathBoard } from "@/lib/tna/board";
 import { businessToday, addDaysUtc } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
@@ -44,14 +45,18 @@ export async function dashboardSummary(
   // on an already-floored date.
   const today = businessToday(opts.now);
 
+  // The dashboard only requires dashboards:view. Its finance + critical-path widgets are
+  // enrichment — gate each on its own permission so a role with dashboard access but reduced
+  // permissions (e.g. a merchandiser without finance:view) sees zeros instead of a 500.
+  const zeroFinance: FinanceSummary = { receivableOutstanding: 0, payableOutstanding: 0, realisedMargin: 0, aging: [] };
   const [livePos, exFtyMilestones, finance, board] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { status: { in: [...LIVE_STATUSES] }, companyId: tenantId(actor) },
       include: { buyer: true, factory: true, lines: { include: { sizes: true } } },
     }),
     prisma.taMilestone.findMany({ where: { key: "EX_FACTORY", actualDate: { not: null }, companyId: tenantId(actor) } }),
-    financeSummary(actor, { now: today }),
-    criticalPathBoard(actor, { now: today }),
+    can(actor, "finance", "view") ? financeSummary(actor, { now: today }) : Promise.resolve(zeroFinance),
+    can(actor, "criticalPath", "view") ? criticalPathBoard(actor, { now: today }) : Promise.resolve([]),
   ]);
 
   // Open Order Book value: sum sell totals only over USD POs (the money lib forbids

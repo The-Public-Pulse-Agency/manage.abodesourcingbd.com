@@ -183,3 +183,18 @@ export async function updateInvoiceFields(
   }
   await recordAudit({ userId: actor.id, entityType: "Invoice", entityId: id, action: "edit", after: input });
 }
+
+/** Delete an invoice. Blocked while it has recorded payments (protect financial records —
+ *  remove the payments first). Tenant-scoped + audited. */
+export async function deleteInvoice(actor: SessionUser, id: string): Promise<void> {
+  assertPermission(actor, "finance", "delete");
+  const cid = tenantId(actor);
+  const inv = await prisma.invoice.findFirst({
+    where: { id, companyId: cid },
+    select: { number: true, type: true, _count: { select: { payments: true } } },
+  });
+  if (!inv) throw new Error("Invoice not found");
+  if (inv._count.payments > 0) throw new Error("This invoice has payments recorded — delete the payments first, then the invoice.");
+  await prisma.invoice.deleteMany({ where: { id, companyId: cid } });
+  await recordAudit({ userId: actor.id, entityType: "Invoice", entityId: id, action: "delete", before: { number: inv.number, type: inv.type } });
+}

@@ -15,6 +15,7 @@ import {
   setPaymentMethod,
   setPaymentDate,
   deletePaymentAction,
+  deleteInvoiceAction,
 } from "@/lib/finance/form-actions";
 import { EditableCell } from "@/components/reports/editable-cell";
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
@@ -62,6 +63,7 @@ export function InvoicesPanel({
   invoices,
   poId,
   canManage,
+  canDelete = false,
   showPo = false,
   title = "Invoices",
   defaultNumber,
@@ -71,6 +73,7 @@ export function InvoicesPanel({
   invoices: InvoiceRow[];
   poId?: string;
   canManage: boolean;
+  canDelete?: boolean;
   showPo?: boolean;
   title?: string;
   // Optional pre-fill for the add-invoice form (e.g. from a shipment: reference + shipped value).
@@ -85,7 +88,8 @@ export function InvoicesPanel({
   const [openPayments, setOpenPayments] = useState<string | null>(null);
 
   // Type / PO / Number / Amount / Outstanding / Issue / Due / Status (+ actions)
-  const colCount = 7 + (showPo ? 1 : 0) + (canManage ? 1 : 0);
+  const showActions = canManage || canDelete;
+  const colCount = 7 + (showPo ? 1 : 0) + (showActions ? 1 : 0);
 
   return (
     <div className="rounded-sm border border-line bg-surface">
@@ -104,7 +108,7 @@ export function InvoicesPanel({
             <th className="px-3 py-1.5 font-semibold">Issue</th>
             <th className="px-3 py-1.5 font-semibold">Due</th>
             <th className="px-3 py-1.5 font-semibold">Status</th>
-            {canManage && <th className="px-3 py-1.5" />}
+            {showActions && <th className="px-3 py-1.5" />}
           </tr>
         </thead>
         <tbody>
@@ -193,21 +197,24 @@ export function InvoicesPanel({
                   </form>
                 )}
               </td>
-              {canManage && (
+              {showActions && (
                 <td className="px-3 py-1.5 text-right">
                   <div className="flex flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setOpenPayments(showingPayments ? null : inv.id)}
-                      className="text-xs text-ink-soft hover:text-accent"
-                    >
-                      {showingPayments ? "Hide" : `Payments (${payments.length})`}
-                    </button>
-                    {inv.outstanding > 0 && (
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenPayments(showingPayments ? null : inv.id)}
+                        className="text-xs text-ink-soft hover:text-accent"
+                      >
+                        {showingPayments ? "Hide" : `Payments (${payments.length})`}
+                      </button>
+                    )}
+                    {canManage && inv.outstanding > 0 && (
                       <button type="button" onClick={() => setPayFor(payFor === inv.id ? null : inv.id)} className="text-xs text-ink-soft hover:text-accent">
                         {payFor === inv.id ? "Cancel" : "Record payment"}
                       </button>
                     )}
+                    {canDelete && <RowDeleteButton id={inv.id} action={deleteInvoiceAction} />}
                   </div>
                 </td>
               )}

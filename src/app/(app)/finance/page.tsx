@@ -88,7 +88,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </table>
       </div>
 
-      <InvoicesPanel invoices={rows} canManage={can(actor, "finance", "create")} showPo title="All invoices" />
+      <InvoicesPanel invoices={rows} canManage={can(actor, "finance", "create")} canDelete={can(actor, "finance", "delete")} showPo title="All invoices" />
       <Pagination page={book.page} totalPages={book.totalPages} total={book.total} pageSize={book.pageSize} params={sp} />
     </div>
   );

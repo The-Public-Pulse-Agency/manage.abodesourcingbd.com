@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/guard";
-import { createInvoice, updateInvoiceFields } from "./invoices";
+import { createInvoice, updateInvoiceFields, deleteInvoice } from "./invoices";
 import { recordPayment, updatePayment, deletePayment } from "./payments";
 
 export type ActionResult = { error?: string };
@@ -145,5 +145,16 @@ export async function deletePaymentAction(paymentId: string): Promise<ActionResu
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to delete payment" };
+  }
+}
+
+export async function deleteInvoiceAction(invoiceId: string): Promise<ActionResult> {
+  const actor = await getCurrentUser();
+  if (!actor) return { error: "Not authenticated" };
+  try {
+    await deleteInvoice(actor, invoiceId);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to delete invoice" };
   }
 }

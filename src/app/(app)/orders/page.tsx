@@ -29,11 +29,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   };
   const page = Math.max(1, Number(sp.page) || 1);
 
+  // Buyer/factory lists power the filter dropdowns only — gate on masterData:view so a
+  // tightly-scoped role (e.g. production-only) can open this page without a 500.
+  const canMaster = can(actor, "masterData", "view");
   const [book, footer, buyers, factories] = await Promise.all([
     listOpenOrderBookPaged(actor, filter, { page }),
     openOrderBookTotals(actor, filter),
-    listBuyers(actor),
-    listFactories(actor),
+    canMaster ? listBuyers(actor) : Promise.resolve([]),
+    canMaster ? listFactories(actor) : Promise.resolve([]),
   ]);
   const orders = book.rows;
 

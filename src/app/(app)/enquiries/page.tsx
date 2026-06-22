@@ -12,11 +12,14 @@ export default async function EnquiriesPage() {
   if (!actor || !can(actor, "orders", "view")) redirect("/dashboard");
   const canEdit = can(actor, "orders", "create");
 
+  // Master-data lists feed name lookups + form dropdowns — gate on masterData:view so a
+  // tightly-scoped role (e.g. production-only) can open this page without a 500.
+  const canMaster = can(actor, "masterData", "view");
   const [enquiries, buyers, brands, factories, kpis] = await Promise.all([
     listEnquiries(actor),
-    listBuyers(actor),
-    listBrands(actor),
-    listFactories(actor),
+    canMaster ? listBuyers(actor) : Promise.resolve([]),
+    canMaster ? listBrands(actor) : Promise.resolve([]),
+    canMaster ? listFactories(actor) : Promise.resolve([]),
     enquiryPipelineKpis(actor),
   ]);
 

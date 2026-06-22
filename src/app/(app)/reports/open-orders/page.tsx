@@ -43,6 +43,10 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
   // Factory/buyer lists power the filter dropdowns only — gate on masterData:view so a
   // tightly-scoped role (e.g. production-only) can still open this page without a 500.
   const canMaster = can(actor, "masterData", "view");
+  // UI must mirror the server guards: only show inline edit / close / delete affordances to
+  // users who actually hold the permission (the server enforces these regardless).
+  const canEditOrders = can(actor, "orders", "edit");
+  const canDeleteOrders = can(actor, "orders", "delete");
   const [book, summary, factories, buyers] = await Promise.all([
     listOpenOrders(actor, filter, { page: Math.max(1, Number(sp.page) || 1) }),
     openOrdersSummary(actor, filter),
@@ -115,28 +119,30 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
                   <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
-                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell></td>
+                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell> : formatDate(r.poReceiveDate)}</td>
                   <td className="px-3 py-2">{r.factory}</td>
                   <td className="px-3 py-2">{r.buyer}</td>
                   <td className="px-3 py-2">{r.brand}</td>
                   <td className="px-3 py-2 text-xs">{r.sizes}</td>
                   <td className="px-3 py-2 text-xs">{r.colours}</td>
-                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell></td>
-                  <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell></td>
+                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
+                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
                   <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
                   <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
                   <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
                   <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.cutting} /></td>
                   <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
                   <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
-                  <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell></td>
+                  <td className="px-3 py-2 text-xs">{canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                   <td className="px-3 py-2"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
                   <td className="px-3 py-2">
-                    <span className="inline-flex items-center gap-3">
-                      {r.status === "PARTLY_SHIPPED" && <RowCloseButton action={closeOrderAction} id={r.id} />}
-                      <RowDeleteButton action={deleteOrderAction} id={r.id} />
-                    </span>
+                    {canEditOrders || canDeleteOrders ? (
+                      <span className="inline-flex items-center gap-3">
+                        {canEditOrders && r.status === "PARTLY_SHIPPED" && <RowCloseButton action={closeOrderAction} id={r.id} />}
+                        {canDeleteOrders && <RowDeleteButton action={deleteOrderAction} id={r.id} />}
+                      </span>
+                    ) : <span className="text-ink-soft">—</span>}
                   </td>
                 </tr>
               ))}

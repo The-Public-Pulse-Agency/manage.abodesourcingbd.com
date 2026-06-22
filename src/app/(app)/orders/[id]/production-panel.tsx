@@ -183,6 +183,7 @@ export function ProductionPanel({
   production: Production;
   canEdit: boolean;
 }) {
+  const groups = groupByStyle(production.lines);
   return (
     <div className="rounded-sm border border-line bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -200,7 +201,7 @@ export function ProductionPanel({
       {production.lines.length > 0 ? (
         <>
         <div className="mt-4 space-y-6 border-t border-line pt-3">
-          {groupByStyle(production.lines).map((g) => (
+          {groups.map((g) => (
             <div key={g.style} className="space-y-3">
               {/* Per-style summary (sum of all colours of this style) */}
               <div className="rounded-sm border border-line bg-paper p-3">
@@ -221,6 +222,43 @@ export function ProductionPanel({
             </div>
           ))}
         </div>
+        {/* Style-wise breakdown (one row per style) */}
+        {groups.length > 1 && (
+          <div className="mt-6 overflow-x-auto rounded-sm border border-line bg-paper p-3">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">By style</p>
+            <table className="w-full whitespace-nowrap text-xs">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-soft">
+                  <th className="px-2 py-1.5 font-semibold">Style</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Ordered</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Cut</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Sew</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Finish</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((g) => (
+                  <tr key={g.style} className="border-b border-line last:border-0">
+                    <td className="px-2 py-1.5 font-medium">{g.style}</td>
+                    <td className="px-2 py-1.5 text-right tnum">{g.orderedQty}</td>
+                    <td className="px-2 py-1.5 text-right tnum">{g.cutQty} · {pctOf(g.cutQty, g.orderedQty)}%</td>
+                    <td className="px-2 py-1.5 text-right tnum">{g.sewQty} · {pctOf(g.sewQty, g.orderedQty)}%</td>
+                    <td className="px-2 py-1.5 text-right tnum">{g.finishQty} · {pctOf(g.finishQty, g.orderedQty)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-ink font-semibold">
+                  <td className="px-2 py-1.5">All styles</td>
+                  <td className="px-2 py-1.5 text-right tnum">{production.orderedQty}</td>
+                  <td className="px-2 py-1.5 text-right tnum">{production.cutQty} · {production.progress.cutPct}%</td>
+                  <td className="px-2 py-1.5 text-right tnum">{production.sewQty} · {production.progress.sewPct}%</td>
+                  <td className="px-2 py-1.5 text-right tnum">{production.finishQty} · {production.progress.finishPct}%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
         {/* Grand total across ALL styles (bottom summary) */}
         <div className="mt-6 rounded-sm border-2 border-ink/20 bg-paper p-3">
           <p className="text-sm font-semibold uppercase tracking-wide text-ink-soft">

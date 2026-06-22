@@ -198,6 +198,7 @@ export function ProductionPanel({
       </div>
       {/* Grouped by style: a per-style subtotal (all its colours) then each colour line. */}
       {production.lines.length > 0 ? (
+        <>
         <div className="mt-4 space-y-6 border-t border-line pt-3">
           {groupByStyle(production.lines).map((g) => (
             <div key={g.style} className="space-y-3">
@@ -220,6 +221,18 @@ export function ProductionPanel({
             </div>
           ))}
         </div>
+        {/* Grand total across ALL styles (bottom summary) */}
+        <div className="mt-6 rounded-sm border-2 border-ink/20 bg-paper p-3">
+          <p className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
+            All styles — PO total <span className="font-normal normal-case">· {production.orderedQty} pcs</span>
+          </p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <Bar label="Cut" qty={production.cutQty} pct={production.progress.cutPct} />
+            <Bar label="Sew" qty={production.sewQty} pct={production.progress.sewPct} />
+            <Bar label="Finish" qty={production.finishQty} pct={production.progress.finishPct} />
+          </div>
+        </div>
+        </>
       ) : (
         <p className="mt-4 border-t border-line pt-3 text-xs text-ink-soft">No order lines yet.</p>
       )}

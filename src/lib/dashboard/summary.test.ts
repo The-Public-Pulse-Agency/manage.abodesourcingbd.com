@@ -30,6 +30,14 @@ afterAll(async () => {
 });
 
 describe("dashboardSummary", () => {
+  it("renders (no 500) for a role with dashboards:view but no finance/criticalPath", async () => {
+    await refs();
+    // A reduced role — dashboards only. Must NOT throw ForbiddenError from finance/criticalPath.
+    const limited = { id: "m-1", role: "MERCHANDISER", companyId: "test-co", permissions: { dashboards: ["view" as const] } };
+    const s = await dashboardSummary(limited, { now: NOW });
+    expect(s.finance).toEqual({ receivable: 0, payable: 0, realisedMargin: 0 });
+  });
+
   it("aggregates KPIs and exception widgets", async () => {
     const { buyer, brand, factory, style } = await refs();
 

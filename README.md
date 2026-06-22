@@ -1,7 +1,10 @@
 # ABD OMS — RMG Order & Merchandising Management System
 
-Next.js full-stack OMS for a Bangladesh RMG buying house. See the design spec in
-`docs/superpowers/specs/` and plans in `docs/superpowers/plans/`.
+Next.js full-stack OMS for a Bangladesh RMG buying house.
+
+**Docs:** [CHANGELOG.md](CHANGELOG.md) (what shipped, by date) ·
+[CONTRIBUTING.md](CONTRIBUTING.md) (git / commit / migration conventions) ·
+design spec in `docs/superpowers/specs/` · plans in `docs/superpowers/plans/`.
 
 ## Prerequisites
 - Node 20+, and either a Neon Postgres URL or Docker (for local Postgres).

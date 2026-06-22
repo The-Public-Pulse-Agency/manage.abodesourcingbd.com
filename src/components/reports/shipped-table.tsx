@@ -21,7 +21,7 @@ const PAY_CLS: Record<string, string> = {
   PAID: "bg-ok-soft text-ok",
 };
 
-export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
+export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteShipment }: { rows: ShippedRow[]; canEditShipment: boolean; canEditFinance: boolean; canDeleteShipment: boolean }) {
   const [q, setQ] = useState("");
   const [factorySel, setFactorySel] = useState<string[]>([]);
   const [buyerSel, setBuyerSel] = useState<string[]>([]);
@@ -110,31 +110,38 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                   {r.shortShip && <div title={`Short shipped — ${r.shortShip}`} className="mt-0.5 inline-flex rounded-sm bg-bad-soft px-1 py-0.5 text-[0.5625rem] font-semibold uppercase text-bad">⚠ {r.shortShip}</div>}
                 </td>
                 <td className="px-3 py-2 tnum text-xs">{formatDate(r.shipDate)}</td>
-                <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.etaDestination)} type="date" action={setShipmentEta}>{formatDate(r.etaDestination)}</EditableCell></td>
+                <td className="px-3 py-2 tnum text-xs">{canEditShipment ? <EditableCell id={r.id} raw={iso(r.etaDestination)} type="date" action={setShipmentEta}>{formatDate(r.etaDestination)}</EditableCell> : formatDate(r.etaDestination)}</td>
                 <td className="px-3 py-2">{r.invoiceNumber ? <Link href={`/shipments/${r.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.invoiceNumber}</Link> : <span className="font-mono text-xs text-ink-soft">—</span>}</td>
                 <td className="px-3 py-2 text-right tnum">
                   {r.invoiceId ? (
-                    <EditableCell id={r.invoiceId} raw={r.invoiceValue && r.invoiceValue > 0 ? String(r.invoiceValue) : ""} type="number" align="right" action={setInvoiceValue}>{r.invoiceValue && r.invoiceValue > 0 ? formatMoney(r.invoiceValue) : "—"}</EditableCell>
+                    canEditFinance ? (
+                      <EditableCell id={r.invoiceId} raw={r.invoiceValue && r.invoiceValue > 0 ? String(r.invoiceValue) : ""} type="number" align="right" action={setInvoiceValue}>{r.invoiceValue && r.invoiceValue > 0 ? formatMoney(r.invoiceValue) : "—"}</EditableCell>
+                    ) : (r.invoiceValue && r.invoiceValue > 0 ? formatMoney(r.invoiceValue) : "—")
                   ) : "—"}
                 </td>
                 <td className="px-3 py-2 tnum text-xs">
                   {r.invoiceId ? (
-                    <EditableCell id={r.invoiceId} raw={iso(r.invoiceDueDate)} type="date" action={setInvoiceDue}>{formatDate(r.invoiceDueDate)}</EditableCell>
+                    canEditFinance ? (
+                      <EditableCell id={r.invoiceId} raw={iso(r.invoiceDueDate)} type="date" action={setInvoiceDue}>{formatDate(r.invoiceDueDate)}</EditableCell>
+                    ) : formatDate(r.invoiceDueDate)
                   ) : "—"}
                 </td>
                 <td className="px-3 py-2">
                   {r.invoiceId ? (
-                    <EditableCell id={r.invoiceId} raw={r.paymentStatus ?? "ISSUED"} type="select" options={PAY_OPTIONS} action={setInvoicePaymentStatus}>
-                      <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${PAY_CLS[r.paymentStatus ?? ""] ?? "bg-paper text-ink-soft"}`}>{r.paymentStatus === "PAID" ? "Paid" : r.paymentStatus === "PARTIALLY_PAID" ? "Partial" : "Due"}</span>
-                    </EditableCell>
+                    (() => {
+                      const badge = <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${PAY_CLS[r.paymentStatus ?? ""] ?? "bg-paper text-ink-soft"}`}>{r.paymentStatus === "PAID" ? "Paid" : r.paymentStatus === "PARTIALLY_PAID" ? "Partial" : "Due"}</span>;
+                      return canEditFinance ? (
+                        <EditableCell id={r.invoiceId} raw={r.paymentStatus ?? "ISSUED"} type="select" options={PAY_OPTIONS} action={setInvoicePaymentStatus}>{badge}</EditableCell>
+                      ) : badge;
+                    })()
                   ) : "—"}
                 </td>
-                <td className="px-3 py-2 font-mono text-xs"><EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell></td>
-                <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell></td>
-                <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell></td>
+                <td className="px-3 py-2 font-mono text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell> : (r.containerNo ?? "—")}</td>
+                <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell> : (r.tcStatus ?? "—")}</td>
+                <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                 <td className="px-3 py-2">{r.invoiceId ? <a href={`/api/invoices/${r.invoiceId}`} className="text-xs font-medium text-accent hover:underline" title="Download invoice (Excel)">Invoice ⬇</a> : <span className="text-xs text-ink-soft">—</span>}</td>
-                <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
-                <td className="px-3 py-2"><RowDeleteButton action={deleteShipmentAction} id={r.id} /></td>
+                <td className="px-3 py-2"><Link href={`/shipments/${r.id}`} className="text-xs font-medium text-accent hover:underline">{canEditShipment ? "Edit →" : "View →"}</Link></td>
+                <td className="px-3 py-2">{canDeleteShipment ? <RowDeleteButton action={deleteShipmentAction} id={r.id} /> : <span className="text-ink-soft">—</span>}</td>
               </tr>
             ))}
           </tbody>

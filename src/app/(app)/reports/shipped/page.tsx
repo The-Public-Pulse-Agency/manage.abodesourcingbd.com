@@ -71,7 +71,12 @@ export default async function ShippedReportPage({ searchParams }: { searchParams
       </div>
 
       <div className="rise space-y-3" style={{ animationDelay: "180ms" }}>
-        <ShippedTable rows={rows} />
+        <ShippedTable
+          rows={rows}
+          canEditShipment={can(actor, "shipment", "edit")}
+          canEditFinance={can(actor, "finance", "edit")}
+          canDeleteShipment={can(actor, "shipment", "delete")}
+        />
         <Pagination page={report.page} totalPages={report.totalPages} total={report.total} pageSize={report.pageSize} params={sp} />
       </div>
     </div>

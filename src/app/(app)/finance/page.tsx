@@ -6,6 +6,8 @@ import { listInvoicesPaged } from "@/lib/finance/invoices";
 import { outstanding } from "@/lib/finance/money";
 import { formatMoney, formatDate } from "@/lib/format";
 import { InvoicesPanel, type InvoiceRow } from "@/components/invoices-panel";
+import { listCashEntries, EXPENSE_HEADS, RECEIVED_PURPOSES } from "@/lib/finance/cash";
+import { CashLedger, type CashRow } from "@/components/finance/cash-ledger";
 import { Pagination } from "@/components/pagination";
 
 export default async function FinancePage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
@@ -13,11 +15,23 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   if (!actor || !can(actor, "finance", "view")) redirect("/dashboard");
 
   const sp = await searchParams;
-  const [summary, book] = await Promise.all([
+  const [summary, book, cashEntries] = await Promise.all([
     financeSummary(actor, { now: new Date() }),
     listInvoicesPaged(actor, {}, { page: Math.max(1, Number(sp.page) || 1) }),
+    listCashEntries(actor),
   ]);
   const invoices = book.rows;
+  const cashRows: CashRow[] = cashEntries.map((e) => ({
+    id: e.id,
+    kind: e.kind,
+    date: new Date(e.entryDate).toISOString().slice(0, 10),
+    amountBdt: e.amountBdt,
+    sender: e.sender,
+    purpose: e.purpose,
+    head: e.head,
+    note: e.note,
+  }));
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
   const isoDay = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const rows: InvoiceRow[] = invoices.map((inv) => ({
@@ -90,6 +104,15 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
       <InvoicesPanel invoices={rows} canManage={can(actor, "finance", "create")} canDelete={can(actor, "finance", "delete")} showPo title="All invoices" />
       <Pagination page={book.page} totalPages={book.totalPages} total={book.total} pageSize={book.pageSize} params={sp} />
+
+      <CashLedger
+        entries={cashRows}
+        canManage={can(actor, "finance", "create")}
+        canDelete={can(actor, "finance", "delete")}
+        expenseHeads={[...EXPENSE_HEADS]}
+        purposes={[...RECEIVED_PURPOSES]}
+        defaultMonth={currentMonth}
+      />
     </div>
   );
 }

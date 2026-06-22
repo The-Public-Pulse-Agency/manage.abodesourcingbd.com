@@ -827,6 +827,25 @@ model Payment {
   @@index([invoiceId])
 }
 
+/// Local-currency (BDT) cash book: money received (with sender) and expenses (by head).
+/// Separate from the USD invoice ledger — this is the office cash in/out, viewed monthly.
+model CashEntry {
+  id          String   @id @default(cuid())
+  companyId   String?
+  kind        String // "RECEIVED" | "EXPENSE"
+  entryDate   DateTime
+  amountBdt   Decimal  @db.Decimal(14, 2)
+  sender      String? // RECEIVED: sender name
+  purpose     String? // RECEIVED: purpose (Commission Income, Service Charge, …)
+  head        String? // EXPENSE: expense head (Salary, Office Rent, …)
+  note        String? // Remarks
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, entryDate])
+}
+
 model ShipmentLine {
   id          String             @id @default(cuid())
   companyId String?

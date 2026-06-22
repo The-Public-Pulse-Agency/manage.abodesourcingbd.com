@@ -10,6 +10,15 @@ Categories: **Added** (new features), **Changed**, **Fixed**, **Security**.
 
 ## 2026-06-23
 
+### Added
+- **BDT Cash Book** on the Finance page — Monthly BDT **Received** (date, amount, sender,
+  purpose, remarks) and **Expenses** (date, amount, expense head, remarks) with a month picker
+  and a **Monthly Summary** (opening balance, total received, total expenses, closing balance).
+  Expense heads ship with 22 defaults but **any new head can be typed** (datalist); received
+  "purpose" likewise has suggestions + free entry. Permission-gated (`finance:create`/`delete`).
+- **Delete an invoice** on the Finance / All Invoices panel (`finance:delete`), blocked while
+  the invoice has recorded payments. (`06e6892`)
+
 ### Fixed
 - **RBAC UI gating** — the Running Orders and Shipped Goods reports no longer show inline
   edit / Close / Delete affordances to roles that lack the permission (`orders:edit`/`delete`,
@@ -17,6 +26,9 @@ Categories: **Added** (new features), **Changed**, **Fixed**, **Security**.
   mirrors them. (`8369d67`, `c18fe8e`)
 - Order pages (`/orders`, `/enquiries`) no longer 500 for tightly-scoped roles — master-data
   lookups are gated on `masterData:view`. (`d337cf2`)
+
+### Docs
+- Added `CHANGELOG.md` + `CONTRIBUTING.md` (git/commit/migration conventions). (`66efca4`)
 
 ## 2026-06-22
 

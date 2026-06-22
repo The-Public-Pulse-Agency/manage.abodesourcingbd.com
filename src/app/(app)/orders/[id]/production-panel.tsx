@@ -35,6 +35,25 @@ type Production = {
   lines: Line[];
 };
 
+type StyleGroup = { style: string; orderedQty: number; cutQty: number; sewQty: number; finishQty: number; lines: Line[] };
+
+/** Group the per-colour lines by style, summing cut/sew/finish across colours. */
+function groupByStyle(lines: Line[]): StyleGroup[] {
+  const map = new Map<string, StyleGroup>();
+  for (const l of lines) {
+    let g = map.get(l.style);
+    if (!g) { g = { style: l.style, orderedQty: 0, cutQty: 0, sewQty: 0, finishQty: 0, lines: [] }; map.set(l.style, g); }
+    g.orderedQty += l.orderedQty;
+    g.cutQty += l.cutQty;
+    g.sewQty += l.sewQty;
+    g.finishQty += l.finishQty;
+    g.lines.push(l);
+  }
+  return [...map.values()];
+}
+
+const pctOf = (q: number, o: number) => (o > 0 ? Math.round((q / o) * 100) : 0);
+
 function Bar({ label, qty, pct }: { label: string; qty: number; pct: number }) {
   return (
     <div>
@@ -168,20 +187,37 @@ export function ProductionPanel({
     <div className="rounded-sm border border-line bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
-          Production · {production.orderedQty} pcs ordered
+          Production · {production.orderedQty} pcs ordered <span className="text-ink-soft/70">· all styles</span>
         </h3>
       </div>
-      {/* Overall totals across all styles/colours */}
+      {/* PO-wide total across every style & colour */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Bar label="Cut" qty={production.cutQty} pct={production.progress.cutPct} />
         <Bar label="Sew" qty={production.sewQty} pct={production.progress.sewPct} />
         <Bar label="Finish" qty={production.finishQty} pct={production.progress.finishPct} />
       </div>
-      {/* Per style/colour line */}
+      {/* Grouped by style: a per-style subtotal (all its colours) then each colour line. */}
       {production.lines.length > 0 ? (
-        <div className="mt-4 space-y-3 border-t border-line pt-3">
-          {production.lines.map((l) => (
-            <LineRow key={l.orderLineId} poId={poId} line={l} canEdit={canEdit} />
+        <div className="mt-4 space-y-6 border-t border-line pt-3">
+          {groupByStyle(production.lines).map((g) => (
+            <div key={g.style} className="space-y-3">
+              {/* Per-style summary (sum of all colours of this style) */}
+              <div className="rounded-sm border border-line bg-paper p-3">
+                <p className="text-sm font-semibold">
+                  {g.style}
+                  <span className="ml-1.5 text-xs font-normal text-ink-soft">· {g.orderedQty} pcs · {g.lines.length} colour{g.lines.length === 1 ? "" : "s"}</span>
+                </p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  <Bar label="Cut" qty={g.cutQty} pct={pctOf(g.cutQty, g.orderedQty)} />
+                  <Bar label="Sew" qty={g.sewQty} pct={pctOf(g.sewQty, g.orderedQty)} />
+                  <Bar label="Finish" qty={g.finishQty} pct={pctOf(g.finishQty, g.orderedQty)} />
+                </div>
+              </div>
+              {/* Each colour under this style */}
+              {g.lines.map((l) => (
+                <LineRow key={l.orderLineId} poId={poId} line={l} canEdit={canEdit} />
+              ))}
+            </div>
           ))}
         </div>
       ) : (

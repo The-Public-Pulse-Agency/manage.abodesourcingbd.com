@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
+import { landingPath } from "@/lib/auth/landing";
 import { dashboardSummary } from "@/lib/dashboard/summary";
 import { factoryLeagueTable } from "@/lib/dashboard/factories";
 import { enquiryPipelineKpis } from "@/lib/enquiries/enquiries";
@@ -13,7 +14,8 @@ import { CountUp } from "@/components/dashboard/count-up";
 export default async function DashboardPage() {
   const actor = await getCurrentUser();
   if (!actor) redirect("/login");
-  if (!can(actor, "dashboards", "view")) redirect("/orders");
+  // Send users without dashboard access to their first allowed page (never loop back here).
+  if (!can(actor, "dashboards", "view")) redirect(landingPath(actor));
 
   const now = new Date();
   const [s, factories, pipeline] = await Promise.all([

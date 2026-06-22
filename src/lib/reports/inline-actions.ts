@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
 import { updateOrderSchedule, deletePurchaseOrder } from "@/lib/orders/po";
+import { closePurchaseOrder } from "@/lib/orders/close";
 import { updateInvoiceFields } from "@/lib/finance/invoices";
 import { updateShipment, updateShipmentLineQty, deleteShipment } from "@/lib/shipment/shipment";
 
@@ -82,6 +83,12 @@ export async function setInvoicePaymentStatus(id: string, value: string): Promis
 
 export async function deleteOrderAction(poId: string): Promise<Res> {
   return run((a) => deletePurchaseOrder(a, poId));
+}
+
+/** Short-close a shipped/partly-shipped order: any un-shipped balance becomes a short-ship,
+ *  the order leaves the open book (status CLOSED). Used when the factory can't make the rest. */
+export async function closeOrderAction(poId: string): Promise<Res> {
+  return run((a) => closePurchaseOrder(a, poId).then(() => undefined));
 }
 
 export async function deleteShipmentAction(id: string): Promise<Res> {

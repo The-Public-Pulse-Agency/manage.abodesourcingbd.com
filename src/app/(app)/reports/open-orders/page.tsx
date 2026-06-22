@@ -12,8 +12,9 @@ import { EditableCell } from "@/components/reports/editable-cell";
 import { ExportButton } from "@/components/reports/export-button";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { Pagination } from "@/components/pagination";
-import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, deleteOrderAction } from "@/lib/reports/inline-actions";
+import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, deleteOrderAction, closeOrderAction } from "@/lib/reports/inline-actions";
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
+import { RowCloseButton } from "@/components/reports/row-close-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
@@ -102,7 +103,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Fabric Wash Test</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
                 <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Garments Wash Test</th>
-                <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Delete</th>
+                <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -128,7 +129,12 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2 text-xs"><EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell></td>
                   <td className="px-3 py-2"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
                   <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
-                  <td className="px-3 py-2"><RowDeleteButton action={deleteOrderAction} id={r.id} /></td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex items-center gap-3">
+                      {r.status === "PARTLY_SHIPPED" && <RowCloseButton action={closeOrderAction} id={r.id} />}
+                      <RowDeleteButton action={deleteOrderAction} id={r.id} />
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

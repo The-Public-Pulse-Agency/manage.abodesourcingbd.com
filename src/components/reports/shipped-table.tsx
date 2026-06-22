@@ -13,7 +13,7 @@ import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc,
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Size", "Colour", "Qty", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Size", "Colour", "Qty", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -61,7 +61,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.sizes, r.colours, r.qty, formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.sizes, r.colours, r.qty, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -107,6 +107,7 @@ export function ShippedTable({ rows }: { rows: ShippedRow[] }) {
                 <td className="px-3 py-2 text-right tnum">
                   {formatQty(r.qty)}
                   {r.overShip && <div title={r.overShip} className="mt-0.5 inline-flex rounded-sm bg-warn-soft px-1 py-0.5 text-[0.5625rem] font-semibold uppercase text-warn">⚠ over</div>}
+                  {r.shortShip && <div title={`Short shipped — ${r.shortShip}`} className="mt-0.5 inline-flex rounded-sm bg-bad-soft px-1 py-0.5 text-[0.5625rem] font-semibold uppercase text-bad">⚠ {r.shortShip}</div>}
                 </td>
                 <td className="px-3 py-2 tnum text-xs">{formatDate(r.shipDate)}</td>
                 <td className="px-3 py-2 tnum text-xs"><EditableCell id={r.id} raw={iso(r.etaDestination)} type="date" action={setShipmentEta}>{formatDate(r.etaDestination)}</EditableCell></td>

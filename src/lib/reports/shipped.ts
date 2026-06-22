@@ -41,6 +41,7 @@ export type ShippedRow = {
   tcStatus: string | null;
   remarks: string;
   overShip: string | null;
+  shortShip: string | null;
 };
 
 export type ShippedReport = {
@@ -93,6 +94,22 @@ export async function shippedGoodsReport(
     take: pageSize,
   });
 
+  // PO-level short-ship: for short-CLOSED orders (factory couldn't make the rest), surface the
+  // un-shipped gap (ordered − total shipped across all of the PO's shipments).
+  const poIds = [...new Set(shipments.map((s) => s.lines.find((l) => l.orderLine?.po)?.orderLine?.po?.id).filter(Boolean) as string[])];
+  const shortByPo = new Map<string, number>();
+  if (poIds.length) {
+    const pos = await prisma.purchaseOrder.findMany({
+      where: { id: { in: poIds }, companyId: cid },
+      select: { id: true, status: true, lines: { select: { sizes: { select: { qty: true } }, shipmentLines: { select: { sizes: { select: { qty: true } } } } } } },
+    });
+    for (const po of pos) {
+      const ordered = po.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
+      const shipped = po.lines.reduce((a, l) => a + l.shipmentLines.reduce((b, sl) => b + sl.sizes.reduce((c, z) => c + z.qty, 0), 0), 0);
+      if (po.status === "CLOSED" && ordered - shipped > 0) shortByPo.set(po.id, ordered - shipped);
+    }
+  }
+
   const rows = shipments.map((s) => {
     const firstPo = s.lines.find((l) => l.orderLine?.po)?.orderLine?.po;
     const sizes = [...new Set(s.lines.flatMap((l) => l.sizes.map((z) => z.label)))].join(", ");
@@ -123,6 +140,7 @@ export async function shippedGoodsReport(
       tcStatus: s.tcStatus,
       remarks: s.remarks ?? "",
       overShip: s.lines.map((l) => l.note).filter(Boolean).join("; ") || null,
+      shortShip: firstPo && shortByPo.has(firstPo.id) ? `${shortByPo.get(firstPo.id)} pcs short` : null,
     };
   });
 

@@ -394,7 +394,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-3 rounded-sm border border-line bg-surface p-5">
           <div className="space-y-0.5">
             <p className="eyebrow">Close</p>
-            <p className="text-sm text-ink-soft">Mark this order complete (closes the back-to-back loop).</p>
+            <p className="text-sm text-ink-soft">Close this order. Any un-shipped balance is recorded as short-shipped (e.g. factory couldn&apos;t make the rest) and the order leaves the open book.</p>
           </div>
           <CloseButton poId={po.id} />
         </div>

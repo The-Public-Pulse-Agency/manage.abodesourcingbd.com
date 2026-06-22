@@ -40,11 +40,14 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
     q: sp.q,
   };
 
+  // Factory/buyer lists power the filter dropdowns only — gate on masterData:view so a
+  // tightly-scoped role (e.g. production-only) can still open this page without a 500.
+  const canMaster = can(actor, "masterData", "view");
   const [book, summary, factories, buyers] = await Promise.all([
     listOpenOrders(actor, filter, { page: Math.max(1, Number(sp.page) || 1) }),
     openOrdersSummary(actor, filter),
-    listFactories(actor),
-    listBuyers(actor),
+    canMaster ? listFactories(actor) : Promise.resolve([]),
+    canMaster ? listBuyers(actor) : Promise.resolve([]),
   ]);
   const facMax = Math.max(1, ...summary.byFactory.map((d) => d.value));
   const buyMax = Math.max(1, ...summary.byBuyer.map((d) => d.value));

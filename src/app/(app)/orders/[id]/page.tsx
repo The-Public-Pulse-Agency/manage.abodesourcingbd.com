@@ -62,7 +62,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // single slowest query, not the sum of all of them.
   const [colours, styles, sizeScales, milestones, samples, production, inspections, balance, documents, invoices, costItems, materials, sub] =
     await Promise.all([
-      listColours(actor),
+      canEditBase ? listColours(actor) : Promise.resolve([]),
       canEditBase ? listStyles(actor, { brandId: po.brandId }) : Promise.resolve([]),
       canEditBase ? listSizeScales(actor) : Promise.resolve([]),
       canTna ? listPoMilestones(actor, po.id, new Date()) : Promise.resolve([]),

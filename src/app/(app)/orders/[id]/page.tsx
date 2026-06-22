@@ -52,6 +52,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const canTna = can(actor, "criticalPath", "view");
   const canSampling = can(actor, "sampling", "view");
   const canPqc = can(actor, "productionQc", "view");
+  const canProduction = can(actor, "production", "view");
   const canShip = can(actor, "shipment", "view");
   const canDocs = can(actor, "documents", "view");
   const canFinance = can(actor, "finance", "view");
@@ -66,7 +67,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       canEditBase ? listSizeScales(actor) : Promise.resolve([]),
       canTna ? listPoMilestones(actor, po.id, new Date()) : Promise.resolve([]),
       canSampling ? listSampleRequests(actor, po.id) : Promise.resolve([]),
-      canPqc ? getProduction(actor, po.id) : Promise.resolve(null),
+      canProduction ? getProduction(actor, po.id) : Promise.resolve(null),
       canPqc ? listInspections(actor, po.id) : Promise.resolve([]),
       canShip && !isDraft ? getPoBalance(actor, po.id) : Promise.resolve([]),
       canDocs ? listDocuments(actor, "PurchaseOrder", po.id) : Promise.resolve([]),
@@ -291,11 +292,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           canEdit={can(actor, "sampling", "edit") && isActive}
         />
       )}
-      {canPqc && !isDraft && production && (
+      {canProduction && !isDraft && production && (
         <ProductionPanel
           poId={po.id}
           production={production}
-          canEdit={can(actor, "productionQc", "edit") && isActive}
+          canEdit={can(actor, "production", "edit") && isActive}
         />
       )}
       {canPqc && !isDraft && (

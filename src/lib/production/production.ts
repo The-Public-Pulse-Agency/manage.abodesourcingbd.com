@@ -39,7 +39,7 @@ export async function orderedQtyFor(actor: SessionUser, poId: string): Promise<n
 
 /** Record cut/sew/finish progress for ONE order line (style/colour). Tenant-scoped. */
 export async function upsertProduction(actor: SessionUser, orderLineId: string, input: ProductionInput) {
-  assertPermission(actor, "productionQc", "edit");
+  assertPermission(actor, "production", "edit");
   const cid = tenantId(actor);
   const line = await prisma.orderLine.findFirst({
     where: { id: orderLineId, companyId: cid },
@@ -107,7 +107,7 @@ export type ProductionView = {
 
 /** Per-line production for a PO (style/colour breakdown) + the overall aggregate. */
 export async function getProduction(actor: SessionUser, poId: string): Promise<ProductionView> {
-  assertPermission(actor, "productionQc", "view");
+  assertPermission(actor, "production", "view");
   const cid = tenantId(actor);
   const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, companyId: cid } });
   if (!po) throw new Error("Purchase order not found");

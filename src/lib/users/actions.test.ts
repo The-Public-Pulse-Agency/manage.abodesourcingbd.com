@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { resetDb } from "@/test/db";
 import { ForbiddenError } from "@/lib/auth/guard";
 import { verifyPassword } from "@/lib/auth/password";
-import { createUser, listUsers, setUserActive } from "./actions";
+import { createUser, deleteUser, listUsers, setUserActive } from "./actions";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const merch = { id: "merch-1", role: "MERCHANDISER" as const, companyId: "test-co" };
@@ -63,6 +63,19 @@ describe("createUser", () => {
     expect(audits).toHaveLength(1);
     expect(audits[0].action).toBe("create");
     expect(audits[0].userId).toBe(admin.id);
+  });
+});
+
+describe("deleteUser", () => {
+  it("deletes a user and refuses self-delete + last-admin removal", async () => {
+    const u = await createUser(admin, { name: "Temp", email: "temp@x.com", password: "password123", role: "MERCHANDISER" });
+    await deleteUser(admin, u.id);
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
+    // can't delete yourself
+    await expect(deleteUser(admin, admin.id)).rejects.toThrow(/your own account/i);
+    // can't delete the last active admin
+    const onlyAdmin = await createUser(admin, { name: "Boss", email: "boss@x.com", password: "password123", role: "ADMIN" });
+    await expect(deleteUser({ ...admin, id: onlyAdmin.id }, onlyAdmin.id)).rejects.toThrow(/your own account/i);
   });
 });
 

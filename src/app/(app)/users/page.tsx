@@ -7,6 +7,7 @@ import { assignableRoles } from "@/lib/auth/roles";
 import { MasterDataTable, type Column } from "@/components/master-data-table";
 import { CreateUserForm } from "./create-user-form";
 import { UserActiveToggle } from "./user-active-toggle";
+import { UserDeleteButton } from "./user-delete-button";
 
 type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
 
@@ -21,16 +22,21 @@ export default async function UsersPage() {
     { header: "Role", cell: (u) => u.role },
     { header: "Active", cell: (u) => (u.active ? "Yes" : "No") },
   ];
-  if (can(actor, "users", "edit")) {
+  const canEdit = can(actor, "users", "edit");
+  const canDelete = can(actor, "users", "delete");
+  if (canEdit || canDelete) {
     columns.push({
       header: "Actions",
       align: "right",
       cell: (u) => (
         <span className="inline-flex items-center gap-3">
-          <Link href={`/users/${u.id}/edit`} className="text-accent hover:underline">
-            Edit
-          </Link>
-          <UserActiveToggle id={u.id} active={u.active} />
+          {canEdit && (
+            <Link href={`/users/${u.id}/edit`} className="text-accent hover:underline">
+              Edit
+            </Link>
+          )}
+          {canEdit && <UserActiveToggle id={u.id} active={u.active} />}
+          {canDelete && u.id !== actor.id && <UserDeleteButton id={u.id} name={u.name} />}
         </span>
       ),
     });

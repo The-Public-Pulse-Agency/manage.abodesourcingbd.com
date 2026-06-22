@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/guard";
-import { createUser, setUserActive, updateUser } from "./actions";
+import { createUser, deleteUser, setUserActive, updateUser } from "./actions";
 import { createUserSchema, updateUserSchema } from "./schema";
 
 export async function createUserFromForm(
@@ -39,6 +39,20 @@ export async function updateUserFromForm(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   try {
     await updateUser(actor, id, parsed.data);
+    revalidatePath("/users");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+export async function deleteUserFromForm(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Not authenticated" };
+  try {
+    await deleteUser(actor, id);
     revalidatePath("/users");
     return { ok: true };
   } catch (e) {

@@ -143,6 +143,30 @@ export async function updateUser(
   return user;
 }
 
+export async function deleteUser(actor: SessionUser, userId: string): Promise<void> {
+  assertPermission(actor, "users", "delete");
+  const cid = tenantId(actor);
+  if (userId === actor.id) throw new Error("You can't delete your own account");
+  const target = await prisma.user.findFirst({
+    where: { id: userId, companyId: cid },
+    select: { id: true, role: true, active: true, name: true, email: true },
+  });
+  if (!target) throw new Error("User not found");
+  // Never delete the last active admin (would lock the company out).
+  if (target.role === "ADMIN" && target.active) {
+    await ensureNotLastAdmin(cid, userId, false);
+  }
+  // Notifications cascade (FK onDelete: Cascade); audit/uploadedBy/approvedBy are soft refs.
+  await prisma.user.delete({ where: { id: userId } });
+  await recordAudit({
+    userId: actor.id,
+    entityType: "User",
+    entityId: userId,
+    action: "delete",
+    before: { name: target.name, email: target.email, role: target.role },
+  });
+}
+
 export async function setUserActive(
   actor: SessionUser,
   userId: string,

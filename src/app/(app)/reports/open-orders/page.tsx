@@ -16,6 +16,7 @@ import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, delet
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
 import { RowCloseButton } from "@/components/reports/row-close-button";
 import { ColourCell } from "@/components/reports/colour-cell";
+import { ReportPeriodFilter } from "@/components/reports/report-period-filter";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value (USD)", "Confirmed ship", "CRD", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
@@ -28,7 +29,7 @@ function Cell({ c }: { c: StatusCell }) {
   return <span className="inline-flex rounded-sm bg-warn-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-warn">pending</span>;
 }
 
-type SP = { page?: string; status?: string; factory?: string; buyer?: string; q?: string };
+type SP = { page?: string; status?: string; factory?: string; buyer?: string; q?: string; shipYear?: string; shipMonth?: string };
 
 export default async function OpenOrdersReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
@@ -39,7 +40,12 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
     factoryIds: sp.factory ? sp.factory.split(",").filter(Boolean) : undefined,
     buyerIds: sp.buyer ? sp.buyer.split(",").filter(Boolean) : undefined,
     q: sp.q,
+    shipYear: sp.shipYear,
+    shipMonth: sp.shipMonth,
   };
+  // Year options for the ship-period filter: a window around the current year.
+  const thisYear = new Date().getUTCFullYear();
+  const years = [thisYear - 1, thisYear, thisYear + 1, thisYear + 2];
 
   // Factory/buyer lists power the filter dropdowns only — gate on masterData:view so a
   // tightly-scoped role (e.g. production-only) can still open this page without a 500.
@@ -98,6 +104,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               ]}
             />
           </div>
+          <ReportPeriodFilter years={years} />
           <ExportButton filename="open-orders.csv" headers={EXPORT_HEADERS} action={openOrdersExportAction as (a: unknown) => Promise<(string | number)[][]>} actionArg={filter} />
         </div>
 

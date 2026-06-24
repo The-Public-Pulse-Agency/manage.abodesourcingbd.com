@@ -70,7 +70,16 @@ export type OpenOrderRow = {
   remarks: string;
 };
 
-export type OpenOrdersFilter = { status?: string; factoryIds?: string[]; buyerIds?: string[]; q?: string };
+export type OpenOrdersFilter = { status?: string; factoryIds?: string[]; buyerIds?: string[]; q?: string; shipYear?: string; shipMonth?: string };
+
+/** [start, end) UTC range for a ship year (+ optional 1-12 month), or null when no period filter. */
+export function shipDateRange(year?: string, month?: string): { gte: Date; lt: Date } | null {
+  const y = Number(year);
+  if (!year || !Number.isFinite(y)) return null;
+  const mo = month ? Number(month) : 0;
+  if (mo >= 1 && mo <= 12) return { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) };
+  return { gte: new Date(Date.UTC(y, 0, 1)), lt: new Date(Date.UTC(y + 1, 0, 1)) };
+}
 
 const KEY = {
   trims: "TRIMS_BOOKED",
@@ -95,9 +104,11 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
       : { in: [...OPEN_STATUSES] };
   const q = f.q?.trim();
   const ci = (s: string) => ({ contains: s, mode: "insensitive" as const });
+  const ship = shipDateRange(f.shipYear, f.shipMonth); // by confirmed ship / ex-factory date
   return {
     companyId: tenantId(actor),
     status,
+    ...(ship ? { exFactoryDate: ship } : {}),
     ...(f.factoryIds?.length ? { factoryId: { in: f.factoryIds } } : {}),
     ...(f.buyerIds?.length ? { buyerId: { in: f.buyerIds } } : {}),
     ...(q

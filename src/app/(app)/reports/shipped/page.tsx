@@ -6,6 +6,7 @@ import { shippedGoodsReport, type ShippedRow } from "@/lib/reports/shipped";
 import { formatQty } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
 import { ShippedTable } from "@/components/reports/shipped-table";
+import { ReportPeriodFilter } from "@/components/reports/report-period-filter";
 import { Pagination } from "@/components/pagination";
 
 function topBy(rows: ShippedRow[], key: (r: ShippedRow) => string, val: (r: ShippedRow) => number, n = 7) {
@@ -14,14 +15,19 @@ function topBy(rows: ShippedRow[], key: (r: ShippedRow) => string, val: (r: Ship
   return [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, n);
 }
 
-type SP = { page?: string };
+type SP = { page?: string; shipYear?: string; shipMonth?: string };
 
 export default async function ShippedReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
   if (!actor || !can(actor, "shipment", "view")) redirect("/dashboard");
   const sp = await searchParams;
-  const report = await shippedGoodsReport(actor, { page: Math.max(1, Number(sp.page) || 1) });
+  const report = await shippedGoodsReport(actor, {
+    page: Math.max(1, Number(sp.page) || 1),
+    filter: { shipYear: sp.shipYear, shipMonth: sp.shipMonth },
+  });
   const { rows, kpis } = report;
+  const thisYear = new Date().getUTCFullYear();
+  const years = [thisYear - 1, thisYear, thisYear + 1, thisYear + 2];
 
   // Headline KPIs span ALL shipments (DB aggregate), not just the visible page.
   const totalQty = kpis.totalQty;
@@ -71,6 +77,10 @@ export default async function ShippedReportPage({ searchParams }: { searchParams
       </div>
 
       <div className="rise space-y-3" style={{ animationDelay: "180ms" }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-ink-soft">Ship period</span>
+          <ReportPeriodFilter years={years} />
+        </div>
         <ShippedTable
           rows={rows}
           canEditShipment={can(actor, "shipment", "edit")}

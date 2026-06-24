@@ -1,5 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { shipDateRange } from "./open-orders";
 
 type InvLite = { id: string; type: string; number: string; amount: unknown; status: string; currency: string; dueDate: Date | null };
 const INV_SELECT = { id: true, type: true, number: true, amount: true, status: true, currency: true, dueDate: true } as const;
@@ -67,13 +69,20 @@ export type ShippedReport = {
  * the displayed invoiceValue/paymentStatus, falling back to a FACTORY invoice then the
  * lowest-id invoice. qty still sums all shipment lines (it is shipment-level, not per-invoice).
  */
+export type ShippedFilter = { shipYear?: string; shipMonth?: string };
+
 export async function shippedGoodsReport(
   actor: SessionUser,
-  opts: { page?: number; pageSize?: number } = {},
+  opts: { page?: number; pageSize?: number; filter?: ShippedFilter } = {},
 ): Promise<ShippedReport> {
   assertPermission(actor, "shipment", "view");
   const cid = tenantId(actor);
-  const where = { companyId: cid };
+  // Optional ship-period filter: shipment ship date = exFactoryDate ?? blDate, so match either.
+  const ship = shipDateRange(opts.filter?.shipYear, opts.filter?.shipMonth);
+  const where: Prisma.ShipmentWhereInput = {
+    companyId: cid,
+    ...(ship ? { OR: [{ exFactoryDate: ship }, { exFactoryDate: null, blDate: ship }] } : {}),
+  };
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 50));
   const total = await prisma.shipment.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -147,7 +156,7 @@ export async function shippedGoodsReport(
     };
   });
 
-  const kpis = await shippedReportKpis(cid);
+  const kpis = await shippedReportKpis(where);
   return { rows, total, page, pageSize, totalPages, kpis };
 }
 
@@ -157,12 +166,12 @@ export async function shippedGoodsReport(
  * invoice), deduped so a PO invoice shared by two shipments isn't counted twice. USD-scoped
  * for the value (single-currency contract — no FX mixing).
  */
-async function shippedReportKpis(companyId: string | null) {
+async function shippedReportKpis(where: Prisma.ShipmentWhereInput) {
   const [shipments, qtyAgg, all] = await Promise.all([
-    prisma.shipment.count({ where: { companyId } }),
-    prisma.shipmentLineSize.aggregate({ where: { companyId }, _sum: { qty: true } }),
+    prisma.shipment.count({ where }),
+    prisma.shipmentLineSize.aggregate({ where: { shipmentLine: { shipment: where } }, _sum: { qty: true } }),
     prisma.shipment.findMany({
-      where: { companyId },
+      where,
       select: {
         invoices: { select: INV_SELECT },
         lines: { select: { orderLine: { select: { po: { select: { invoices: { select: INV_SELECT } } } } } } },

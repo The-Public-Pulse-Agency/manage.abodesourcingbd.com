@@ -49,6 +49,8 @@ export type OpenOrderRow = {
   totalValue: number;
   currency: string;
   styles: string;
+  // Per-style breakdown (remaining qty/value), so the report can show one row per style.
+  styleBreakdown: { style: string; sizes: string; colours: string; qty: number; value: number }[];
   labDip: StatusCell;
   knitting: StatusCell;
   firstSample: StatusCell;
@@ -146,6 +148,25 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
   // Open qty/value = remaining balance (ordered − shipped), so a partly-shipped PO shows
   // only what's still to ship.
   const totals = remainingTotals(po.lines as unknown as LineForBalance[]);
+  // Per-style breakdown: group the PO's lines by style code, each with its own remaining
+  // qty/value + sizes/colours, so the report can render one row per style.
+  const byStyle = new Map<string, PoForRow["lines"]>();
+  for (const l of po.lines) {
+    const code = l.style?.styleCode ?? "—";
+    const arr = byStyle.get(code) ?? [];
+    arr.push(l);
+    byStyle.set(code, arr);
+  }
+  const styleBreakdown = [...byStyle.entries()].map(([style, lines]) => {
+    const t = remainingTotals(lines as unknown as LineForBalance[]);
+    return {
+      style,
+      sizes: [...new Set(lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ") || "—",
+      colours: [...new Set(lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ") || "—",
+      qty: t.qty,
+      value: t.value,
+    };
+  });
   return {
     id: po.id,
     poNumber: po.poNumber,
@@ -163,6 +184,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     totalValue: totals.value,
     currency: po.currency,
     styles: styles || "—",
+    styleBreakdown: styleBreakdown.length ? styleBreakdown : [{ style: "—", sizes: sizes || "—", colours: colours || "—", qty: totals.qty, value: totals.value }],
     labDip: cell(KEY.labDip),
     knitting: cell(KEY.knitting),
     firstSample: cell(KEY.firstSample),

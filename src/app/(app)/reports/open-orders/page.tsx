@@ -115,38 +115,60 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
             </thead>
             <tbody>
               {book.rows.length === 0 && <tr><td colSpan={27} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
-              {book.rows.map((r) => (
-                <tr key={r.id} className="border-b border-line last:border-0">
-                  <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
-                  <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
-                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell> : formatDate(r.poReceiveDate)}</td>
-                  <td className="px-3 py-2">{r.factory}</td>
-                  <td className="px-3 py-2">{r.buyer}</td>
-                  <td className="px-3 py-2">{r.brand}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{r.styles.split(", ").map((s, i) => <div key={i}>{s}</div>)}</td>
-                  <td className="px-3 py-2 text-xs">{r.sizes}</td>
-                  <td className="px-3 py-2 text-xs">{r.colours}</td>
-                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
-                  <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
-                  <td className="px-3 py-2 text-right tnum">{formatQty(r.qty)}</td>
-                  <td className="px-3 py-2 text-right tnum">{r.totalValue > 0 ? formatMoney(r.totalValue, r.currency) : "—"}</td>
-                  <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
-                  <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.cutting} /></td>
-                  <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
-                  <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
-                  <td className="px-3 py-2 text-xs">{canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
-                  <td className="px-3 py-2"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
-                  <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
-                  <td className="px-3 py-2">
-                    {canEditOrders || canDeleteOrders ? (
-                      <span className="inline-flex items-center gap-3">
-                        {canEditOrders && r.status === "PARTLY_SHIPPED" && <RowCloseButton action={closeOrderAction} id={r.id} />}
-                        {canDeleteOrders && <RowDeleteButton action={deleteOrderAction} id={r.id} />}
-                      </span>
-                    ) : <span className="text-ink-soft">—</span>}
-                  </td>
-                </tr>
-              ))}
+              {book.rows.flatMap((r) => {
+                const sb = r.styleBreakdown;
+                const n = sb.length;
+                return sb.map((s, i) => (
+                  <tr key={`${r.id}-${i}`} className="border-b border-line">
+                    {i === 0 && (
+                      <>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell> : formatDate(r.poReceiveDate)}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top">{r.factory}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top">{r.buyer}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top">{r.brand}</td>
+                      </>
+                    )}
+                    <td className="px-3 py-2 font-mono text-xs">{s.style}</td>
+                    <td className="px-3 py-2 text-xs">{s.sizes}</td>
+                    <td className="px-3 py-2 text-xs">{s.colours}</td>
+                    {i === 0 && (
+                      <>
+                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
+                      </>
+                    )}
+                    <td className="px-3 py-2 text-right tnum">{formatQty(s.qty)}</td>
+                    <td className="px-3 py-2 text-right tnum">{s.value > 0 ? formatMoney(s.value, r.currency) : "—"}</td>
+                    {i === 0 && (
+                      <>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.trims} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.yarn} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.dyeing} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.bulkShade} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.ppSample} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.cutting} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.bulkSewing} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.printEmb} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.topSample} /></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top text-xs">{canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
+                        <td rowSpan={n} className="px-3 py-2 align-top">
+                          {canEditOrders || canDeleteOrders ? (
+                            <span className="inline-flex items-center gap-3">
+                              {canEditOrders && r.status === "PARTLY_SHIPPED" && <RowCloseButton action={closeOrderAction} id={r.id} />}
+                              {canDeleteOrders && <RowDeleteButton action={deleteOrderAction} id={r.id} />}
+                            </span>
+                          ) : <span className="text-ink-soft">—</span>}
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ));
+              })}
             </tbody>
           </table>
         </div>

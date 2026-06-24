@@ -12,6 +12,7 @@ export type BoardItem = {
   poNumber: string;
   buyer: string;
   factory: string;
+  style: string | null;
   name: string;
   stage: string;
   plannedDate: Date | null;
@@ -73,7 +74,7 @@ export async function criticalPathBoard(
       plannedDate: { not: null, lt: horizon },
       po: { status: { notIn: [...ATTENTION_EXCLUDED] } },
     },
-    include: { po: { include: { buyer: true, factory: true } } },
+    include: { po: { include: { buyer: true, factory: true } }, style: { select: { styleCode: true } } },
     orderBy: { plannedDate: "asc" },
   });
 
@@ -84,6 +85,7 @@ export async function criticalPathBoard(
       poNumber: m.po.poNumber,
       buyer: m.po.buyer.name,
       factory: m.po.factory.name,
+      style: m.style?.styleCode ?? null,
       name: m.name,
       stage: m.stage,
       plannedDate: m.plannedDate,

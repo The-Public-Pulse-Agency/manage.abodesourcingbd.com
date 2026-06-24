@@ -13,6 +13,7 @@ type Milestone = {
   actualDate: string | Date | null;
   note: string | null;
   rag: string;
+  style: string | null;
 };
 
 function fmt(d: string | Date | null): string {
@@ -107,7 +108,25 @@ export function TnaTimeline({
           </tr>
         </thead>
         <tbody>
-          {milestones.map((m) => (
+          {(() => {
+            // Group by style (per-style follow-up). Show a style header when more than one
+            // group exists or any milestone carries a style.
+            const groups = new Map<string | null, Milestone[]>();
+            for (const m of milestones) {
+              const k = m.style ?? null;
+              const arr = groups.get(k) ?? [];
+              arr.push(m);
+              groups.set(k, arr);
+            }
+            const multi = groups.size > 1 || [...groups.keys()].some(Boolean);
+            const colCount = canEdit ? 7 : 6;
+            return [...groups.entries()].flatMap(([style, ms]) => [
+              multi ? (
+                <tr key={`hdr-${style ?? "po"}`} className="bg-paper">
+                  <td colSpan={colCount} className="px-3 py-1.5 font-mono text-xs font-semibold text-ink">{style ?? "All styles"}</td>
+                </tr>
+              ) : null,
+              ...ms.map((m) => (
             <tr key={m.id} className="border-b border-line last:border-0">
               <td className="px-3 py-1.5 text-xs text-ink-soft">{m.stage.replace(/_/g, " ")}</td>
               <td className="px-3 py-1.5">{m.name}</td>
@@ -179,7 +198,9 @@ export function TnaTimeline({
                 </td>
               )}
             </tr>
-          ))}
+              )),
+            ]);
+          })()}
         </tbody>
       </table>
     </div>

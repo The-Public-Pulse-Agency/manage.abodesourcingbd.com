@@ -425,6 +425,7 @@ model Style {
   defaultSizeScale   SizeScale? @relation(fields: [defaultSizeScaleId], references: [id])
   active             Boolean    @default(true)
   orderLines         OrderLine[]
+  milestones         TaMilestone[]
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
@@ -553,6 +554,9 @@ model TaMilestone {
   companyId String?
   poId        String
   po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  // Per-style follow-up: new orders get one milestone set per style. Null = legacy PO-level set.
+  styleId     String?
+  style       Style?        @relation(fields: [styleId], references: [id], onDelete: Cascade)
   key         String
   name        String
   stage       TaStage
@@ -564,8 +568,9 @@ model TaMilestone {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  @@unique([poId, key])
+  @@unique([poId, styleId, key])
   @@index([plannedDate])
+  @@index([styleId])
 }
 
 enum SampleType {

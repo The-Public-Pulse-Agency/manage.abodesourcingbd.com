@@ -17,9 +17,9 @@ export async function openOrdersExportAction(filter: OpenOrdersFilter): Promise<
       r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.brand,
       s.style, s.sizes, s.colours, s.qty, s.value || 0,
       formatDate(r.confirmedShipDate), formatDate(r.crd),
-      cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample),
-      cellText(r.cutting), cellText(r.bulkSewing), cellText(r.printEmb), cellText(r.topSample),
-      formatDate(r.finalInspectionDate), r.remarks,
+      cellText(s.trims), cellText(s.yarn), cellText(s.dyeing), cellText(s.bulkShade), cellText(s.ppSample),
+      cellText(s.cutting), cellText(s.bulkSewing), cellText(s.printEmb), cellText(s.topSample),
+      formatDate(s.finalInspectionDate), r.remarks,
     ]),
   );
 }

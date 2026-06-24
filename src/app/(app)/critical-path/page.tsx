@@ -53,6 +53,7 @@ export default async function CriticalPathPage() {
               <th className="px-3 py-2 font-semibold">Milestone</th>
               <th className="px-3 py-2 font-semibold">Stage</th>
               <th className="px-3 py-2 font-semibold">PO</th>
+              <th className="px-3 py-2 font-semibold">Style</th>
               <th className="px-3 py-2 font-semibold">Buyer</th>
               <th className="px-3 py-2 font-semibold">Factory</th>
               <th className="px-3 py-2 font-semibold">Planned</th>
@@ -62,7 +63,7 @@ export default async function CriticalPathPage() {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-10 text-center text-ink-soft">
+                <td colSpan={8} className="px-3 py-10 text-center text-ink-soft">
                   Nothing due soon or overdue. 🎉
                 </td>
               </tr>
@@ -76,6 +77,7 @@ export default async function CriticalPathPage() {
                     {m.poNumber}
                   </Link>
                 </td>
+                <td className="px-3 py-2 font-mono text-xs">{m.style ?? "—"}</td>
                 <td className="px-3 py-2">{m.buyer}</td>
                 <td className="px-3 py-2">{m.factory}</td>
                 <td className="px-3 py-2 tnum text-xs">{formatDate(m.plannedDate)}</td>

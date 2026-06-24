@@ -24,17 +24,25 @@ export async function instantiateMilestones(
     orderBy: { position: "asc" },
   });
   if (templates.length === 0) return; // seed must run; no milestones rather than a crash
+  // Per-style follow-up: one milestone set per DISTINCT style on the PO. If the PO has no
+  // lines yet, fall back to a single PO-level set (styleId null).
+  const lines = await client.orderLine.findMany({ where: { poId, companyId }, select: { styleId: true } });
+  const styleIds = [...new Set(lines.map((l) => l.styleId).filter(Boolean) as string[])];
+  const targets: (string | null)[] = styleIds.length ? styleIds : [null];
   await client.taMilestone.createMany({
-    data: templates.map((t) => ({
-      companyId,
-      poId,
-      key: t.key,
-      name: t.name,
-      stage: t.stage,
-      position: t.position,
-      offsetDays: t.offsetDays,
-      plannedDate: plannedDateFor(po.exFactoryDate, t.offsetDays),
-    })),
+    data: targets.flatMap((styleId) =>
+      templates.map((t) => ({
+        companyId,
+        poId,
+        styleId,
+        key: t.key,
+        name: t.name,
+        stage: t.stage,
+        position: t.position,
+        offsetDays: t.offsetDays,
+        plannedDate: plannedDateFor(po.exFactoryDate, t.offsetDays),
+      })),
+    ),
     skipDuplicates: true,
   });
 }
@@ -130,6 +138,7 @@ export type MilestoneView = {
   actualDate: Date | null;
   note: string | null;
   rag: Rag;
+  style: string | null; // styleCode this milestone belongs to (null = PO-level / legacy)
 };
 
 export async function listPoMilestones(
@@ -140,7 +149,8 @@ export async function listPoMilestones(
   assertPermission(actor, "criticalPath", "view");
   const ms = await prisma.taMilestone.findMany({
     where: { poId, companyId: tenantId(actor) },
-    orderBy: { position: "asc" },
+    include: { style: { select: { styleCode: true } } },
+    orderBy: [{ styleId: "asc" }, { position: "asc" }],
   });
   return ms.map((m) => ({
     id: m.id,
@@ -152,6 +162,7 @@ export async function listPoMilestones(
     actualDate: m.actualDate,
     note: m.note,
     rag: computeRag(m.plannedDate, m.actualDate, now),
+    style: m.style?.styleCode ?? null,
   }));
 }
 

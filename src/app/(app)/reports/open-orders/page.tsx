@@ -136,10 +136,10 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                     {/* Dates moved here, after Value */}
                     <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
                     <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
-                    <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
-                    <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.cutting} /></td>
-                    <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
-                    <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
+                    <td className="px-3 py-2"><Cell c={s.trims} /></td><td className="px-3 py-2"><Cell c={s.yarn} /></td><td className="px-3 py-2"><Cell c={s.dyeing} /></td>
+                    <td className="px-3 py-2"><Cell c={s.bulkShade} /></td><td className="px-3 py-2"><Cell c={s.ppSample} /></td><td className="px-3 py-2"><Cell c={s.cutting} /></td>
+                    <td className="px-3 py-2"><Cell c={s.bulkSewing} /></td><td className="px-3 py-2"><Cell c={s.printEmb} /></td><td className="px-3 py-2"><Cell c={s.topSample} /></td>
+                    <td className="px-3 py-2 tnum text-xs">{formatDate(s.finalInspectionDate)}</td>
                     <td className="px-3 py-2 text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                     {/* Actions: once per PO (these act on the whole order). */}
                     {i === 0 && (

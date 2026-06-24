@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
-import { businessToday } from "@/lib/tna/schedule";
 import { lineMills, rollup, type Decimalish } from "@/lib/orders/money";
 import { remainingBySize } from "@/lib/shipment/balance";
 
@@ -30,8 +29,6 @@ function remainingTotals(lines: LineForBalance[]) {
 const OPEN_STATUSES = ["DRAFT", "CONFIRMED", "IN_PRODUCTION", "PARTLY_SHIPPED", "ON_HOLD"] as const;
 const SUMMARY_CAP = 20_000; // bound the per-PO balance projection at extreme scale
 
-export type StatusCell = { state: "done" | "overdue" | "pending" | "na"; date: Date | null };
-
 export type OpenOrderRow = {
   id: string;
   poNumber: string;
@@ -49,24 +46,9 @@ export type OpenOrderRow = {
   totalValue: number;
   currency: string;
   styles: string;
-  // Per-style breakdown (remaining qty/value + that style's own follow-up RAG cells), so the
-  // report can show one row per style with independent critical-path status.
-  styleBreakdown: ({ style: string; sizes: string; colours: string; qty: number; value: number } & MilestoneCells)[];
-  labDip: StatusCell;
-  knitting: StatusCell;
-  firstSample: StatusCell;
-  secondSample: StatusCell;
-  finalSampleDate: Date | null;
-  trims: StatusCell;
-  yarn: StatusCell;
-  dyeing: StatusCell;
-  bulkShade: StatusCell;
-  ppSample: StatusCell;
-  cutting: StatusCell;
-  bulkSewing: StatusCell;
-  printEmb: StatusCell;
-  topSample: StatusCell;
-  finalInspectionDate: Date | null;
+  // Per-style breakdown (remaining qty/value), so the report shows one row per style. Critical-
+  // path / follow-up status lives on the Critical Path page + order detail, not here.
+  styleBreakdown: { style: string; sizes: string; colours: string; qty: number; value: number }[];
   remarks: string;
 };
 
@@ -80,22 +62,6 @@ export function shipDateRange(year?: string, month?: string): { gte: Date; lt: D
   if (mo >= 1 && mo <= 12) return { gte: new Date(Date.UTC(y, mo - 1, 1)), lt: new Date(Date.UTC(y, mo, 1)) };
   return { gte: new Date(Date.UTC(y, 0, 1)), lt: new Date(Date.UTC(y + 1, 0, 1)) };
 }
-
-const KEY = {
-  trims: "TRIMS_BOOKED",
-  yarn: "FABRIC_BOOKED",
-  dyeing: "FABRIC_IN",
-  bulkShade: "LAB_DIP",
-  ppSample: "PP_SAMPLE",
-  cutting: "CUTTING",
-  bulkSewing: "SEWING",
-  printEmb: "PRINT_EMB",
-  topSample: "TOP_SAMPLE",
-  labDip: "LAB_DIP",
-  knitting: "KNITTING",
-  firstSample: "FIRST_SAMPLE",
-  secondSample: "SECOND_SAMPLE",
-} as const;
 
 function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrderWhereInput {
   const status =
@@ -132,7 +98,6 @@ type PoForRow = Prisma.PurchaseOrderGetPayload<{
     factory: true;
     brand: true;
     lines: { include: { sizes: true; colour: true; style: true; shipmentLines: { include: { sizes: true } } } };
-    milestones: { select: { key: true; plannedDate: true; actualDate: true; styleId: true } };
   };
 }>;
 
@@ -142,54 +107,17 @@ const ROW_INCLUDE = {
   factory: true,
   brand: true,
   lines: { include: { sizes: true, colour: true, style: true, shipmentLines: { include: { sizes: true } } } },
-  milestones: { select: { key: true, plannedDate: true, actualDate: true, styleId: true } },
 } satisfies Prisma.PurchaseOrderInclude;
 
-type MsLite = { key: string; plannedDate: Date | null; actualDate: Date | null; styleId: string | null };
-export type MilestoneCells = {
-  labDip: StatusCell; knitting: StatusCell; firstSample: StatusCell; secondSample: StatusCell; finalSampleDate: Date | null;
-  trims: StatusCell; yarn: StatusCell; dyeing: StatusCell; bulkShade: StatusCell; ppSample: StatusCell;
-  cutting: StatusCell; bulkSewing: StatusCell; printEmb: StatusCell; topSample: StatusCell; finalInspectionDate: Date | null;
-};
-
-/** Build the RAG status cells from a set of milestones (case-tolerant keys). */
-function cellsFrom(ms: MsLite[], today: Date): MilestoneCells {
-  const byKey = new Map(ms.map((m) => [m.key.toUpperCase(), m]));
-  const cell = (k: string): StatusCell => {
-    const m = byKey.get(k.toUpperCase());
-    if (!m) return { state: "na", date: null };
-    if (m.actualDate) return { state: "done", date: m.actualDate };
-    if (m.plannedDate && m.plannedDate < today) return { state: "overdue", date: m.plannedDate };
-    return { state: "pending", date: m.plannedDate };
-  };
-  return {
-    labDip: cell(KEY.labDip), knitting: cell(KEY.knitting), firstSample: cell(KEY.firstSample), secondSample: cell(KEY.secondSample),
-    finalSampleDate: byKey.get("FINAL_SAMPLE")?.actualDate ?? null,
-    trims: cell(KEY.trims), yarn: cell(KEY.yarn), dyeing: cell(KEY.dyeing), bulkShade: cell(KEY.bulkShade), ppSample: cell(KEY.ppSample),
-    cutting: cell(KEY.cutting), bulkSewing: cell(KEY.bulkSewing), printEmb: cell(KEY.printEmb), topSample: cell(KEY.topSample),
-    finalInspectionDate: byKey.get("FINAL_AQL")?.actualDate ?? null,
-  };
-}
-
-function mapRow(po: PoForRow, today: Date): OpenOrderRow {
-  // Group milestones by styleId (null = legacy PO-level set).
-  const msByStyle = new Map<string | null, MsLite[]>();
-  for (const m of po.milestones) {
-    const sid = m.styleId ?? null;
-    const arr = msByStyle.get(sid) ?? [];
-    arr.push(m);
-    msByStyle.set(sid, arr);
-  }
-  const poLevelCells = cellsFrom(po.milestones, today); // aggregate / legacy fallback
-
+function mapRow(po: PoForRow): OpenOrderRow {
   const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
   const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
   const styles = [...new Set(po.lines.map((l) => l.style?.styleCode).filter(Boolean) as string[])].join(", ");
   // Open qty/value = remaining balance (ordered − shipped), so a partly-shipped PO shows
   // only what's still to ship.
   const totals = remainingTotals(po.lines as unknown as LineForBalance[]);
-  // Per-style breakdown: group the PO's lines by styleId, each with its own remaining qty/value,
-  // sizes/colours, AND its own follow-up RAG cells (falling back to PO-level for legacy orders).
+  // Per-style breakdown: group the PO's lines by styleId, each with its own remaining qty/value
+  // + sizes/colours, so the report can render one row per style.
   const byStyle = new Map<string | null, PoForRow["lines"]>();
   for (const l of po.lines) {
     const sid = l.styleId ?? null;
@@ -197,16 +125,14 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     arr.push(l);
     byStyle.set(sid, arr);
   }
-  const styleBreakdown = [...byStyle.entries()].map(([sid, lines]) => {
+  const styleBreakdown = [...byStyle.entries()].map(([, lines]) => {
     const t = remainingTotals(lines as unknown as LineForBalance[]);
-    const ms = (sid && msByStyle.get(sid)) || msByStyle.get(null) || po.milestones;
     return {
       style: lines[0]?.style?.styleCode ?? "—",
       sizes: [...new Set(lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ") || "—",
       colours: [...new Set(lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ") || "—",
       qty: t.qty,
       value: t.value,
-      ...cellsFrom(ms, today),
     };
   });
   return {
@@ -226,8 +152,7 @@ function mapRow(po: PoForRow, today: Date): OpenOrderRow {
     totalValue: totals.value,
     currency: po.currency,
     styles: styles || "—",
-    styleBreakdown: styleBreakdown.length ? styleBreakdown : [{ style: "—", sizes: sizes || "—", colours: colours || "—", qty: totals.qty, value: totals.value, ...poLevelCells }],
-    ...poLevelCells,
+    styleBreakdown: styleBreakdown.length ? styleBreakdown : [{ style: "—", sizes: sizes || "—", colours: colours || "—", qty: totals.qty, value: totals.value }],
     remarks: po.notes ?? "",
   };
 }
@@ -239,7 +164,6 @@ export async function listOpenOrders(
   opts: { page?: number; pageSize?: number; now?: Date } = {},
 ) {
   assertPermission(actor, "orders", "view");
-  const today = businessToday(opts.now ?? new Date());
   const where = whereFor(actor, filter);
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 50));
   const total = await prisma.purchaseOrder.count({ where });
@@ -252,7 +176,7 @@ export async function listOpenOrders(
     skip: (page - 1) * pageSize,
     take: pageSize,
   });
-  return { rows: pos.map((po) => mapRow(po, today)), total, page, pageSize, totalPages };
+  return { rows: pos.map((po) => mapRow(po)), total, page, pageSize, totalPages };
 }
 
 export type OpenOrdersSummary = {
@@ -308,12 +232,11 @@ export async function openOrdersSummary(actor: SessionUser, filter: OpenOrdersFi
 /** All filtered rows for CSV export (bounded). */
 export async function openOrdersForExport(actor: SessionUser, filter: OpenOrdersFilter): Promise<OpenOrderRow[]> {
   assertPermission(actor, "orders", "view");
-  const today = businessToday(new Date());
   const pos = await prisma.purchaseOrder.findMany({
     where: whereFor(actor, filter),
     include: ROW_INCLUDE,
     orderBy: [{ exFactoryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     take: 5_000,
   });
-  return pos.map((po) => mapRow(po, today));
+  return pos.map((po) => mapRow(po));
 }

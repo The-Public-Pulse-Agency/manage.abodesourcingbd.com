@@ -27,6 +27,7 @@ export type ShippedRow = {
   factory: string;
   buyer: string;
   brand: string;
+  styles: string;
   sizes: string;
   colours: string;
   qty: number;
@@ -85,7 +86,7 @@ export async function shippedGoodsReport(
       lines: {
         include: {
           sizes: true,
-          orderLine: { include: { colour: true, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
+          orderLine: { include: { colour: true, style: true, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
         },
       },
     },
@@ -114,6 +115,7 @@ export async function shippedGoodsReport(
     const firstPo = s.lines.find((l) => l.orderLine?.po)?.orderLine?.po;
     const sizes = [...new Set(s.lines.flatMap((l) => l.sizes.map((z) => z.label)))].join(", ");
     const colours = [...new Set(s.lines.map((l) => l.orderLine?.colour?.name).filter(Boolean) as string[])].join(", ");
+    const styles = [...new Set(s.lines.map((l) => l.orderLine?.style?.styleCode).filter(Boolean) as string[])].join(", ");
     const qty = s.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
     // Shipment-linked invoice preferred, else the shipment's PO invoice(s) (receivable-first).
     const poInvoices = s.lines.flatMap((l) => l.orderLine?.po?.invoices ?? []) as InvLite[];
@@ -126,6 +128,7 @@ export async function shippedGoodsReport(
       factory: firstPo?.factory?.name ?? "—",
       buyer: firstPo?.buyer?.name ?? "—",
       brand: firstPo?.brand?.name ?? "—",
+      styles: styles || "—",
       sizes: sizes || "—",
       colours: colours || "—",
       qty,

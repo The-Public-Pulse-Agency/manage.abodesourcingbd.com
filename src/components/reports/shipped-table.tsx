@@ -13,7 +13,7 @@ import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc,
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Size", "Colour", "Qty", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -61,7 +61,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.sizes, r.colours, r.qty, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours, r.qty, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -76,6 +76,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
               <th className="px-3 py-2.5 font-semibold">Factory</th>
               <th className="px-3 py-2.5 font-semibold">Buyer</th>
               <th className="px-3 py-2.5 font-semibold">Brand</th>
+              <th className="px-3 py-2.5 font-semibold">Style</th>
               <th className="px-3 py-2.5 font-semibold">Size</th>
               <th className="px-3 py-2.5 font-semibold">Colour</th>
               <th className="px-3 py-2.5 text-right font-semibold">Qty</th>
@@ -94,7 +95,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={20} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={21} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
@@ -102,6 +103,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                 <td className="px-3 py-2">{r.factory}</td>
                 <td className="px-3 py-2">{r.buyer}</td>
                 <td className="px-3 py-2">{r.brand}</td>
+                <td className="px-3 py-2 font-mono text-xs">{r.styles}</td>
                 <td className="px-3 py-2 text-xs">{r.sizes}</td>
                 <td className="px-3 py-2 text-xs">{r.colours}</td>
                 <td className="px-3 py-2 text-right tnum">
@@ -148,7 +150,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
           {filtered.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-ink bg-paper font-semibold">
-                <td className="px-3 py-2.5" colSpan={7}>{formatQty(filtered.length)} shipments</td>
+                <td className="px-3 py-2.5" colSpan={8}>{formatQty(filtered.length)} shipments</td>
                 <td className="px-3 py-2.5 text-right tnum">{formatQty(totalQty)}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>

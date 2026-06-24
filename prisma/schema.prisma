@@ -348,6 +348,7 @@ model Factory {
   contactName  String?
   contactEmail String?
   contactPhone String?
+  remarks      String? // certification notes, e.g. "applied for SEDEX renewal 12 Jun"
   active       Boolean     @default(true)
   orders       PurchaseOrder[]
   lots         Lot[]

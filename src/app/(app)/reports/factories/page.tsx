@@ -5,6 +5,8 @@ import { listFactoriesWithCertificates } from "@/lib/masterdata/certificates";
 import { FactoryCertificates, type CertRow } from "@/components/factory-certificates";
 import { CountUp } from "@/components/dashboard/count-up";
 import { ExportButton } from "@/components/reports/export-button";
+import { EditableCell } from "@/components/reports/editable-cell";
+import { setFactoryRemarksAction } from "@/lib/masterdata/certificate-form-actions";
 import { formatDate } from "@/lib/format";
 
 function validity(d: Date | null): CertRow["validityState"] {
@@ -27,8 +29,8 @@ export default async function FactoryInfoPage() {
 
   const exportRows: (string | number)[][] = factories.flatMap((f) =>
     f.certificates.length === 0
-      ? [[f.name, f.code, f.type, "—", "", ""]]
-      : f.certificates.map((c) => [f.name, f.code, f.type, c.name, c.number ?? "", c.validUntil ? formatDate(c.validUntil) : ""]),
+      ? [[f.name, f.code, f.type, "—", "", "", f.remarks ?? ""]]
+      : f.certificates.map((c) => [f.name, f.code, f.type, c.name, c.number ?? "", c.validUntil ? formatDate(c.validUntil) : "", f.remarks ?? ""]),
   );
 
   return (
@@ -39,7 +41,7 @@ export default async function FactoryInfoPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Factory Information</h1>
           <p className="mt-1 text-sm text-ink-soft">Compliance certificates &amp; validity across your factory base.</p>
         </div>
-        <ExportButton filename="factory-certificates.csv" headers={["Factory", "Code", "Type", "Certificate", "Number", "Valid until"]} rows={exportRows} />
+        <ExportButton filename="factory-certificates.csv" headers={["Factory", "Code", "Type", "Certificate", "Number", "Valid until", "Remarks"]} rows={exportRows} />
       </div>
 
       <div className="rise grid grid-cols-2 gap-4 lg:grid-cols-4" style={{ animationDelay: "60ms" }}>
@@ -59,6 +61,16 @@ export default async function FactoryInfoPage() {
               </div>
               <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-ink-soft">{f.certificates.length} cert{f.certificates.length === 1 ? "" : "s"}</span>
             </div>
+            {(canEdit || f.remarks) && (
+              <div className="flex items-start gap-2 border-b border-line px-4 py-2 text-xs">
+                <span className="shrink-0 font-semibold uppercase tracking-wide text-ink-soft">Remarks:</span>
+                {canEdit ? (
+                  <EditableCell id={f.id} raw={f.remarks ?? ""} type="text" action={setFactoryRemarksAction}>{f.remarks || "Add note…"}</EditableCell>
+                ) : (
+                  <span>{f.remarks}</span>
+                )}
+              </div>
+            )}
             <FactoryCertificates
               factoryId={f.id}
               canEdit={canEdit}

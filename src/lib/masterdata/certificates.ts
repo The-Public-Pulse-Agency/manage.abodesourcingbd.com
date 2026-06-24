@@ -69,3 +69,14 @@ export async function removeCertificate(actor: SessionUser, id: string) {
   await prisma.factoryCertificate.deleteMany({ where: { id, companyId: tenantId(actor) } });
   await recordAudit({ userId: actor.id, entityType: "FactoryCertificate", entityId: id, action: "delete" });
 }
+
+/** Set/clear a factory's free-text certification remarks (e.g. "applied for SEDEX renewal"). */
+export async function updateFactoryRemarks(actor: SessionUser, factoryId: string, value: string) {
+  assertPermission(actor, "masterData", "edit");
+  const cid = tenantId(actor);
+  const existing = await prisma.factory.findFirst({ where: { id: factoryId, companyId: cid }, select: { id: true } });
+  if (!existing) throw new Error("Factory not found");
+  const remarks = value.trim() || null;
+  await prisma.factory.update({ where: { id: factoryId }, data: { remarks } });
+  await recordAudit({ userId: actor.id, entityType: "Factory", entityId: factoryId, action: "edit", after: { remarks } });
+}

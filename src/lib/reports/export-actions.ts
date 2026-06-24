@@ -15,7 +15,7 @@ export async function openOrdersExportAction(filter: OpenOrdersFilter): Promise<
     r.styleBreakdown.map((s) => [
       r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.brand,
       s.style, s.sizes, s.colours, s.qty, s.value || 0,
-      formatDate(r.confirmedShipDate), formatDate(r.crd), r.remarks,
+      formatDate(r.confirmedShipDate), r.remarks,
     ]),
   );
 }

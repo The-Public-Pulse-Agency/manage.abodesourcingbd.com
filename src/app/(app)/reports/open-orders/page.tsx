@@ -123,7 +123,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                   <td className="px-3 py-2">{r.factory}</td>
                   <td className="px-3 py-2">{r.buyer}</td>
                   <td className="px-3 py-2">{r.brand}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{r.styles}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.styles.split(", ").map((s, i) => <div key={i}>{s}</div>)}</td>
                   <td className="px-3 py-2 text-xs">{r.sizes}</td>
                   <td className="px-3 py-2 text-xs">{r.colours}</td>
                   <td className="px-3 py-2 tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>

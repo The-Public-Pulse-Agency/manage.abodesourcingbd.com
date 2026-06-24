@@ -26,20 +26,23 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
   const [q, setQ] = useState("");
   const [factorySel, setFactorySel] = useState<string[]>([]);
   const [buyerSel, setBuyerSel] = useState<string[]>([]);
+  const [brandSel, setBrandSel] = useState<string[]>([]);
   const [pay, setPay] = useState("");
 
   const factories = useMemo(() => [...new Set(rows.map((r) => r.factory))].sort(), [rows]);
   const buyers = useMemo(() => [...new Set(rows.map((r) => r.buyer))].sort(), [rows]);
+  const brands = useMemo(() => [...new Set(rows.map((r) => r.brand))].filter((b) => b && b !== "—").sort(), [rows]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return rows.filter((r) =>
       (factorySel.length === 0 || factorySel.includes(r.factory)) &&
       (buyerSel.length === 0 || buyerSel.includes(r.buyer)) &&
+      (brandSel.length === 0 || brandSel.includes(r.brand)) &&
       (!pay || (pay === "PAID" ? r.paymentStatus === "PAID" : r.paymentStatus && r.paymentStatus !== "PAID")) &&
-      (!needle || `${r.poNumber} ${r.reference} ${r.invoiceNumber ?? ""} ${r.factory} ${r.buyer} ${r.containerNo ?? ""}`.toLowerCase().includes(needle)),
+      (!needle || `${r.poNumber} ${r.reference} ${r.invoiceNumber ?? ""} ${r.factory} ${r.buyer} ${r.brand} ${r.containerNo ?? ""}`.toLowerCase().includes(needle)),
     );
-  }, [rows, q, factorySel, buyerSel, pay]);
+  }, [rows, q, factorySel, buyerSel, brandSel, pay]);
 
   const totalQty = filtered.reduce((a, r) => a + r.qty, 0);
   const totalValue = filtered.reduce((a, r) => a + (r.invoiceValue ?? 0), 0);
@@ -50,13 +53,14 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search BL, invoice, factory, container…" className="input min-w-[16rem] flex-1" aria-label="Search shipments" />
         <MultiSelect allLabel="All factories" options={factories.map((f) => ({ value: f, label: f }))} selected={factorySel} onChange={setFactorySel} />
         <MultiSelect allLabel="All buyers" options={buyers.map((b) => ({ value: b, label: b }))} selected={buyerSel} onChange={setBuyerSel} />
+        <MultiSelect allLabel="All brands" options={brands.map((b) => ({ value: b, label: b }))} selected={brandSel} onChange={setBrandSel} />
         <select value={pay} onChange={(e) => setPay(e.target.value)} className="select" aria-label="Filter payment">
           <option value="">Any payment</option>
           <option value="PAID">Paid</option>
           <option value="DUE">Due</option>
         </select>
-        {(q || factorySel.length || buyerSel.length || pay) && (
-          <button type="button" onClick={() => { setQ(""); setFactorySel([]); setBuyerSel([]); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
+        {(q || factorySel.length || buyerSel.length || brandSel.length || pay) && (
+          <button type="button" onClick={() => { setQ(""); setFactorySel([]); setBuyerSel([]); setBrandSel([]); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
         <div className="ml-auto flex items-center gap-3">
           <ExportButton

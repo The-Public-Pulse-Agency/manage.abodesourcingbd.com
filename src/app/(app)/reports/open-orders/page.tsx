@@ -5,7 +5,7 @@ import { can } from "@/lib/auth/permissions";
 import { listOpenOrders, openOrdersSummary, type OpenOrdersFilter, type StatusCell } from "@/lib/reports/open-orders";
 import { openOrdersExportAction } from "@/lib/reports/export-actions";
 import { listFactories } from "@/lib/masterdata/factory";
-import { listBuyers } from "@/lib/masterdata/buyer";
+import { listBuyers, listBrands } from "@/lib/masterdata/buyer";
 import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { CountUp } from "@/components/dashboard/count-up";
 import { EditableCell } from "@/components/reports/editable-cell";
@@ -29,7 +29,7 @@ function Cell({ c }: { c: StatusCell }) {
   return <span className="inline-flex rounded-sm bg-warn-soft px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-warn">pending</span>;
 }
 
-type SP = { page?: string; status?: string; factory?: string; buyer?: string; q?: string; shipYear?: string; shipMonth?: string };
+type SP = { page?: string; status?: string; factory?: string; buyer?: string; brand?: string; q?: string; shipYear?: string; shipMonth?: string };
 
 export default async function OpenOrdersReportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const actor = await getCurrentUser();
@@ -39,6 +39,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
     status: sp.status,
     factoryIds: sp.factory ? sp.factory.split(",").filter(Boolean) : undefined,
     buyerIds: sp.buyer ? sp.buyer.split(",").filter(Boolean) : undefined,
+    brandIds: sp.brand ? sp.brand.split(",").filter(Boolean) : undefined,
     q: sp.q,
     shipYear: sp.shipYear,
     shipMonth: sp.shipMonth,
@@ -54,11 +55,12 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
   // users who actually hold the permission (the server enforces these regardless).
   const canEditOrders = can(actor, "orders", "edit");
   const canDeleteOrders = can(actor, "orders", "delete");
-  const [book, summary, factories, buyers] = await Promise.all([
+  const [book, summary, factories, buyers, brands] = await Promise.all([
     listOpenOrders(actor, filter, { page: Math.max(1, Number(sp.page) || 1) }),
     openOrdersSummary(actor, filter),
     canMaster ? listFactories(actor) : Promise.resolve([]),
     canMaster ? listBuyers(actor) : Promise.resolve([]),
+    canMaster ? listBrands(actor) : Promise.resolve([]),
   ]);
   const facMax = Math.max(1, ...summary.byFactory.map((d) => d.value));
   const buyMax = Math.max(1, ...summary.byBuyer.map((d) => d.value));
@@ -101,6 +103,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               multiSelects={[
                 { param: "factory", allLabel: "All factories", options: factories.map((f) => ({ value: f.id, label: f.name })) },
                 { param: "buyer", allLabel: "All buyers", options: buyers.map((b) => ({ value: b.id, label: b.name })) },
+                { param: "brand", allLabel: "All brands", options: brands.map((b) => ({ value: b.id, label: b.name })) },
               ]}
             />
           </div>

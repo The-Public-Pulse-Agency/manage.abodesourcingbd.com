@@ -70,7 +70,7 @@ export type OpenOrderRow = {
   remarks: string;
 };
 
-export type OpenOrdersFilter = { status?: string; factoryIds?: string[]; buyerIds?: string[]; q?: string; shipYear?: string; shipMonth?: string };
+export type OpenOrdersFilter = { status?: string; factoryIds?: string[]; buyerIds?: string[]; brandIds?: string[]; q?: string; shipYear?: string; shipMonth?: string };
 
 /** [start, end) UTC range for a ship year (+ optional 1-12 month), or null when no period filter. */
 export function shipDateRange(year?: string, month?: string): { gte: Date; lt: Date } | null {
@@ -111,6 +111,7 @@ function whereFor(actor: SessionUser, f: OpenOrdersFilter): Prisma.PurchaseOrder
     ...(ship ? { exFactoryDate: ship } : {}),
     ...(f.factoryIds?.length ? { factoryId: { in: f.factoryIds } } : {}),
     ...(f.buyerIds?.length ? { buyerId: { in: f.buyerIds } } : {}),
+    ...(f.brandIds?.length ? { brandId: { in: f.brandIds } } : {}),
     ...(q
       ? {
           OR: [

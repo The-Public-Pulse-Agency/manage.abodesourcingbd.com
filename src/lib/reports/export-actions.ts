@@ -11,7 +11,7 @@ export async function openOrdersExportAction(filter: OpenOrdersFilter): Promise<
   if (!actor) return [];
   const rows = await openOrdersForExport(actor, filter);
   return rows.map((r) => [
-    r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.brand, r.sizes, r.colours,
+    r.poNumber, r.status, formatDate(r.poReceiveDate), r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours,
     formatDate(r.confirmedShipDate), formatDate(r.crd), r.qty, r.totalValue || 0,
     cellText(r.trims), cellText(r.yarn), cellText(r.dyeing), cellText(r.bulkShade), cellText(r.ppSample),
     cellText(r.cutting), cellText(r.bulkSewing), cellText(r.printEmb), cellText(r.topSample),

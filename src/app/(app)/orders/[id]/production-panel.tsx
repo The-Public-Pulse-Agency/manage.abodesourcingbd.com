@@ -14,6 +14,7 @@ type Line = {
   sewQty: number;
   finishQty: number;
   shadeApproval: string;
+  ppSampleStatus: string;
   fabricWashTest: string;
   garmentsWashTest: string;
   topSampleStatus: string;
@@ -22,6 +23,7 @@ type Line = {
 
 const REMARK_LABELS = [
   ["shadeApproval", "Bulk fabric shade approval"],
+  ["ppSampleStatus", "PP sample status"],
   ["fabricWashTest", "Fabric wash test status"],
   ["garmentsWashTest", "Garments wash test status"],
   ["topSampleStatus", "Top / shipment samples status"],
@@ -90,6 +92,7 @@ function LineRow({ poId, line, canEdit }: { poId: string; line: Line; canEdit: b
   const [fin, setFin] = useState(String(line.finishQty));
   const [remarks, setRemarks] = useState({
     shadeApproval: line.shadeApproval,
+    ppSampleStatus: line.ppSampleStatus,
     fabricWashTest: line.fabricWashTest,
     garmentsWashTest: line.garmentsWashTest,
     topSampleStatus: line.topSampleStatus,

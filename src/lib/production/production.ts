@@ -15,6 +15,7 @@ export const productionSchema = z
     sewQty: z.number().int().nonnegative(),
     finishQty: z.number().int().nonnegative(),
     shadeApproval: remark,
+    ppSampleStatus: remark,
     fabricWashTest: remark,
     garmentsWashTest: remark,
     topSampleStatus: remark,
@@ -90,6 +91,7 @@ export type ProductionLine = {
   sewQty: number;
   finishQty: number;
   shadeApproval: string;
+  ppSampleStatus: string;
   fabricWashTest: string;
   garmentsWashTest: string;
   topSampleStatus: string;
@@ -138,6 +140,7 @@ export async function getProduction(actor: SessionUser, poId: string): Promise<P
       orderedQty: ordered,
       ...q,
       shadeApproval: rec?.shadeApproval ?? "",
+      ppSampleStatus: rec?.ppSampleStatus ?? "",
       fabricWashTest: rec?.fabricWashTest ?? "",
       garmentsWashTest: rec?.garmentsWashTest ?? "",
       topSampleStatus: rec?.topSampleStatus ?? "",

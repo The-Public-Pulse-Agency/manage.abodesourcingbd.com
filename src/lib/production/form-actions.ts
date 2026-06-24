@@ -14,6 +14,7 @@ export async function saveProductionAction(
     sewQty: number;
     finishQty: number;
     shadeApproval?: string;
+    ppSampleStatus?: string;
     fabricWashTest?: string;
     garmentsWashTest?: string;
     topSampleStatus?: string;

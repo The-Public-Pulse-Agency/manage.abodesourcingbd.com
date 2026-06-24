@@ -629,6 +629,7 @@ model ProductionRecord {
   finishQty   Int           @default(0)
   // Per-line status remarks shown above the cut/sew/finish bars.
   shadeApproval    String?
+  ppSampleStatus   String?
   fabricWashTest   String?
   garmentsWashTest String?
   topSampleStatus  String?

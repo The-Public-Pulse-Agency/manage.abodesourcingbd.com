@@ -7,6 +7,7 @@ import { formatDate, formatMoney, formatQty } from "@/lib/format";
 import { EditableCell } from "./editable-cell";
 import { ExportButton } from "./export-button";
 import { RowDeleteButton } from "./row-delete-button";
+import { ColourCell } from "./colour-cell";
 import { MultiSelect } from "./multi-select";
 import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
 
@@ -105,7 +106,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                 <td className="px-3 py-2">{r.brand}</td>
                 <td className="px-3 py-2 font-mono text-xs">{r.styles.split(", ").map((s, i) => <div key={i}>{s}</div>)}</td>
                 <td className="px-3 py-2 text-xs">{r.sizes}</td>
-                <td className="px-3 py-2 text-xs">{r.colours}</td>
+                <td className="px-3 py-2 text-xs"><ColourCell value={r.colours} /></td>
                 <td className="px-3 py-2 text-right tnum">
                   {formatQty(r.qty)}
                   {r.overShip && <div title={r.overShip} className="mt-0.5 inline-flex rounded-sm bg-warn-soft px-1 py-0.5 text-[0.5625rem] font-semibold uppercase text-warn">⚠ over</div>}

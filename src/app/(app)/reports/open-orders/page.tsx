@@ -15,6 +15,7 @@ import { Pagination } from "@/components/pagination";
 import { setOrderShipDate, setOrderRecvDate, setOrderCrd, setOrderRemarks, deleteOrderAction, closeOrderAction } from "@/lib/reports/inline-actions";
 import { RowDeleteButton } from "@/components/reports/row-delete-button";
 import { RowCloseButton } from "@/components/reports/row-close-button";
+import { ColourCell } from "@/components/reports/colour-cell";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value (USD)", "Confirmed ship", "CRD", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
@@ -129,7 +130,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                     {/* Per-style columns */}
                     <td className="px-3 py-2 font-mono text-xs">{s.style}</td>
                     <td className="px-3 py-2 text-xs">{s.sizes}</td>
-                    <td className="px-3 py-2 text-xs">{s.colours}</td>
+                    <td className="px-3 py-2 text-xs"><ColourCell value={s.colours} /></td>
                     <td className="px-3 py-2 text-right tnum">{formatQty(s.qty)}</td>
                     <td className="px-3 py-2 text-right tnum">{s.value > 0 ? formatMoney(s.value, r.currency) : "—"}</td>
                     {/* Dates moved here, after Value */}

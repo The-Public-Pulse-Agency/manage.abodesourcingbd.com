@@ -17,7 +17,7 @@ import { RowDeleteButton } from "@/components/reports/row-delete-button";
 import { RowCloseButton } from "@/components/reports/row-close-button";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Confirmed ship", "CRD", "Qty", "Value (USD)", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value (USD)", "Confirmed ship", "CRD", "Trims", "Yarn", "Fabric Wash Test", "Bulk shade", "PP sample", "Cutting", "Bulk sewing", "Garments Wash Test", "TOP sample", "Final inspection", "Remarks"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 function Cell({ c }: { c: StatusCell }) {
@@ -106,8 +106,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
                 <th className="px-3 py-2.5 font-semibold">PO</th><th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">PO recvd</th>
                 <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Brand</th><th className="px-3 py-2.5 font-semibold">Style</th><th className="px-3 py-2.5 font-semibold">Size</th>
-                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">CRD</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
+                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th><th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">CRD</th><th className="px-3 py-2.5 font-semibold">Trims</th><th className="px-3 py-2.5 font-semibold">Yarn</th>
                 <th className="px-3 py-2.5 font-semibold">Fabric Wash Test</th><th className="px-3 py-2.5 font-semibold">Bulk shade</th><th className="px-3 py-2.5 font-semibold">PP sample</th>
                 <th className="px-3 py-2.5 font-semibold">Cutting</th><th className="px-3 py-2.5 font-semibold">Bulk sewing</th><th className="px-3 py-2.5 font-semibold">Garments Wash Test</th>
                 <th className="px-3 py-2.5 font-semibold">TOP sample</th><th className="px-3 py-2.5 font-semibold">Final insp.</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Actions</th>
@@ -120,40 +119,30 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 const n = sb.length;
                 return sb.map((s, i) => (
                   <tr key={`${r.id}-${i}`} className="border-b border-line">
-                    {i === 0 && (
-                      <>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell> : formatDate(r.poReceiveDate)}</td>
-                        <td rowSpan={n} className="px-3 py-2 align-top">{r.factory}</td>
-                        <td rowSpan={n} className="px-3 py-2 align-top">{r.buyer}</td>
-                        <td rowSpan={n} className="px-3 py-2 align-top">{r.brand}</td>
-                      </>
-                    )}
+                    {/* PO-level data is repeated on every style row so each line is complete. */}
+                    <td className="px-3 py-2"><Link href={`/orders/${r.id}`} className="font-mono font-medium text-accent hover:underline">{r.poNumber}</Link></td>
+                    <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase ${STATUS_CLS[r.status] ?? "bg-paper text-ink-soft"}`}>{r.status.replace("_", " ").toLowerCase()}</span></td>
+                    <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.poReceiveDate)} type="date" action={setOrderRecvDate}>{formatDate(r.poReceiveDate)}</EditableCell> : formatDate(r.poReceiveDate)}</td>
+                    <td className="px-3 py-2">{r.factory}</td>
+                    <td className="px-3 py-2">{r.buyer}</td>
+                    <td className="px-3 py-2">{r.brand}</td>
+                    {/* Per-style columns */}
                     <td className="px-3 py-2 font-mono text-xs">{s.style}</td>
                     <td className="px-3 py-2 text-xs">{s.sizes}</td>
                     <td className="px-3 py-2 text-xs">{s.colours}</td>
-                    {i === 0 && (
-                      <>
-                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
-                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
-                      </>
-                    )}
                     <td className="px-3 py-2 text-right tnum">{formatQty(s.qty)}</td>
                     <td className="px-3 py-2 text-right tnum">{s.value > 0 ? formatMoney(s.value, r.currency) : "—"}</td>
+                    {/* Dates moved here, after Value */}
+                    <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
+                    <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.crd)} type="date" action={setOrderCrd}>{formatDate(r.crd)}</EditableCell> : formatDate(r.crd)}</td>
+                    <td className="px-3 py-2"><Cell c={r.trims} /></td><td className="px-3 py-2"><Cell c={r.yarn} /></td><td className="px-3 py-2"><Cell c={r.dyeing} /></td>
+                    <td className="px-3 py-2"><Cell c={r.bulkShade} /></td><td className="px-3 py-2"><Cell c={r.ppSample} /></td><td className="px-3 py-2"><Cell c={r.cutting} /></td>
+                    <td className="px-3 py-2"><Cell c={r.bulkSewing} /></td><td className="px-3 py-2"><Cell c={r.printEmb} /></td><td className="px-3 py-2"><Cell c={r.topSample} /></td>
+                    <td className="px-3 py-2 tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
+                    <td className="px-3 py-2 text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
+                    {/* Actions: once per PO (these act on the whole order). */}
                     {i === 0 && (
                       <>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.trims} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.yarn} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.dyeing} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.bulkShade} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.ppSample} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.cutting} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.bulkSewing} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.printEmb} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top"><Cell c={r.topSample} /></td>
-                        <td rowSpan={n} className="px-3 py-2 align-top tnum text-xs">{formatDate(r.finalInspectionDate)}</td>
-                        <td rowSpan={n} className="px-3 py-2 align-top text-xs">{canEditOrders ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setOrderRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                         <td rowSpan={n} className="px-3 py-2 align-top"><a href={`/api/orders/${r.id}/po`} className="text-xs font-medium text-accent hover:underline" title="Download PO (Excel)">PO ⬇</a></td>
                         <td rowSpan={n} className="px-3 py-2 align-top"><Link href={`/orders/${r.id}`} className="text-xs font-medium text-accent hover:underline">Edit →</Link></td>
                         <td rowSpan={n} className="px-3 py-2 align-top">

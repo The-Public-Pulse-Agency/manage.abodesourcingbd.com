@@ -4,7 +4,12 @@ import { resetDb } from "@/test/db";
 import { ForbiddenError } from "@/lib/auth/guard";
 import { createBuyer, createBrand } from "@/lib/masterdata/buyer";
 import { createFactory } from "@/lib/masterdata/factory";
+import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
+import { setOrderLine } from "@/lib/orders/lines";
+import { approveCosting } from "@/lib/orders/costing";
+import { confirmPurchaseOrder } from "@/lib/orders/confirm";
+import { seedTemplates } from "@/lib/tna/templates";
 import { createInvoice, listInvoices, updateInvoiceFields } from "./invoices";
 import { recordPayment } from "./payments";
 import { outstanding } from "./money";
@@ -82,5 +87,22 @@ describe("marking an invoice PAID auto-records the outstanding payment", () => {
     const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: i.id }, include: { payments: true } });
     expect(inv.payments).toHaveLength(1); // unchanged
     expect(inv.status).toBe("PAID");
+  });
+
+  it("ticks the PAYMENT critical-path milestone for the PO", async () => {
+    await seedTemplates("test-co");
+    const buyer = await createBuyer(admin, { name: "Ralawise" });
+    const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
+    const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
+    const style = await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "Tee" });
+    const po = await createPurchaseOrder(admin, { poNumber: "PM-1", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
+    await setOrderLine(admin, po.id, { styleId: style.id, sizes: [{ label: "M", qty: 10, netFob: 1, sellFob: 2 }] });
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+    const i = await createInvoice(accounts, { type: "BUYER", number: "PM-INV", poId: po.id, amount: 20, issueDate: d("2026-03-19") });
+
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "PAYMENT" } })).actualDate).toBeNull();
+    await updateInvoiceFields(accounts, i.id, { status: "PAID" });
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "PAYMENT" } })).actualDate).not.toBeNull();
   });
 });

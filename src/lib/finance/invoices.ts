@@ -5,6 +5,7 @@ import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { recomputeInvoiceStatus } from "./payments";
 import { outstanding } from "./money";
+import { completeMilestonesByKey } from "@/lib/tna/milestones";
 
 const invoiceTypes = ["BUYER", "FACTORY"] as const;
 
@@ -184,7 +185,14 @@ export async function updateInvoiceFields(
           });
         }
         await recomputeInvoiceStatus(tx, id, cid);
-      });
+        // Payment realised → tick the PAYMENT critical-path milestone for the invoice's PO.
+        let poId = existing.poId;
+        if (!poId && existing.shipmentId) {
+          const sl = await tx.shipmentLine.findFirst({ where: { shipment: { id: existing.shipmentId }, companyId: cid }, include: { orderLine: { select: { poId: true } } } });
+          poId = sl?.orderLine?.poId ?? null;
+        }
+        if (poId) await completeMilestonesByKey(tx, actor, poId, "PAYMENT", new Date());
+      }, { timeout: 15000, maxWait: 10000 });
     } else if (recompute) {
       await prisma.$transaction(async (tx) => {
         await tx.invoice.update({ where: { id }, data });

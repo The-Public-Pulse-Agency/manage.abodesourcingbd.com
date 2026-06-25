@@ -10,6 +10,7 @@ import { RowDeleteButton } from "./row-delete-button";
 import { ColourCell } from "./colour-cell";
 import { MultiSelect } from "./multi-select";
 import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
+import { sumDistinctInvoiceValue } from "@/lib/reports/shipped-totals";
 
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
 
@@ -46,7 +47,8 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
 
   const totalQty = filtered.reduce((a, r) => a + r.qty, 0);
   const totalGoodsValue = filtered.reduce((a, r) => a + (r.value ?? 0), 0);
-  const totalValue = filtered.reduce((a, r) => a + (r.invoiceValue ?? 0), 0);
+  // Dedupe by invoice id: a PO-level invoice shared across shipments must not be summed per row.
+  const totalValue = sumDistinctInvoiceValue(filtered);
 
   return (
     <div className="space-y-3">

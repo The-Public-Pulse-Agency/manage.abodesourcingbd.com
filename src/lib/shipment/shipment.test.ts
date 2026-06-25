@@ -59,6 +59,17 @@ describe("createShipment — auto-completes pre-shipping critical path", () => {
     expect(done("TC_SENT")).toBeNull();
     expect(done("PAYMENT")).toBeNull();
   });
+
+  it("advancing telex to RECEIVED ticks the BL/Telex milestone", async () => {
+    await seedTemplates("test-co");
+    const r = await refs();
+    const { po, line } = await confirmedPo(r, "P-TX", 100);
+    const shp = await createShipment(admin, { reference: "S-TX", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "BL_TELEX" } })).actualDate).toBeNull();
+
+    await updateShipment(admin, shp.id, { telexStatus: "RECEIVED" });
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "BL_TELEX" } })).actualDate).not.toBeNull();
+  });
 });
 
 describe("createShipment", () => {

@@ -73,7 +73,7 @@ export async function confirmPurchaseOrder(actor: SessionUser, poId: string) {
       tx,
     );
     await instantiateMilestones(poId, tx);
-  });
+  }, { timeout: 15000, maxWait: 10000 }); // instantiating the full critical path can exceed the 5s default under load
 
   const confirmed = await prisma.purchaseOrder.findFirst({
     where: { id: poId, companyId: tenantId(actor) },

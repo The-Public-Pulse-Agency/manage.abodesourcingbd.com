@@ -73,7 +73,7 @@ export async function recordPayment(actor: SessionUser, invoiceId: string, input
         );
         return payment;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 10000 },
     );
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2034") {
@@ -140,7 +140,7 @@ export async function updatePayment(actor: SessionUser, paymentId: string, input
         tx,
       );
     },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 10000 },
   );
 }
 
@@ -165,6 +165,6 @@ export async function deletePayment(actor: SessionUser, paymentId: string) {
         tx,
       );
     },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 10000 },
   );
 }

@@ -92,6 +92,39 @@ export async function autoCompletePreShipMilestones(
   return toComplete.length;
 }
 
+/**
+ * Complete the incomplete milestone(s) with a given `key` for a PO (optionally limited to
+ * `styleIds` + any legacy PO-level set) — used when a downstream event implies a specific
+ * milestone is done: telex received → BL_TELEX, payment realised → PAYMENT. Runs inside the
+ * caller's transaction; returns how many it set.
+ */
+export async function completeMilestonesByKey(
+  tx: Prisma.TransactionClient,
+  actor: SessionUser,
+  poId: string,
+  key: string,
+  completedAt: Date,
+  styleIds?: string[],
+): Promise<number> {
+  const cid = tenantId(actor);
+  const floored = startOfUtcDay(completedAt);
+  const where: Prisma.TaMilestoneWhereInput = {
+    companyId: cid,
+    poId,
+    key,
+    actualDate: null,
+    ...(styleIds && styleIds.length ? { OR: [{ styleId: { in: styleIds } }, { styleId: null }] } : {}),
+  };
+  const found = await tx.taMilestone.findMany({ where, select: { id: true } });
+  if (found.length === 0) return 0;
+  await tx.taMilestone.updateMany({ where, data: { actualDate: floored } });
+  await recordAudit(
+    { userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "edit", after: { autoCompletedMilestone: key, on: floored.toISOString() } },
+    tx,
+  );
+  return found.length;
+}
+
 export async function completeMilestone(actor: SessionUser, id: string, actualDate: Date) {
   assertPermission(actor, "criticalPath", "edit");
   const before = await prisma.taMilestone.findFirst({ where: { id, companyId: tenantId(actor) } });

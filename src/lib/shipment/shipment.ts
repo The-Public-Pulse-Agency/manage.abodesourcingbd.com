@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { remainingBySize, assertWithinBalance, excessBySize, overShipNote, type SizeQty } from "./balance";
-import { autoCompletePreShipMilestones } from "@/lib/tna/milestones";
+import { autoCompletePreShipMilestones, completeMilestonesByKey } from "@/lib/tna/milestones";
 
 const shipmentModes = ["SEA", "AIR"] as const;
 const telexStatuses = ["PENDING", "RECEIVED", "RELEASED"] as const;
@@ -213,24 +213,50 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
     }
   }
 
+  const cid = tenantId(actor);
+  // Telex in hand → tick the BL/Telex critical-path milestone for the shipped styles.
+  const advancingTelex = (data.telexStatus === "RECEIVED" || data.telexStatus === "RELEASED") && data.telexStatus !== before.telexStatus;
+  const auditPayload = {
+    userId: actor.id,
+    entityType: "Shipment",
+    entityId: id,
+    action: "edit" as const,
+    before: { telexStatus: before.telexStatus, blNumber: before.blNumber },
+    after: {
+      telexStatus: data.telexStatus,
+      blNumber: data.blNumber,
+      blDate: data.blDate?.toISOString(),
+      containerNo: data.containerNo,
+      cartons: data.cartons,
+    },
+  };
+
   try {
-    await prisma.shipment.updateMany({ where: { id, companyId: tenantId(actor) }, data });
-    const shipment = await prisma.shipment.findFirst({ where: { id, companyId: tenantId(actor) } });
+    if (advancingTelex) {
+      const shipment = await prisma.$transaction(async (tx) => {
+        await tx.shipment.updateMany({ where: { id, companyId: cid }, data });
+        const s = await tx.shipment.findFirst({ where: { id, companyId: cid } });
+        if (!s) throw new Error(`Shipment ${id} not found`);
+        const lines = await tx.shipmentLine.findMany({ where: { shipmentId: id, companyId: cid }, include: { orderLine: { select: { poId: true, styleId: true } } } });
+        const poStyles = new Map<string, Set<string>>();
+        for (const l of lines) {
+          const po = l.orderLine?.poId;
+          if (!po) continue;
+          const set = poStyles.get(po) ?? new Set<string>();
+          if (l.orderLine?.styleId) set.add(l.orderLine.styleId);
+          poStyles.set(po, set);
+        }
+        const when = s.blDate ?? s.exFactoryDate ?? new Date();
+        for (const [poId, styles] of poStyles) await completeMilestonesByKey(tx, actor, poId, "BL_TELEX", when, [...styles]);
+        await recordAudit(auditPayload, tx);
+        return s;
+      }, { timeout: 15000, maxWait: 10000 });
+      return shipment;
+    }
+    await prisma.shipment.updateMany({ where: { id, companyId: cid }, data });
+    const shipment = await prisma.shipment.findFirst({ where: { id, companyId: cid } });
     if (!shipment) throw new Error(`Shipment ${id} not found`);
-    await recordAudit({
-      userId: actor.id,
-      entityType: "Shipment",
-      entityId: id,
-      action: "edit",
-      before: { telexStatus: before.telexStatus, blNumber: before.blNumber },
-      after: {
-        telexStatus: data.telexStatus,
-        blNumber: data.blNumber,
-        blDate: data.blDate?.toISOString(),
-        containerNo: data.containerNo,
-        cartons: data.cartons,
-      },
-    });
+    await recordAudit(auditPayload);
     return shipment;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -393,7 +419,7 @@ export async function updateShipmentLineQty(actor: SessionUser, shipmentLineSize
         tx,
       );
     },
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 10000 },
   );
 }
 

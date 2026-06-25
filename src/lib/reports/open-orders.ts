@@ -109,6 +109,56 @@ const ROW_INCLUDE = {
   lines: { include: { sizes: true, colour: true, style: true, shipmentLines: { include: { sizes: true } } } },
 } satisfies Prisma.PurchaseOrderInclude;
 
+type BreakdownRow = OpenOrderRow["styleBreakdown"][number];
+
+/**
+ * Split one style's lines into ONE row per distinct (net FOB, sell FOB) price, so a style
+ * priced differently by size (e.g. XS–2XL @ $1.50, 3XL–6XL @ $2.00) renders as two lines —
+ * each with its own qty/value and a single clean Net FOB — instead of one blended average.
+ * Quantities use the REMAINING balance (ordered − shipped); a tier with nothing left to ship
+ * is dropped. Tiers, and the sizes within each, are ordered by size position.
+ */
+function priceGroupRows(lines: PoForRow["lines"]): BreakdownRow[] {
+  const style = lines[0]?.style?.styleCode ?? "—";
+  type Group = { minPos: number; labels: Map<string, number>; colours: Set<string>; sizes: { qty: number; netFob: Decimalish; sellFob: Decimalish }[] };
+  const groups = new Map<string, Group>();
+  for (const l of lines) {
+    const shipped = l.shipmentLines.flatMap((sl) => sl.sizes.map((s) => ({ label: s.label, qty: s.qty })));
+    const bal = remainingBySize(l.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped);
+    const balByLabel = new Map(bal.map((b) => [b.label, Math.max(0, b.balance)]));
+    const colour = l.colour?.name;
+    for (const s of l.sizes) {
+      const remaining = balByLabel.get(s.label) ?? s.qty;
+      const key = `${Number(s.netFob)}|${Number(s.sellFob)}`;
+      let g = groups.get(key);
+      if (!g) { g = { minPos: Number.POSITIVE_INFINITY, labels: new Map(), colours: new Set(), sizes: [] }; groups.set(key, g); }
+      g.sizes.push({ qty: remaining, netFob: s.netFob, sellFob: s.sellFob });
+      if (remaining > 0) {
+        if (!g.labels.has(s.label)) g.labels.set(s.label, s.position);
+        if (colour) g.colours.add(colour);
+        if (s.position < g.minPos) g.minPos = s.position;
+      }
+    }
+  }
+  return [...groups.values()]
+    .map((g) => {
+      const t = rollup([lineMills(g.sizes)]);
+      const sizeLabels = [...g.labels.entries()].sort((a, b) => a[1] - b[1]).map(([label]) => label);
+      const row: BreakdownRow = {
+        style,
+        sizes: sizeLabels.join(", ") || "—",
+        colours: [...g.colours].join(", ") || "—",
+        qty: t.qty,
+        netFob: t.qty > 0 ? Math.round((t.cost / t.qty) * 10000) / 10000 : 0,
+        value: t.value,
+      };
+      return { minPos: g.minPos, row };
+    })
+    .filter((x) => x.row.qty > 0)
+    .sort((a, b) => a.minPos - b.minPos)
+    .map((x) => x.row);
+}
+
 function mapRow(po: PoForRow): OpenOrderRow {
   const sizes = [...new Set(po.lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ");
   const colours = [...new Set(po.lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ");
@@ -125,18 +175,9 @@ function mapRow(po: PoForRow): OpenOrderRow {
     arr.push(l);
     byStyle.set(sid, arr);
   }
-  const styleBreakdown = [...byStyle.entries()].map(([, lines]) => {
-    const t = remainingTotals(lines as unknown as LineForBalance[]);
-    return {
-      style: lines[0]?.style?.styleCode ?? "—",
-      sizes: [...new Set(lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ") || "—",
-      colours: [...new Set(lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ") || "—",
-      qty: t.qty,
-      // Net FOB = qty-weighted unit cost over the remaining balance (t.cost = Σ qty×netFob).
-      netFob: t.qty > 0 ? Math.round((t.cost / t.qty) * 10000) / 10000 : 0,
-      value: t.value,
-    };
-  });
+  // One row per (style, price): a style with size-varying prices splits into a line per price
+  // tier (each with its own qty/value/Net FOB), never a blended average.
+  const styleBreakdown = [...byStyle.values()].flatMap((lines) => priceGroupRows(lines));
   return {
     id: po.id,
     poNumber: po.poNumber,

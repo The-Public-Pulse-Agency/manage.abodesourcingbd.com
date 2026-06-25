@@ -12,7 +12,7 @@ export async function buildPoWorkbook(actor: SessionUser, poId: string): Promise
   if (!po) return null;
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Pulse OMS";
+  wb.creator = "ABD Sourcing";
   const ws = wb.addWorksheet("Purchase Order");
   ws.columns = [{ width: 26 }, { width: 18 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 16 }];
 

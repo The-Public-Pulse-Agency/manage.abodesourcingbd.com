@@ -4,6 +4,7 @@ import { listCompanies } from "@/lib/platform/companies";
 import { listPackages } from "@/lib/platform/packages";
 import { logoutAction } from "@/lib/auth/actions";
 import { PlatformConsole, type CompanyRow, type PackageRow } from "@/components/platform-console";
+import { BrandMark } from "@/components/brand-mark";
 import { formatDate } from "@/lib/format";
 
 export default async function AdminConsolePage() {
@@ -35,8 +36,7 @@ export default async function AdminConsolePage() {
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-base font-bold tracking-tight text-accent">Pulse</span>
-            <span className="text-sm font-semibold">OMS</span>
+            <BrandMark size="base" />
             <span className="ml-2 rounded-sm bg-accent-soft px-2 py-0.5 text-[0.625rem] font-semibold uppercase text-accent">Platform</span>
           </div>
           <form action={logoutAction}>
@@ -48,7 +48,7 @@ export default async function AdminConsolePage() {
         <div>
           <p className="eyebrow">Super admin</p>
           <h1 className="text-2xl font-semibold tracking-tight">Platform console</h1>
-          <p className="mt-1 text-sm text-ink-soft">Manage tenant companies, subscription packages, and billing across all of Pulse OMS.</p>
+          <p className="mt-1 text-sm text-ink-soft">Manage tenant companies, subscription packages, and billing across all of ABD Sourcing.</p>
         </div>
         <PlatformConsole companies={companyRows} packages={packageRows} />
       </main>

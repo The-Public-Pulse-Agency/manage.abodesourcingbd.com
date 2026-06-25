@@ -24,7 +24,7 @@ export async function buildCommissionInvoiceWorkbook(actor: SessionUser, id: str
   const commission = Math.round(factoryValue * pct) / 100; // value × pct%
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Pulse OMS";
+  wb.creator = "ABD Sourcing";
   const ws = wb.addWorksheet("Commission Invoice");
   ws.columns = [{ width: 40 }, { width: 18 }, { width: 16 }, { width: 16 }];
 

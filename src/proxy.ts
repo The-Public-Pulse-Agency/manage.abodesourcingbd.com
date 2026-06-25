@@ -5,11 +5,19 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   // /api/cron is guarded by its own CRON_SECRET bearer check — exempt it from the
   // session redirect so a session-less scheduler reaches the handler.
+  // PWA assets (manifest + generated monogram icons) must load on the public login screen.
+  const isPwaAsset =
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/icon" ||
+    pathname === "/apple-icon" ||
+    pathname === "/icon-192" ||
+    pathname === "/icon-512";
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/cron");
+    pathname.startsWith("/api/cron") ||
+    isPwaAsset;
   if (!isLoggedIn && !isPublic) {
     return Response.redirect(new URL("/login", req.nextUrl));
   }

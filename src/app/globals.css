@@ -61,7 +61,7 @@ body {
     var(--paper);
 }
 
-/* Brand wordmark gradient (the accent "Pulse"). */
+/* Brand wordmark gradient (the accent "ABD"). */
 .brand-gradient {
   background: linear-gradient(120deg, var(--accent), #f0663f);
   -webkit-background-clip: text;
@@ -368,6 +368,65 @@ table tbody tr:hover {
   background: linear-gradient(180deg, var(--kpi-rail, var(--accent)), color-mix(in srgb, var(--kpi-rail, var(--accent)) 45%, transparent));
   opacity: 0.85;
 }
+
+/* ── ABD brand surfaces ─────────────────────────────────────────────── */
+
+/* 3D monogram badge — gradient square, inner highlight + drop shadow. */
+.brand-badge {
+  background: linear-gradient(135deg, var(--accent), #f0663f);
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 6px 16px -6px rgba(211, 47, 47, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* Auth backdrop — layered gradient mesh with a slow drift. */
+.auth-mesh {
+  background:
+    radial-gradient(800px 500px at 10% -10%, rgba(211, 47, 47, 0.18), transparent 55%),
+    radial-gradient(700px 480px at 95% 0%, rgba(240, 102, 63, 0.16), transparent 55%),
+    radial-gradient(900px 600px at 85% 110%, rgba(30, 41, 59, 0.16), transparent 55%),
+    var(--paper);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .auth-mesh {
+    background-size: 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+    animation: mesh-drift 18s ease-in-out infinite alternate;
+  }
+}
+@keyframes mesh-drift {
+  from { background-position: 0% 0%, 100% 0%, 100% 100%, 0 0; }
+  to   { background-position: 30% 20%, 70% 25%, 55% 80%, 0 0; }
+}
+
+/* Frosted glass card — blur, gradient hairline border, deep 3D shadow. */
+.glass-card {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--surface) 82%, transparent), color-mix(in srgb, var(--surface) 82%, transparent)) padding-box,
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--ink) 22%, transparent)) border-box;
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    0 30px 60px -22px rgba(15, 23, 42, 0.32),
+    0 12px 24px -12px rgba(211, 47, 47, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Brand-gradient 3D button. */
+.btn-brand {
+  background: linear-gradient(135deg, var(--accent), #f0663f);
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow:
+    0 10px 22px -10px rgba(211, 47, 47, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.btn-brand:hover:not(:disabled) { filter: brightness(1.05); }
+.btn-brand:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 4px 12px -8px rgba(211, 47, 47, 0.6); }
+.btn-brand:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Respect reduced-motion preferences. */
 @media (prefers-reduced-motion: reduce) {

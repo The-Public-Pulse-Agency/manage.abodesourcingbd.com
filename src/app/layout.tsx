@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,9 +15,12 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pulse OMS — Order & Merchandising SaaS",
-  description: "Multi-tenant RMG order & merchandising management platform",
+  title: "ABD Sourcing — Order & Merchandising",
+  description: "Order & merchandising management for ABD Sourcing",
+  appleWebApp: { capable: true, title: "ABD Sourcing", statusBarStyle: "default" },
 };
+
+export const viewport: Viewport = { themeColor: "#d32f2f" };
 
 export default function RootLayout({
   children,

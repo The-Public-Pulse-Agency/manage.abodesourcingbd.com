@@ -59,7 +59,7 @@ export async function buildInvoiceWorkbook(actor: SessionUser, invoiceId: string
   }
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Pulse OMS";
+  wb.creator = "ABD Sourcing";
   const ws = wb.addWorksheet("Invoice");
   ws.columns = [{ width: 26 }, { width: 18 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 16 }];
 

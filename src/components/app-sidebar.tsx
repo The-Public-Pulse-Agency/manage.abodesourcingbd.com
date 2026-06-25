@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { can, type Role, type PermissionMap } from "@/lib/auth/permissions";
 import { logoutAction } from "@/lib/auth/actions";
+import { BrandMark } from "@/components/brand-mark";
 
 const ITEMS: { href: string; label: string; module: Parameters<typeof can>[1]; icon: string }[] = [
   { href: "/dashboard", label: "Dashboard", module: "dashboards", icon: "▦" },
@@ -68,8 +69,7 @@ export function AppSidebar({ role, permissions, name, unread = 0 }: { role: Role
 
   const brand = (
     <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-baseline gap-2 px-5 py-4">
-      <span className="brand-gradient font-mono text-base font-bold tracking-tight">Pulse</span>
-      <span className="text-sm font-semibold tracking-tight">OMS</span>
+      <BrandMark size="base" />
     </Link>
   );
 
@@ -148,8 +148,7 @@ export function AppSidebar({ role, permissions, name, unread = 0 }: { role: Role
           ☰
         </button>
         <Link href="/dashboard" className="flex items-baseline gap-2">
-          <span className="brand-gradient font-mono text-sm font-bold tracking-tight">Pulse</span>
-          <span className="text-sm font-semibold tracking-tight">OMS</span>
+          <BrandMark size="sm" />
         </Link>
         <Link href="/notifications" aria-label="Notifications" className="relative text-ink-soft hover:text-accent">
           <span aria-hidden className="text-lg leading-none">🔔</span>

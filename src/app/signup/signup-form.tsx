@@ -25,7 +25,7 @@ export function SignUpForm() {
       <Field label="Work email"><input name="email" type="email" required className="input w-full" placeholder="you@company.com" /></Field>
       <Field label="Password"><input name="password" type="password" required minLength={8} className="input w-full" placeholder="At least 8 characters" /></Field>
       {error && <p className="text-sm text-bad">{error}</p>}
-      <button type="submit" disabled={pending} className="w-full rounded-sm bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
+      <button type="submit" disabled={pending} className="btn-brand w-full px-3 py-2.5 text-sm">
         {pending ? "Creating…" : "Create company & start free trial"}
       </button>
       <p className="text-center text-xs text-ink-soft">30-day free trial · no card required</p>

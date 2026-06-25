@@ -41,8 +41,8 @@ describe("shippedGoodsReport — short shipment", () => {
   });
 });
 
-describe("shippedGoodsReport — net FOB", () => {
-  it("reports the qty-weighted net FOB over the shipped sizes", async () => {
+describe("shippedGoodsReport — line value", () => {
+  it("reports the line total value (shipped qty × sell FOB) over the shipped sizes", async () => {
     const buyer = await createBuyer(admin, { name: "Ralawise" });
     const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
     const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
@@ -61,6 +61,6 @@ describe("shippedGoodsReport — net FOB", () => {
 
     const rep = await shippedGoodsReport(admin);
     expect(rep.rows[0].qty).toBe(100);
-    expect(rep.rows[0].netFob).toBe(2.8); // (60*2 + 40*4) / 100
+    expect(rep.rows[0].value).toBe(380); // 60×3 (sell M) + 40×5 (sell L)
   });
 });

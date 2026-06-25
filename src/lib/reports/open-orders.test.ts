@@ -8,9 +8,8 @@ import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
-import { closePurchaseOrder } from "@/lib/orders/close";
 import { createShipment } from "@/lib/shipment/shipment";
-import { shippedGoodsReport } from "./shipped";
+import { listOpenOrders } from "./open-orders";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
@@ -18,31 +17,29 @@ const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" 
 beforeEach(async () => { await resetDb(); });
 afterAll(async () => { await prisma.$disconnect(); });
 
-describe("shippedGoodsReport — short shipment", () => {
-  it("surfaces the un-shipped balance as 'short' only once the order is closed", async () => {
+describe("listOpenOrders — net FOB", () => {
+  it("reports the qty-weighted net FOB per style", async () => {
     const buyer = await createBuyer(admin, { name: "Ralawise" });
     const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
     const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
     const style = await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "Tee" });
     const po = await createPurchaseOrder(admin, { poNumber: "P1", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
-    const line = await setOrderLine(admin, po.id, { styleId: style.id, sizes: [{ label: "M", qty: 100, netFob: 1, sellFob: 2 }] });
-    await approveCosting(accounts, po.id);
-    await confirmPurchaseOrder(admin, po.id);
-    await createShipment(admin, { reference: "SHP-1", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 60 }] }] });
+    await setOrderLine(admin, po.id, {
+      styleId: style.id,
+      sizes: [
+        { label: "M", qty: 100, netFob: 2, sellFob: 3 },
+        { label: "L", qty: 100, netFob: 4, sellFob: 5 },
+      ],
+    });
 
-    // Still partly-shipped (open) — the remaining 40 may yet ship, so no short flag.
-    let rep = await shippedGoodsReport(admin);
-    expect(rep.rows[0].shortShip).toBeNull();
-
-    // Factory can't make the rest → close the order; the 40 becomes a recorded short-ship.
-    await closePurchaseOrder(admin, po.id);
-    rep = await shippedGoodsReport(admin);
-    expect(rep.rows[0].shortShip).toBe("40 pcs short");
+    const { rows } = await listOpenOrders(admin, {});
+    const sb = rows[0].styleBreakdown[0];
+    expect(sb.qty).toBe(200);
+    expect(sb.value).toBe(800); // 100*3 + 100*5
+    expect(sb.netFob).toBe(3); // qty-weighted (100*2 + 100*4) / 200
   });
-});
 
-describe("shippedGoodsReport — net FOB", () => {
-  it("reports the qty-weighted net FOB over the shipped sizes", async () => {
+  it("weights net FOB over the REMAINING balance after a partial shipment", async () => {
     const buyer = await createBuyer(admin, { name: "Ralawise" });
     const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
     const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
@@ -57,10 +54,11 @@ describe("shippedGoodsReport — net FOB", () => {
     });
     await approveCosting(accounts, po.id);
     await confirmPurchaseOrder(admin, po.id);
-    await createShipment(admin, { reference: "SHP-1", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 60 }, { label: "L", qty: 40 }] }] });
+    await createShipment(admin, { reference: "SHP-1", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 60 }] }] });
 
-    const rep = await shippedGoodsReport(admin);
-    expect(rep.rows[0].qty).toBe(100);
-    expect(rep.rows[0].netFob).toBe(2.8); // (60*2 + 40*4) / 100
+    const { rows } = await listOpenOrders(admin, {});
+    const sb = rows[0].styleBreakdown[0];
+    expect(sb.qty).toBe(140); // remaining: M 40 + L 100
+    expect(sb.netFob).toBe(3.4286); // (40*2 + 100*4) / 140
   });
 });

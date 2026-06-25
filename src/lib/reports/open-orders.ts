@@ -48,7 +48,7 @@ export type OpenOrderRow = {
   styles: string;
   // Per-style breakdown (remaining qty/value), so the report shows one row per style. Critical-
   // path / follow-up status lives on the Critical Path page + order detail, not here.
-  styleBreakdown: { style: string; sizes: string; colours: string; qty: number; value: number }[];
+  styleBreakdown: { style: string; sizes: string; colours: string; qty: number; netFob: number; value: number }[];
   remarks: string;
 };
 
@@ -132,6 +132,8 @@ function mapRow(po: PoForRow): OpenOrderRow {
       sizes: [...new Set(lines.flatMap((l) => l.sizes.map((s) => s.label)))].join(", ") || "—",
       colours: [...new Set(lines.map((l) => l.colour?.name).filter(Boolean) as string[])].join(", ") || "—",
       qty: t.qty,
+      // Net FOB = qty-weighted unit cost over the remaining balance (t.cost = Σ qty×netFob).
+      netFob: t.qty > 0 ? Math.round((t.cost / t.qty) * 10000) / 10000 : 0,
       value: t.value,
     };
   });
@@ -152,7 +154,7 @@ function mapRow(po: PoForRow): OpenOrderRow {
     totalValue: totals.value,
     currency: po.currency,
     styles: styles || "—",
-    styleBreakdown: styleBreakdown.length ? styleBreakdown : [{ style: "—", sizes: sizes || "—", colours: colours || "—", qty: totals.qty, value: totals.value }],
+    styleBreakdown: styleBreakdown.length ? styleBreakdown : [{ style: "—", sizes: sizes || "—", colours: colours || "—", qty: totals.qty, netFob: totals.qty > 0 ? Math.round((totals.cost / totals.qty) * 10000) / 10000 : 0, value: totals.value }],
     remarks: po.notes ?? "",
   };
 }

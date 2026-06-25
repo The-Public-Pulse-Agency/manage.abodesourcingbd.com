@@ -19,7 +19,7 @@ import { ColourCell } from "@/components/reports/colour-cell";
 import { ReportPeriodFilter } from "@/components/reports/report-period-filter";
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value (USD)", "Confirmed ship", "Remarks"];
+const EXPORT_HEADERS = ["PO", "Status", "PO received", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Net FOB", "Value (USD)", "Confirmed ship", "Remarks"];
 const STATUS_CLS: Record<string, string> = { DRAFT: "bg-paper text-ink-soft", CONFIRMED: "bg-accent-soft text-accent", IN_PRODUCTION: "bg-warn-soft text-warn", PARTLY_SHIPPED: "bg-ok-soft text-ok" };
 
 type SP = { page?: string; status?: string; factory?: string; buyer?: string; brand?: string; q?: string; shipYear?: string; shipMonth?: string };
@@ -110,11 +110,11 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-soft">
                 <th className="px-3 py-2.5 font-semibold">PO</th><th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">PO recvd</th>
                 <th className="px-3 py-2.5 font-semibold">Factory</th><th className="px-3 py-2.5 font-semibold">Buyer</th><th className="px-3 py-2.5 font-semibold">Brand</th><th className="px-3 py-2.5 font-semibold">Style</th><th className="px-3 py-2.5 font-semibold">Size</th>
-                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th><th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Actions</th>
+                <th className="px-3 py-2.5 font-semibold">Colour</th><th className="px-3 py-2.5 text-right font-semibold">Qty</th><th className="px-3 py-2.5 text-right font-semibold">Net FOB</th><th className="px-3 py-2.5 text-right font-semibold">Value</th><th className="px-3 py-2.5 font-semibold">Conf. ship</th><th className="px-3 py-2.5 font-semibold">Remarks</th><th className="px-3 py-2.5 font-semibold">PO doc</th><th className="px-3 py-2.5 font-semibold">Edit</th><th className="px-3 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {book.rows.length === 0 && <tr><td colSpan={16} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
+              {book.rows.length === 0 && <tr><td colSpan={17} className="px-3 py-10 text-center text-ink-soft">No orders match.</td></tr>}
               {book.rows.flatMap((r) => {
                 const sb = r.styleBreakdown;
                 const n = sb.length;
@@ -132,6 +132,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                     <td className="px-3 py-2 text-xs">{s.sizes}</td>
                     <td className="px-3 py-2 text-xs"><ColourCell value={s.colours} /></td>
                     <td className="px-3 py-2 text-right tnum">{formatQty(s.qty)}</td>
+                    <td className="px-3 py-2 text-right tnum">{s.netFob > 0 ? formatMoney(s.netFob, r.currency) : "—"}</td>
                     <td className="px-3 py-2 text-right tnum">{s.value > 0 ? formatMoney(s.value, r.currency) : "—"}</td>
                     {/* Dates moved here, after Value */}
                     <td className="px-3 py-2 tnum text-xs">{i === 0 && canEditOrders ? <EditableCell id={r.id} raw={iso(r.confirmedShipDate)} type="date" action={setOrderShipDate}>{formatDate(r.confirmedShipDate)}</EditableCell> : formatDate(r.confirmedShipDate)}</td>
@@ -160,6 +161,7 @@ export default async function OpenOrdersReportPage({ searchParams }: { searchPar
                 <tr className="border-t-2 border-ink bg-paper font-semibold">
                   <td className="px-3 py-2.5" colSpan={9}>Total — {formatQty(book.total)} order{book.total === 1 ? "" : "s"} (all filtered)</td>
                   <td className="px-3 py-2.5 text-right tnum">{formatQty(summary.totalQty)}</td>
+                  <td className="px-3 py-2.5" />
                   <td className="px-3 py-2.5 text-right tnum">{summary.totalValue > 0 ? formatMoney(summary.totalValue, "USD") : "—"}</td>
                   <td className="px-3 py-2.5" colSpan={5} />
                 </tr>

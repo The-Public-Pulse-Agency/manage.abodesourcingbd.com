@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
+import { lineMills, rollup } from "@/lib/orders/money";
 import { shipDateRange } from "./open-orders";
 
 type InvLite = { id: string; type: string; number: string; amount: unknown; status: string; currency: string; dueDate: Date | null };
@@ -33,6 +34,7 @@ export type ShippedRow = {
   sizes: string;
   colours: string;
   qty: number;
+  netFob: number;
   shipDate: Date | null;
   etaDestination: Date | null;
   invoiceId: string | null;
@@ -95,7 +97,7 @@ export async function shippedGoodsReport(
       lines: {
         include: {
           sizes: true,
-          orderLine: { include: { colour: true, style: true, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
+          orderLine: { include: { colour: true, style: true, sizes: { select: { label: true, netFob: true } }, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
         },
       },
     },
@@ -126,6 +128,14 @@ export async function shippedGoodsReport(
     const colours = [...new Set(s.lines.map((l) => l.orderLine?.colour?.name).filter(Boolean) as string[])].join(", ");
     const styles = [...new Set(s.lines.map((l) => l.orderLine?.style?.styleCode).filter(Boolean) as string[])].join(", ");
     const qty = s.lines.reduce((a, l) => a + l.sizes.reduce((b, z) => b + z.qty, 0), 0);
+    // Net FOB = qty-weighted unit cost over the SHIPPED sizes, pricing each shipped size at its
+    // order-line netFob (matched by label). Mills math + single rounding (see lib/orders/money).
+    const netRows = s.lines.flatMap((l) => {
+      const fobBy = new Map((l.orderLine?.sizes ?? []).map((z) => [z.label, z.netFob]));
+      return l.sizes.map((z) => ({ qty: z.qty, netFob: fobBy.get(z.label) ?? 0, sellFob: 0 }));
+    });
+    const cost = rollup([lineMills(netRows)]).cost;
+    const netFob = qty > 0 ? Math.round((cost / qty) * 10000) / 10000 : 0;
     // Shipment-linked invoice preferred, else the shipment's PO invoice(s) (receivable-first).
     const poInvoices = s.lines.flatMap((l) => l.orderLine?.po?.invoices ?? []) as InvLite[];
     const inv = pickShipmentInvoice(s.invoices as InvLite[], poInvoices);
@@ -141,6 +151,7 @@ export async function shippedGoodsReport(
       sizes: sizes || "—",
       colours: colours || "—",
       qty,
+      netFob,
       shipDate: s.exFactoryDate ?? s.blDate,
       etaDestination: s.etaDestination,
       invoiceId: inv?.id ?? null,

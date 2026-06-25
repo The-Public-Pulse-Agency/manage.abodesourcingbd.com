@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { remainingBySize, assertWithinBalance, excessBySize, overShipNote, type SizeQty } from "./balance";
+import { autoCompletePreShipMilestones } from "@/lib/tna/milestones";
 
 const shipmentModes = ["SEA", "AIR"] as const;
 const telexStatuses = ["PENDING", "RECEIVED", "RELEASED"] as const;
@@ -65,6 +66,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
     return await prisma.$transaction(
       async (tx) => {
         const affectedPoIds = new Set<string>();
+        const poStyles = new Map<string, Set<string>>(); // poId → styleIds shipped (for milestone auto-complete)
         const lineNotes = new Map<string, string>(); // orderLineId → over-ship note
         for (const l of data.lines) {
           const ol = await tx.orderLine.findFirst({
@@ -76,6 +78,7 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
             throw new Error(`Cannot ship a ${ol.po.status} order`);
           }
           affectedPoIds.add(ol.poId);
+          if (ol.styleId) (poStyles.get(ol.poId) ?? poStyles.set(ol.poId, new Set()).get(ol.poId)!).add(ol.styleId);
           const shipped: SizeQty[] = ol.shipmentLines.flatMap((sl) => sl.sizes.map((s) => ({ label: s.label, qty: s.qty })));
           const balances = remainingBySize(ol.sizes.map((s) => ({ label: s.label, qty: s.qty })), shipped);
           assertWithinBalance(balances, l.sizes); // over-ship allowed; only rejects unknown sizes
@@ -136,6 +139,15 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
               );
             }
           }
+          // Goods shipped → mark this PO's pre-shipping critical-path activities (through
+          // ex-factory) done for the shipped styles; post-shipping steps stay manual.
+          await autoCompletePreShipMilestones(
+            tx,
+            actor,
+            poId,
+            [...(poStyles.get(poId) ?? [])],
+            data.exFactoryDate ?? data.blDate ?? new Date(),
+          );
         }
 
         await recordAudit(
@@ -150,7 +162,9 @@ export async function createShipment(actor: SessionUser, input: CreateShipmentIn
         );
         return created;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      // Raised from the 5s default: a shipment now also completes the PO's pre-shipping
+      // critical-path milestones in the same atomic transaction (one extra updateMany per PO).
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 10000 },
     );
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {

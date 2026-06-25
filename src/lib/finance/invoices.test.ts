@@ -5,7 +5,9 @@ import { ForbiddenError } from "@/lib/auth/guard";
 import { createBuyer, createBrand } from "@/lib/masterdata/buyer";
 import { createFactory } from "@/lib/masterdata/factory";
 import { createPurchaseOrder } from "@/lib/orders/po";
-import { createInvoice, listInvoices } from "./invoices";
+import { createInvoice, listInvoices, updateInvoiceFields } from "./invoices";
+import { recordPayment } from "./payments";
+import { outstanding } from "./money";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
@@ -43,4 +45,42 @@ it("rejects an invoice linked to nothing, and an unknown PO", async () => {
 it("forbids Merchandiser (finance view-only) from creating", async () => {
   const po = await seedPo();
   await expect(createInvoice(merch, { type: "BUYER", number: "M", poId: po.id, amount: 1, issueDate: d("2026-03-19") })).rejects.toThrow(ForbiddenError);
+});
+
+describe("marking an invoice PAID auto-records the outstanding payment", () => {
+  it("records a payment for the full amount when no payments exist", async () => {
+    const po = await seedPo();
+    const i = await createInvoice(accounts, { type: "BUYER", number: "ABD-PAID", poId: po.id, amount: 1000, issueDate: d("2026-03-19") });
+    await updateInvoiceFields(accounts, i.id, { status: "PAID" });
+
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: i.id }, include: { payments: true } });
+    expect(inv.status).toBe("PAID");
+    expect(inv.payments).toHaveLength(1);
+    expect(Number(inv.payments[0].amount)).toBe(1000);
+    expect(outstanding(inv.amount, inv.payments)).toBe(0);
+  });
+
+  it("records only the remaining balance when a partial payment already exists", async () => {
+    const po = await seedPo();
+    const i = await createInvoice(accounts, { type: "BUYER", number: "ABD-PART", poId: po.id, amount: 1000, issueDate: d("2026-03-19") });
+    await recordPayment(accounts, i.id, { amount: 400, date: d("2026-04-01"), method: "TT" });
+    await updateInvoiceFields(accounts, i.id, { status: "PAID" });
+
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: i.id }, include: { payments: true } });
+    expect(inv.status).toBe("PAID");
+    const total = inv.payments.reduce((a, p) => a + Number(p.amount), 0);
+    expect(total).toBe(1000); // 400 + auto 600
+    expect(outstanding(inv.amount, inv.payments)).toBe(0);
+  });
+
+  it("is idempotent — no extra payment when already fully paid", async () => {
+    const po = await seedPo();
+    const i = await createInvoice(accounts, { type: "BUYER", number: "ABD-FULL", poId: po.id, amount: 500, issueDate: d("2026-03-19") });
+    await recordPayment(accounts, i.id, { amount: 500, date: d("2026-04-01"), method: "TT" });
+    await updateInvoiceFields(accounts, i.id, { status: "PAID" });
+
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: i.id }, include: { payments: true } });
+    expect(inv.payments).toHaveLength(1); // unchanged
+    expect(inv.status).toBe("PAID");
+  });
 });

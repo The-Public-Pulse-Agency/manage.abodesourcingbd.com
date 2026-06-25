@@ -80,6 +80,10 @@ describe("dashboardSummary", () => {
     await prisma.shipment.create({
       data: { companyId: "test-co", reference: "SHP-1", blNumber: "BL-1", telexStatus: "PENDING" },
     });
+    // Telex RECEIVED counts as done — must NOT be flagged pending.
+    await prisma.shipment.create({
+      data: { companyId: "test-co", reference: "SHP-2", blNumber: "BL-2", telexStatus: "RECEIVED" },
+    });
 
     // Overdue invoice (issued 100d ago) + a current one
     await createInvoice(accounts, { type: "BUYER", number: "ABD-1", poId: live.id, amount: 200, issueDate: d("2026-03-07") });

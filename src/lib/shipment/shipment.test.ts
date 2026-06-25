@@ -11,6 +11,7 @@ import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
 import { createShipment, updateShipment } from "./shipment";
 import { getPoBalance } from "./balance-db";
+import { seedTemplates } from "@/lib/tna/templates";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const mgmt = { id: "mgmt-1", role: "MANAGEMENT" as const, companyId: "test-co" };
@@ -39,6 +40,26 @@ async function confirmedPo(r: Awaited<ReturnType<typeof refs>>, poNumber: string
 
 beforeEach(async () => { await resetDb(); });
 afterAll(async () => { await prisma.$disconnect(); });
+
+describe("createShipment — auto-completes pre-shipping critical path", () => {
+  it("marks pre-shipping milestones (through ex-factory) done, leaving post-shipping manual", async () => {
+    await seedTemplates("test-co");
+    const r = await refs();
+    const { po, line } = await confirmedPo(r, "P-CP", 100); // confirm instantiates the critical path
+    expect(await prisma.taMilestone.count({ where: { poId: po.id, actualDate: { not: null } } })).toBe(0);
+
+    await createShipment(admin, { reference: "SHP-CP", exFactoryDate: d("2026-06-30"), lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+
+    const ms = await prisma.taMilestone.findMany({ where: { poId: po.id } });
+    const done = (k: string) => ms.find((m) => m.key === k)?.actualDate ?? null;
+    expect(done("PP_SAMPLE")).not.toBeNull();
+    expect(done("FINAL_AQL")).not.toBeNull();
+    expect(done("EX_FACTORY")?.toISOString()).toBe("2026-06-30T00:00:00.000Z");
+    expect(done("BL_TELEX")).toBeNull(); // post-shipping — manual
+    expect(done("TC_SENT")).toBeNull();
+    expect(done("PAYMENT")).toBeNull();
+  });
+});
 
 describe("createShipment", () => {
   it("ships partial qty, decrements balance, sets PARTLY_SHIPPED", async () => {

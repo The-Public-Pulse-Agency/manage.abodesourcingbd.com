@@ -47,6 +47,51 @@ export async function instantiateMilestones(
   });
 }
 
+// Stages that are entirely pre-shipping. Within SHIPPING, only milestones on/before ex-factory
+// (offsetDays <= 0, i.e. EX_FACTORY) are pre-shipping; BL/Telex (+7), TC (+10) and Payment (null)
+// are post-shipping and are intentionally left for manual completion.
+const PRE_SHIP_STAGES = ["PRE_PRODUCTION", "SAMPLING", "PRODUCTION_QC"] as const;
+
+/**
+ * When a shipment is recorded, the goods have left the factory — so every pre-shipping
+ * critical-path activity (through Ex-factory) is implicitly done. Mark the incomplete ones done
+ * for the shipped styles (+ any legacy PO-level set), leaving post-shipping steps (BL/Telex, TC,
+ * Payment) to be updated manually. Runs inside the caller's transaction; returns how many it set.
+ */
+export async function autoCompletePreShipMilestones(
+  tx: Prisma.TransactionClient,
+  actor: SessionUser,
+  poId: string,
+  styleIds: string[],
+  completedAt: Date,
+): Promise<number> {
+  const cid = tenantId(actor);
+  const floored = startOfUtcDay(completedAt);
+  const where: Prisma.TaMilestoneWhereInput = {
+    companyId: cid,
+    poId,
+    actualDate: null,
+    AND: [
+      { OR: [{ styleId: { in: styleIds } }, { styleId: null }] },
+      { OR: [{ stage: { in: [...PRE_SHIP_STAGES] } }, { stage: "SHIPPING", offsetDays: { lte: 0 } }] },
+    ],
+  };
+  const toComplete = await tx.taMilestone.findMany({ where, select: { key: true } });
+  if (toComplete.length === 0) return 0;
+  await tx.taMilestone.updateMany({ where, data: { actualDate: floored } });
+  await recordAudit(
+    {
+      userId: actor.id,
+      entityType: "PurchaseOrder",
+      entityId: poId,
+      action: "edit",
+      after: { autoCompletedMilestones: toComplete.map((m) => m.key), on: floored.toISOString() },
+    },
+    tx,
+  );
+  return toComplete.length;
+}
+
 export async function completeMilestone(actor: SessionUser, id: string, actualDate: Date) {
   assertPermission(actor, "criticalPath", "edit");
   const before = await prisma.taMilestone.findFirst({ where: { id, companyId: tenantId(actor) } });

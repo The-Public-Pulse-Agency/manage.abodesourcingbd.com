@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { recomputeInvoiceStatus } from "./payments";
+import { outstanding } from "./money";
 
 const invoiceTypes = ["BUYER", "FACTORY"] as const;
 
@@ -165,9 +166,26 @@ export async function updateInvoiceFields(
   // explicit status can leave a stored PAID/PARTIALLY_PAID diverged from the new amount vs
   // payment set, so recompute the status from the authoritative payments after the write.
   // recomputeInvoiceStatus requires a TransactionClient, so wrap the update + recompute.
+  // Marking an invoice PAID auto-records a payment for the remaining balance, so the payment
+  // ledger (cash book, aging, dashboard "payments overdue") agrees with the PAID status instead
+  // of a status-only flag that aging ignores. recomputeInvoiceStatus then confirms PAID.
+  const autoSettle = explicitStatus === "PAID";
   const recompute = amountChanged && !explicitStatus;
   try {
-    if (recompute) {
+    if (autoSettle) {
+      await prisma.$transaction(async (tx) => {
+        await tx.invoice.update({ where: { id }, data });
+        const inv = await tx.invoice.findFirstOrThrow({ where: { id, companyId: cid } });
+        const all = await tx.payment.findMany({ where: { invoiceId: id, companyId: cid } });
+        const out = outstanding(inv.amount, all);
+        if (out > 0) {
+          await tx.payment.create({
+            data: { companyId: cid, invoiceId: id, amount: String(out), date: new Date(), method: "TT", reference: "Auto-recorded: marked paid" },
+          });
+        }
+        await recomputeInvoiceStatus(tx, id, cid);
+      });
+    } else if (recompute) {
       await prisma.$transaction(async (tx) => {
         await tx.invoice.update({ where: { id }, data });
         await recomputeInvoiceStatus(tx, id, cid);

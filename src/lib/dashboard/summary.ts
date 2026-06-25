@@ -78,8 +78,10 @@ export async function dashboardSummary(
       exFactoryDate: p.exFactoryDate!,
     }));
 
+  // "Telex pending" = telex not yet in hand. RECEIVED (and RELEASED) count as done; only a
+  // shipment still at PENDING (with a BL issued) is awaiting telex.
   const telex = await prisma.shipment.findMany({
-    where: { blNumber: { not: null }, telexStatus: { not: "RELEASED" }, companyId: tenantId(actor) },
+    where: { blNumber: { not: null }, telexStatus: "PENDING", companyId: tenantId(actor) },
     orderBy: { createdAt: "asc" },
   });
 

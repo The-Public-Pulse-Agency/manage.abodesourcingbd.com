@@ -2,10 +2,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { lineMills, rollup } from "@/lib/orders/money";
+import { isSettled, derivedPaymentStatus } from "@/lib/finance/money";
 import { shipDateRange } from "./open-orders";
 
-type InvLite = { id: string; type: string; number: string; amount: unknown; status: string; currency: string; dueDate: Date | null };
-const INV_SELECT = { id: true, type: true, number: true, amount: true, status: true, currency: true, dueDate: true } as const;
+type InvLite = { id: string; type: string; number: string; amount: Prisma.Decimal; status: string; currency: string; dueDate: Date | null; payments: { amount: Prisma.Decimal }[] };
+const INV_SELECT = { id: true, type: true, number: true, amount: true, status: true, currency: true, dueDate: true, payments: { select: { amount: true } } } as const;
 
 /**
  * Pick the invoice to show for a shipment. Prefer one linked directly to the shipment
@@ -93,11 +94,11 @@ export async function shippedGoodsReport(
   const shipments = await prisma.shipment.findMany({
     where,
     include: {
-      invoices: true,
+      invoices: { include: { payments: { select: { amount: true } } } },
       lines: {
         include: {
           sizes: true,
-          orderLine: { include: { colour: true, style: true, sizes: { select: { label: true, sellFob: true } }, po: { include: { factory: true, buyer: true, brand: true, invoices: true } } } },
+          orderLine: { include: { colour: true, style: true, sizes: { select: { label: true, sellFob: true } }, po: { include: { factory: true, buyer: true, brand: true, invoices: { include: { payments: { select: { amount: true } } } } } } } },
         },
       },
     },
@@ -158,7 +159,7 @@ export async function shippedGoodsReport(
       invoiceNumber: inv?.number ?? null,
       invoiceValue: inv ? Number(inv.amount) : null,
       invoiceDueDate: inv?.dueDate ?? null,
-      paymentStatus: inv?.status ?? null,
+      paymentStatus: inv ? derivedPaymentStatus(inv.amount, inv.payments) : null,
       containerNo: s.containerNo,
       tcStatus: s.tcStatus,
       remarks: s.remarks ?? "",
@@ -200,7 +201,7 @@ async function shippedReportKpis(where: Prisma.ShipmentWhereInput) {
   let receivableUsd = 0, paid = 0, awaiting = 0;
   for (const inv of selected.values()) {
     if (inv.currency === "USD") receivableUsd += Number(inv.amount);
-    if (inv.status === "PAID") paid += 1; else awaiting += 1;
+    if (isSettled(inv.amount, inv.payments)) paid += 1; else awaiting += 1;
   }
   return { shipments, totalQty: qtyAgg._sum.qty ?? 0, receivableUsd, paid, awaiting };
 }

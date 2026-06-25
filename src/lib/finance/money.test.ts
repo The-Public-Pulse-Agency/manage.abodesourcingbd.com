@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { outstanding, ageBucket } from "./money";
+import { outstanding, ageBucket, isSettled, derivedPaymentStatus } from "./money";
 
 describe("outstanding", () => {
   it("invoice amount minus payments, floored at 0", () => {
@@ -9,6 +9,20 @@ describe("outstanding", () => {
   });
   it("penny-safe (no float drift)", () => {
     expect(outstanding("0.30", [{ amount: "0.10" }, { amount: "0.10" }])).toBe(0.1);
+  });
+});
+
+describe("isSettled / derivedPaymentStatus (ledger as source of truth)", () => {
+  it("isSettled is true only when payments cover the amount", () => {
+    expect(isSettled("1000", [{ amount: "1000" }])).toBe(true);
+    expect(isSettled("1000", [{ amount: "1200" }])).toBe(true);
+    expect(isSettled("1000", [{ amount: "999.99" }])).toBe(false);
+    expect(isSettled("1000", [])).toBe(false);
+  });
+  it("derivedPaymentStatus reflects the payment ledger, not a stored flag", () => {
+    expect(derivedPaymentStatus("1000", [])).toBe("ISSUED");
+    expect(derivedPaymentStatus("1000", [{ amount: "400" }])).toBe("PARTIALLY_PAID");
+    expect(derivedPaymentStatus("1000", [{ amount: "1000" }])).toBe("PAID");
   });
 });
 

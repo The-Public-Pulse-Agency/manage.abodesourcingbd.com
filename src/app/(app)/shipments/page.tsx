@@ -5,6 +5,7 @@ import { can } from "@/lib/auth/permissions";
 import { listShipmentsPaged } from "@/lib/shipment/shipment";
 import { Pagination } from "@/components/pagination";
 import { formatDate, formatMoney } from "@/lib/format";
+import { isSettled } from "@/lib/finance/money";
 
 const TELEX_CLS: Record<string, string> = {
   PENDING: "bg-line text-ink-soft",
@@ -76,8 +77,8 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                   <td className="px-3 py-2 tnum text-xs">{invoice?.dueDate ? formatDate(invoice.dueDate) : "—"}</td>
                   <td className="px-3 py-2">
                     {invoice ? (
-                      <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${PAY_CLS[invoice.status] ?? ""}`}>
-                        {invoice.status === "PAID" ? "Paid" : "Due"}
+                      <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold uppercase ${isSettled(invoice.amount, invoice.payments) ? PAY_CLS.PAID : PAY_CLS.ISSUED}`}>
+                        {isSettled(invoice.amount, invoice.payments) ? "Paid" : "Due"}
                       </span>
                     ) : "—"}
                   </td>

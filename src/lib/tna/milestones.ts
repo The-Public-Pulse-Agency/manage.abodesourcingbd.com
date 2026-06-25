@@ -125,6 +125,38 @@ export async function completeMilestonesByKey(
   return found.length;
 }
 
+/**
+ * Re-stamp the actualDate of ALREADY-completed milestone(s) with `key` for a PO (overwriting) —
+ * keeps EX_FACTORY in sync when a shipment's ex-factory date is corrected after creation. Only
+ * touches milestones already done (actualDate set), so it never silently completes an open step.
+ */
+export async function restampMilestoneActual(
+  tx: Prisma.TransactionClient,
+  actor: SessionUser,
+  poId: string,
+  key: string,
+  actualDate: Date,
+  styleIds?: string[],
+): Promise<number> {
+  const cid = tenantId(actor);
+  const floored = startOfUtcDay(actualDate);
+  const where: Prisma.TaMilestoneWhereInput = {
+    companyId: cid,
+    poId,
+    key,
+    actualDate: { not: null },
+    ...(styleIds && styleIds.length ? { OR: [{ styleId: { in: styleIds } }, { styleId: null }] } : {}),
+  };
+  const res = await tx.taMilestone.updateMany({ where, data: { actualDate: floored } });
+  if (res.count > 0) {
+    await recordAudit(
+      { userId: actor.id, entityType: "PurchaseOrder", entityId: poId, action: "edit", after: { restampedMilestone: key, on: floored.toISOString() } },
+      tx,
+    );
+  }
+  return res.count;
+}
+
 export async function completeMilestone(actor: SessionUser, id: string, actualDate: Date) {
   assertPermission(actor, "criticalPath", "edit");
   const before = await prisma.taMilestone.findFirst({ where: { id, companyId: tenantId(actor) } });

@@ -11,6 +11,17 @@ export function outstanding(amount: Decimalish, payments: Paid[]): number {
   return Math.max(0, cents(amount) - paid) / 100;
 }
 
+/** Fully settled per the payment ledger — the single source of truth for "is this paid". */
+export function isSettled(amount: Decimalish, payments: Paid[]): boolean {
+  return outstanding(amount, payments) <= 0;
+}
+
+/** Payment status derived from the ledger (mirrors recomputeInvoiceStatus), not the stored flag. */
+export function derivedPaymentStatus(amount: Decimalish, payments: Paid[]): "ISSUED" | "PARTIALLY_PAID" | "PAID" {
+  if (outstanding(amount, payments) <= 0) return "PAID";
+  return payments.length ? "PARTIALLY_PAID" : "ISSUED";
+}
+
 export type AgeBucketKey = "0-30" | "31-60" | "61-90" | "90+";
 
 export function ageBucket(issueDate: Date, now: Date): AgeBucketKey {

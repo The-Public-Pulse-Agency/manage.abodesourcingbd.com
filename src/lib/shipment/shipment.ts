@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { assertPermission, tenantId, type SessionUser } from "@/lib/auth/guard";
 import { recordAudit } from "@/lib/audit";
 import { remainingBySize, assertWithinBalance, excessBySize, overShipNote, type SizeQty } from "./balance";
-import { autoCompletePreShipMilestones, completeMilestonesByKey } from "@/lib/tna/milestones";
+import { autoCompletePreShipMilestones, completeMilestonesByKey, restampMilestoneActual } from "@/lib/tna/milestones";
 
 const shipmentModes = ["SEA", "AIR"] as const;
 const telexStatuses = ["PENDING", "RECEIVED", "RELEASED"] as const;
@@ -216,6 +216,7 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
   const cid = tenantId(actor);
   // Telex in hand → tick the BL/Telex critical-path milestone for the shipped styles.
   const advancingTelex = (data.telexStatus === "RECEIVED" || data.telexStatus === "RELEASED") && data.telexStatus !== before.telexStatus;
+  const exFtyChanged = data.exFactoryDate !== undefined && (data.exFactoryDate?.getTime() ?? null) !== (before.exFactoryDate?.getTime() ?? null);
   const auditPayload = {
     userId: actor.id,
     entityType: "Shipment",
@@ -232,7 +233,7 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
   };
 
   try {
-    if (advancingTelex) {
+    if (advancingTelex || exFtyChanged) {
       const shipment = await prisma.$transaction(async (tx) => {
         await tx.shipment.updateMany({ where: { id, companyId: cid }, data });
         const s = await tx.shipment.findFirst({ where: { id, companyId: cid } });
@@ -246,8 +247,14 @@ export async function updateShipment(actor: SessionUser, id: string, input: Upda
           if (l.orderLine?.styleId) set.add(l.orderLine.styleId);
           poStyles.set(po, set);
         }
-        const when = s.blDate ?? s.exFactoryDate ?? new Date();
-        for (const [poId, styles] of poStyles) await completeMilestonesByKey(tx, actor, poId, "BL_TELEX", when, [...styles]);
+        if (advancingTelex) {
+          const when = s.blDate ?? s.exFactoryDate ?? new Date();
+          for (const [poId, styles] of poStyles) await completeMilestonesByKey(tx, actor, poId, "BL_TELEX", when, [...styles]);
+        }
+        if (exFtyChanged && s.exFactoryDate) {
+          // Keep OTD / critical-path on-time status in sync with the corrected ex-factory date.
+          for (const [poId, styles] of poStyles) await restampMilestoneActual(tx, actor, poId, "EX_FACTORY", s.exFactoryDate, [...styles]);
+        }
         await recordAudit(auditPayload, tx);
         return s;
       }, { timeout: 15000, maxWait: 10000 });
@@ -430,7 +437,7 @@ export async function listShipments(actor: SessionUser) {
     include: {
       forwarder: true,
       port: true,
-      invoices: true,
+      invoices: { include: { payments: { select: { amount: true } } } },
       lines: { include: { sizes: true, orderLine: { include: { po: { include: { factory: true } } } } } },
     },
     orderBy: { createdAt: "desc" },
@@ -449,7 +456,7 @@ export async function listShipmentsPaged(actor: SessionUser, opts: { page?: numb
     include: {
       forwarder: true,
       port: true,
-      invoices: true,
+      invoices: { include: { payments: { select: { amount: true } } } },
       lines: { include: { sizes: true, orderLine: { include: { po: { include: { factory: true } } } } } },
     },
     orderBy: { createdAt: "desc" },
@@ -466,7 +473,7 @@ export async function getShipment(actor: SessionUser, id: string) {
     include: {
       forwarder: true,
       port: true,
-      invoices: true,
+      invoices: { include: { payments: { select: { amount: true } } } },
       lines: { include: { sizes: true, orderLine: { include: { style: true, colour: true, po: true } } } },
     },
   });

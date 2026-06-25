@@ -70,6 +70,17 @@ describe("createShipment — auto-completes pre-shipping critical path", () => {
     await updateShipment(admin, shp.id, { telexStatus: "RECEIVED" });
     expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "BL_TELEX" } })).actualDate).not.toBeNull();
   });
+
+  it("re-stamps the EX_FACTORY milestone when the ex-factory date is corrected", async () => {
+    await seedTemplates("test-co");
+    const r = await refs();
+    const { po, line } = await confirmedPo(r, "P-EX", 100);
+    const shp = await createShipment(admin, { reference: "S-EX", exFactoryDate: d("2026-06-30"), lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "EX_FACTORY" } })).actualDate?.toISOString()).toBe("2026-06-30T00:00:00.000Z");
+
+    await updateShipment(admin, shp.id, { exFactoryDate: d("2026-07-05") });
+    expect((await prisma.taMilestone.findFirstOrThrow({ where: { poId: po.id, key: "EX_FACTORY" } })).actualDate?.toISOString()).toBe("2026-07-05T00:00:00.000Z");
+  });
 });
 
 describe("createShipment", () => {

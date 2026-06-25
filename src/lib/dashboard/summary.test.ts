@@ -7,6 +7,7 @@ import { createStyle } from "@/lib/masterdata/style";
 import { createPurchaseOrder } from "@/lib/orders/po";
 import { setOrderLine } from "@/lib/orders/lines";
 import { createInvoice } from "@/lib/finance/invoices";
+import { recordPayment } from "@/lib/finance/payments";
 import { dashboardSummary } from "./summary";
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
@@ -103,6 +104,22 @@ describe("dashboardSummary", () => {
     expect(s.exceptions.telexPending).toHaveLength(1);
     expect(s.exceptions.telexPending[0].blNumber).toBe("BL-1");
     expect(s.exceptions.paymentOverdue).toBe(1); // ABD-1 aged 100d; LFI-1 is 0-30
+  });
+
+  it("realises a PO's margin from the payment ledger, not the invoice status flag", async () => {
+    const { buyer, brand, factory } = await refs();
+    const po = await createPurchaseOrder(admin, { poNumber: "P-RM", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
+    const bi = await createInvoice(accounts, { type: "BUYER", number: "RM-B", poId: po.id, amount: 200, issueDate: d("2026-03-07") });
+    const fi = await createInvoice(accounts, { type: "FACTORY", number: "RM-F", poId: po.id, amount: 150, issueDate: d("2026-03-07") });
+
+    // Status flag says PAID, but NO payments recorded → ledger says unpaid → margin NOT realised.
+    await prisma.invoice.updateMany({ where: { poId: po.id }, data: { status: "PAID" } });
+    expect((await dashboardSummary(admin, { now: NOW })).finance.realisedMargin).toBe(0);
+
+    // Actually settle both via the ledger → margin realised (200 − 150).
+    await recordPayment(accounts, bi.id, { amount: 200, date: d("2026-04-01"), method: "TT" });
+    await recordPayment(accounts, fi.id, { amount: 150, date: d("2026-04-01"), method: "TT" });
+    expect((await dashboardSummary(admin, { now: NOW })).finance.realisedMargin).toBe(50);
   });
 
   it("returns empty/zero shape on an empty DB", async () => {

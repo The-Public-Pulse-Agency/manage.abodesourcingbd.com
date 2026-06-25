@@ -10,7 +10,11 @@ import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
 import { closePurchaseOrder } from "@/lib/orders/close";
 import { createShipment } from "@/lib/shipment/shipment";
+import { createInvoice } from "@/lib/finance/invoices";
+import { recordPayment } from "@/lib/finance/payments";
 import { shippedGoodsReport } from "./shipped";
+
+const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 const admin = { id: "admin-1", role: "ADMIN" as const, companyId: "test-co" };
 const accounts = { id: "acc-1", role: "ACCOUNTS" as const, companyId: "test-co" };
@@ -38,6 +42,32 @@ describe("shippedGoodsReport — short shipment", () => {
     await closePurchaseOrder(admin, po.id);
     rep = await shippedGoodsReport(admin);
     expect(rep.rows[0].shortShip).toBe("40 pcs short");
+  });
+});
+
+describe("shippedGoodsReport — payment status from the ledger", () => {
+  it("derives paid/awaiting from payments, not the invoice status flag", async () => {
+    const buyer = await createBuyer(admin, { name: "Ralawise" });
+    const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
+    const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
+    const style = await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "Tee" });
+    const po = await createPurchaseOrder(admin, { poNumber: "P-PS", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
+    const line = await setOrderLine(admin, po.id, { styleId: style.id, sizes: [{ label: "M", qty: 100, netFob: 1, sellFob: 2 }] });
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+    const shp = await createShipment(admin, { reference: "SHP-PS", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+    const invc = await createInvoice(accounts, { type: "BUYER", number: "PS-INV", shipmentId: shp.id, amount: 200, issueDate: d("2026-03-07") });
+
+    // Status flag says PAID, but no payment recorded → ledger (and the report) say unpaid.
+    await prisma.invoice.updateMany({ where: { id: invc.id }, data: { status: "PAID" } });
+    let rep = await shippedGoodsReport(admin);
+    expect(rep.rows[0].paymentStatus).toBe("ISSUED");
+    expect(rep.kpis.paid).toBe(0);
+
+    await recordPayment(accounts, invc.id, { amount: 200, date: d("2026-04-01"), method: "TT" });
+    rep = await shippedGoodsReport(admin);
+    expect(rep.rows[0].paymentStatus).toBe("PAID");
+    expect(rep.kpis.paid).toBe(1);
   });
 });
 

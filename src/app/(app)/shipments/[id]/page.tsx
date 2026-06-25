@@ -11,7 +11,7 @@ import { ShipmentTelexForm } from "./shipment-telex-form";
 import { DocumentsPanel } from "@/components/documents-panel";
 import { InvoicesPanel, type InvoiceRow } from "@/components/invoices-panel";
 import { listInvoices } from "@/lib/finance/invoices";
-import { outstanding } from "@/lib/finance/money";
+import { outstanding, derivedPaymentStatus } from "@/lib/finance/money";
 import { EditableCell } from "@/components/reports/editable-cell";
 import { setShipmentReference, setShipmentLineSizeQty } from "@/lib/reports/inline-actions";
 
@@ -39,6 +39,8 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     ? await Promise.all([listForwarders(actor), listPorts(actor)])
     : [[], []];
   const inv = shp.invoices.find((i) => i.type === "FACTORY") ?? shp.invoices[0];
+  // Payment state from the ledger (not the stored status flag, which a manual override can desync).
+  const invStatus = inv ? derivedPaymentStatus(inv.amount, inv.payments) : null;
 
   // Distinct POs this shipment covers — used to surface "create invoice from shipment"
   // by reusing InvoicesPanel scoped to each PO (the established order-detail pattern).
@@ -122,7 +124,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         <Meta label="Port" value={shp.port?.name ?? "—"} />
         <Meta label="ETA destination" value={formatDate(shp.etaDestination)} />
         <Meta label="TC status" value={shp.tcStatus ?? "—"} />
-        <Meta label="Payment" value={inv ? (inv.status === "PAID" ? "Paid" : inv.status === "PARTIALLY_PAID" ? "Partial" : "Due") : "—"} />
+        <Meta label="Payment" value={invStatus === "PAID" ? "Paid" : invStatus === "PARTIALLY_PAID" ? "Partial" : invStatus ? "Due" : "—"} />
         <Meta label="Remarks" value={shp.remarks ?? "—"} />
       </dl>
 
@@ -145,7 +147,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             portId: shp.portId ?? "",
             remarks: shp.remarks ?? "",
             invoiceId: inv?.id ?? null,
-            paymentStatus: inv?.status ?? "ISSUED",
+            paymentStatus: invStatus ?? "ISSUED",
           }}
         />
       )}

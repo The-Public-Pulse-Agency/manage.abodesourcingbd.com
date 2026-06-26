@@ -53,6 +53,10 @@ export async function setShipmentTc(id: string, value: string): Promise<Res> {
   return run((a) => updateShipment(a, id, { tcStatus: value }).then(() => undefined));
 }
 
+export async function setShipmentTelex(id: string, value: string): Promise<Res> {
+  return run((a) => updateShipment(a, id, { telexStatus: value as "PENDING" | "RECEIVED" | "RELEASED" }).then(() => undefined));
+}
+
 export async function setShipmentContainer(id: string, value: string): Promise<Res> {
   return run((a) => updateShipment(a, id, { containerNo: value }).then(() => undefined));
 }

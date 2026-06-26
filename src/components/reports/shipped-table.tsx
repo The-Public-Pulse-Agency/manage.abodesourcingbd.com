@@ -9,13 +9,19 @@ import { ExportButton } from "./export-button";
 import { RowDeleteButton } from "./row-delete-button";
 import { ColourCell } from "./colour-cell";
 import { MultiSelect } from "./multi-select";
-import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
+import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentTelex, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
 import { sumDistinctInvoiceValue } from "@/lib/reports/shipped-totals";
 
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
+const TELEX_OPTIONS = [{ value: "PENDING", label: "Pending" }, { value: "RECEIVED", label: "Received" }, { value: "RELEASED", label: "Released" }];
+const TELEX_CLS: Record<string, string> = {
+  PENDING: "bg-paper text-ink-soft",
+  RECEIVED: "bg-warn-soft text-warn",
+  RELEASED: "bg-ok-soft text-ok",
+};
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "TC status", "Remarks"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "Telex", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
@@ -69,7 +75,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours, r.qty, r.value || 0, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.tcStatus ?? "", r.remarks])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours, r.qty, r.value || 0, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.telexStatus, r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -96,6 +102,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
               <th className="px-3 py-2.5 font-semibold">Due date</th>
               <th className="px-3 py-2.5 font-semibold">Payment</th>
               <th className="px-3 py-2.5 font-semibold">Container</th>
+              <th className="px-3 py-2.5 font-semibold">Telex</th>
               <th className="px-3 py-2.5 font-semibold">TC status</th>
               <th className="px-3 py-2.5 font-semibold">Remarks</th>
               <th className="px-3 py-2.5 font-semibold">Invoice doc</th>
@@ -104,7 +111,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={22} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={23} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
@@ -149,6 +156,12 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                   ) : "—"}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.containerNo ?? ""} type="text" action={setShipmentContainer}>{r.containerNo ?? "—"}</EditableCell> : (r.containerNo ?? "—")}</td>
+                <td className="px-3 py-2">
+                  {(() => {
+                    const badge = <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${TELEX_CLS[r.telexStatus] ?? "bg-paper text-ink-soft"}`}>{r.telexStatus.toLowerCase()}</span>;
+                    return canEditShipment ? <EditableCell id={r.id} raw={r.telexStatus} type="select" options={TELEX_OPTIONS} action={setShipmentTelex}>{badge}</EditableCell> : badge;
+                  })()}
+                </td>
                 <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell> : (r.tcStatus ?? "—")}</td>
                 <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                 <td className="px-3 py-2">{r.invoiceId ? <a href={`/api/invoices/${r.invoiceId}`} className="text-xs font-medium text-accent hover:underline" title="Download invoice (Excel)">Invoice ⬇</a> : <span className="text-xs text-ink-soft">—</span>}</td>
@@ -165,7 +178,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                 <td className="px-3 py-2.5 text-right tnum">{totalGoodsValue > 0 ? formatMoney(totalGoodsValue) : "—"}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>
-                <td colSpan={8} />
+                <td colSpan={9} />
               </tr>
             </tfoot>
           )}

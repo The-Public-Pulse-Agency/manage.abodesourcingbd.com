@@ -92,5 +92,6 @@ describe("shippedGoodsReport — line value", () => {
     const rep = await shippedGoodsReport(admin);
     expect(rep.rows[0].qty).toBe(100);
     expect(rep.rows[0].value).toBe(380); // 60×3 (sell M) + 40×5 (sell L)
+    expect(rep.rows[0].telexStatus).toBe("PENDING"); // surfaced for the report's Telex column
   });
 });

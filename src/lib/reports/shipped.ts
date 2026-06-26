@@ -44,6 +44,7 @@ export type ShippedRow = {
   invoiceDueDate: Date | null;
   paymentStatus: string | null;
   containerNo: string | null;
+  telexStatus: string;
   tcStatus: string | null;
   remarks: string;
   overShip: string | null;
@@ -161,6 +162,7 @@ export async function shippedGoodsReport(
       invoiceDueDate: inv?.dueDate ?? null,
       paymentStatus: inv ? derivedPaymentStatus(inv.amount, inv.payments) : null,
       containerNo: s.containerNo,
+      telexStatus: s.telexStatus,
       tcStatus: s.tcStatus,
       remarks: s.remarks ?? "",
       overShip: s.lines.map((l) => l.note).filter(Boolean).join("; ") || null,

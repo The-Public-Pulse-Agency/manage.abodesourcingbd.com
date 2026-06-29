@@ -46,6 +46,7 @@ export type ShippedRow = {
   containerNo: string | null;
   telexStatus: string;
   tcStatus: string | null;
+  commissioned: boolean;
   remarks: string;
   overShip: string | null;
   shortShip: string | null;
@@ -103,7 +104,9 @@ export async function shippedGoodsReport(
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    // Latest shipments first, by the displayed ship date (exFactoryDate ?? blDate); createdAt
+    // breaks ties / orders any shipment without a ship date.
+    orderBy: [{ exFactoryDate: { sort: "desc", nulls: "last" } }, { blDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     skip: (page - 1) * pageSize,
     take: pageSize,
   });
@@ -164,6 +167,7 @@ export async function shippedGoodsReport(
       containerNo: s.containerNo,
       telexStatus: s.telexStatus,
       tcStatus: s.tcStatus,
+      commissioned: s.commissioned,
       remarks: s.remarks ?? "",
       overShip: s.lines.map((l) => l.note).filter(Boolean).join("; ") || null,
       shortShip: firstPo && shortByPo.has(firstPo.id) ? `${shortByPo.get(firstPo.id)} pcs short` : null,

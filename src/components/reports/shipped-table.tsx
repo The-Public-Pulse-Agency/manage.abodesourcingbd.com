@@ -9,7 +9,7 @@ import { ExportButton } from "./export-button";
 import { RowDeleteButton } from "./row-delete-button";
 import { ColourCell } from "./colour-cell";
 import { MultiSelect } from "./multi-select";
-import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentTelex, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
+import { setInvoiceValue, setInvoiceDue, setInvoicePaymentStatus, setShipmentTc, setShipmentTelex, setShipmentCommission, setShipmentContainer, setShipmentEta, setShipmentRemarks, deleteShipmentAction } from "@/lib/reports/inline-actions";
 import { sumDistinctInvoiceValue } from "@/lib/reports/shipped-totals";
 
 const PAY_OPTIONS = [{ value: "ISSUED", label: "Due" }, { value: "PARTIALLY_PAID", label: "Partial" }, { value: "PAID", label: "Paid" }];
@@ -21,13 +21,14 @@ const TELEX_CLS: Record<string, string> = {
 };
 
 const iso = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "Telex", "TC status", "Remarks"];
+const EXPORT_HEADERS = ["PO Number", "BL / Ref", "Factory", "Buyer", "Brand", "Style", "Size", "Colour", "Qty", "Value", "Short shipped", "Ship date", "ETA destination", "Invoice #", "Invoice value", "Due date", "Payment", "Container", "Telex", "Commission Status", "TC status", "Remarks"];
 
 const PAY_CLS: Record<string, string> = {
   ISSUED: "bg-warn-soft text-warn",
   PARTIALLY_PAID: "bg-warn-soft text-warn",
   PAID: "bg-ok-soft text-ok",
 };
+const COMMISSION_OPTIONS = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
 
 export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteShipment }: { rows: ShippedRow[]; canEditShipment: boolean; canEditFinance: boolean; canDeleteShipment: boolean }) {
   const [q, setQ] = useState("");
@@ -35,6 +36,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
   const [buyerSel, setBuyerSel] = useState<string[]>([]);
   const [brandSel, setBrandSel] = useState<string[]>([]);
   const [pay, setPay] = useState("");
+  const [comm, setComm] = useState("");
 
   const factories = useMemo(() => [...new Set(rows.map((r) => r.factory))].sort(), [rows]);
   const buyers = useMemo(() => [...new Set(rows.map((r) => r.buyer))].sort(), [rows]);
@@ -47,9 +49,10 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
       (buyerSel.length === 0 || buyerSel.includes(r.buyer)) &&
       (brandSel.length === 0 || brandSel.includes(r.brand)) &&
       (!pay || (pay === "PAID" ? r.paymentStatus === "PAID" : r.paymentStatus && r.paymentStatus !== "PAID")) &&
+      (!comm || (comm === "Yes" ? r.commissioned : !r.commissioned)) &&
       (!needle || `${r.poNumber} ${r.reference} ${r.invoiceNumber ?? ""} ${r.factory} ${r.buyer} ${r.brand} ${r.containerNo ?? ""}`.toLowerCase().includes(needle)),
     );
-  }, [rows, q, factorySel, buyerSel, brandSel, pay]);
+  }, [rows, q, factorySel, buyerSel, brandSel, pay, comm]);
 
   const totalQty = filtered.reduce((a, r) => a + r.qty, 0);
   const totalGoodsValue = filtered.reduce((a, r) => a + (r.value ?? 0), 0);
@@ -68,14 +71,19 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
           <option value="PAID">Paid</option>
           <option value="DUE">Due</option>
         </select>
-        {(q || factorySel.length || buyerSel.length || brandSel.length || pay) && (
-          <button type="button" onClick={() => { setQ(""); setFactorySel([]); setBuyerSel([]); setBrandSel([]); setPay(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
+        <select value={comm} onChange={(e) => setComm(e.target.value)} className="select" aria-label="Filter commission">
+          <option value="">Any commission</option>
+          <option value="Yes">Commission: Yes</option>
+          <option value="No">Commission: No</option>
+        </select>
+        {(q || factorySel.length || buyerSel.length || brandSel.length || pay || comm) && (
+          <button type="button" onClick={() => { setQ(""); setFactorySel([]); setBuyerSel([]); setBrandSel([]); setPay(""); setComm(""); }} className="rounded-sm border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent">Clear</button>
         )}
         <div className="ml-auto flex items-center gap-3">
           <ExportButton
             filename="shipped-goods.csv"
             headers={EXPORT_HEADERS}
-            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours, r.qty, r.value || 0, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.telexStatus, r.tcStatus ?? "", r.remarks])}
+            rows={filtered.map((r) => [r.poNumber, r.reference, r.factory, r.buyer, r.brand, r.styles, r.sizes, r.colours, r.qty, r.value || 0, r.shortShip ?? "", formatDate(r.shipDate), formatDate(r.etaDestination), r.invoiceNumber ?? "", r.invoiceValue ?? 0, formatDate(r.invoiceDueDate), r.paymentStatus ?? "", r.containerNo ?? "", r.telexStatus, r.commissioned ? "Yes" : "No", r.tcStatus ?? "", r.remarks])}
           />
           <span className="text-xs text-ink-soft">{filtered.length} of {rows.length}</span>
         </div>
@@ -103,6 +111,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
               <th className="px-3 py-2.5 font-semibold">Payment</th>
               <th className="px-3 py-2.5 font-semibold">Container</th>
               <th className="px-3 py-2.5 font-semibold">Telex</th>
+              <th className="px-3 py-2.5 font-semibold">Commission Status</th>
               <th className="px-3 py-2.5 font-semibold">TC status</th>
               <th className="px-3 py-2.5 font-semibold">Remarks</th>
               <th className="px-3 py-2.5 font-semibold">Invoice doc</th>
@@ -111,7 +120,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={23} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={24} className="px-3 py-10 text-center text-ink-soft">No shipments match.</td></tr>}
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">{r.poId ? <Link href={`/orders/${r.poId}`} className="font-mono text-xs font-medium text-accent hover:underline">{r.poNumber}</Link> : <span className="font-mono text-xs text-ink-soft">{r.poNumber}</span>}</td>
@@ -162,6 +171,13 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                     return canEditShipment ? <EditableCell id={r.id} raw={r.telexStatus} type="select" options={TELEX_OPTIONS} action={setShipmentTelex}>{badge}</EditableCell> : badge;
                   })()}
                 </td>
+                <td className="px-3 py-2">
+                  {(() => {
+                    const v = r.commissioned ? "Yes" : "No";
+                    const badge = <span className={`inline-flex rounded-sm px-2 py-0.5 text-[0.625rem] font-semibold uppercase ${r.commissioned ? "bg-ok-soft text-ok" : "bg-paper text-ink-soft"}`}>{v}</span>;
+                    return canEditShipment ? <EditableCell id={r.id} raw={v} type="select" options={COMMISSION_OPTIONS} action={setShipmentCommission}>{badge}</EditableCell> : badge;
+                  })()}
+                </td>
                 <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.tcStatus ?? ""} type="text" action={setShipmentTc}>{r.tcStatus ?? "—"}</EditableCell> : (r.tcStatus ?? "—")}</td>
                 <td className="px-3 py-2 text-xs">{canEditShipment ? <EditableCell id={r.id} raw={r.remarks} type="text" action={setShipmentRemarks}>{r.remarks || "—"}</EditableCell> : (r.remarks || "—")}</td>
                 <td className="px-3 py-2">{r.invoiceId ? <a href={`/api/invoices/${r.invoiceId}`} className="text-xs font-medium text-accent hover:underline" title="Download invoice (Excel)">Invoice ⬇</a> : <span className="text-xs text-ink-soft">—</span>}</td>
@@ -178,7 +194,7 @@ export function ShippedTable({ rows, canEditShipment, canEditFinance, canDeleteS
                 <td className="px-3 py-2.5 text-right tnum">{totalGoodsValue > 0 ? formatMoney(totalGoodsValue) : "—"}</td>
                 <td className="px-3 py-2.5" colSpan={3} />
                 <td className="px-3 py-2.5 text-right tnum">{totalValue > 0 ? formatMoney(totalValue) : "—"}</td>
-                <td colSpan={9} />
+                <td colSpan={10} />
               </tr>
             </tfoot>
           )}

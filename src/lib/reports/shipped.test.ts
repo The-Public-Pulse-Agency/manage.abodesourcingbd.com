@@ -9,7 +9,7 @@ import { setOrderLine } from "@/lib/orders/lines";
 import { confirmPurchaseOrder } from "@/lib/orders/confirm";
 import { approveCosting } from "@/lib/orders/costing";
 import { closePurchaseOrder } from "@/lib/orders/close";
-import { createShipment } from "@/lib/shipment/shipment";
+import { createShipment, updateShipment } from "@/lib/shipment/shipment";
 import { createInvoice } from "@/lib/finance/invoices";
 import { recordPayment } from "@/lib/finance/payments";
 import { shippedGoodsReport } from "./shipped";
@@ -42,6 +42,26 @@ describe("shippedGoodsReport — short shipment", () => {
     await closePurchaseOrder(admin, po.id);
     rep = await shippedGoodsReport(admin);
     expect(rep.rows[0].shortShip).toBe("40 pcs short");
+  });
+});
+
+describe("shippedGoodsReport — ordering", () => {
+  it("orders rows by ship date, latest first", async () => {
+    const buyer = await createBuyer(admin, { name: "Ralawise" });
+    const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
+    const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
+    const style = await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "Tee" });
+    const po = await createPurchaseOrder(admin, { poNumber: "P-ORD", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
+    const line = await setOrderLine(admin, po.id, { styleId: style.id, sizes: [{ label: "M", qty: 300, netFob: 1, sellFob: 2 }] });
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+    // Created out of ship-date order.
+    await createShipment(admin, { reference: "S-EARLY", exFactoryDate: d("2026-06-01"), lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+    await createShipment(admin, { reference: "S-LATE", exFactoryDate: d("2026-06-15"), lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+    await createShipment(admin, { reference: "S-MID", exFactoryDate: d("2026-06-10"), lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+
+    const rep = await shippedGoodsReport(admin);
+    expect(rep.rows.map((r) => r.reference)).toEqual(["S-LATE", "S-MID", "S-EARLY"]);
   });
 });
 
@@ -93,5 +113,24 @@ describe("shippedGoodsReport — line value", () => {
     expect(rep.rows[0].qty).toBe(100);
     expect(rep.rows[0].value).toBe(380); // 60×3 (sell M) + 40×5 (sell L)
     expect(rep.rows[0].telexStatus).toBe("PENDING"); // surfaced for the report's Telex column
+    expect(rep.rows[0].commissioned).toBe(false); // commission status defaults to No
+  });
+});
+
+describe("shippedGoodsReport — commission status", () => {
+  it("surfaces the commission flag and reflects updates", async () => {
+    const buyer = await createBuyer(admin, { name: "Ralawise" });
+    const brand = await createBrand(admin, { buyerId: buyer.id, name: "TriDri", code: "TRIDRI" });
+    const factory = await createFactory(admin, { name: "Liz", type: "KNIT" });
+    const style = await createStyle(admin, { brandId: brand.id, styleCode: "TR010", name: "Tee" });
+    const po = await createPurchaseOrder(admin, { poNumber: "P-CM", buyerId: buyer.id, brandId: brand.id, factoryId: factory.id });
+    const line = await setOrderLine(admin, po.id, { styleId: style.id, sizes: [{ label: "M", qty: 100, netFob: 1, sellFob: 2 }] });
+    await approveCosting(accounts, po.id);
+    await confirmPurchaseOrder(admin, po.id);
+    const shp = await createShipment(admin, { reference: "S-CM", lines: [{ orderLineId: line.id, sizes: [{ label: "M", qty: 100 }] }] });
+
+    expect((await shippedGoodsReport(admin)).rows[0].commissioned).toBe(false);
+    await updateShipment(admin, shp.id, { commissioned: true });
+    expect((await shippedGoodsReport(admin)).rows[0].commissioned).toBe(true);
   });
 });

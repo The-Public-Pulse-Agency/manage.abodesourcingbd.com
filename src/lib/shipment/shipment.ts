@@ -193,6 +193,7 @@ export const updateShipmentSchema = z.object({
   remarks: z.string().optional(),
   telexStatus: z.enum(telexStatuses).optional(),
   tcStatus: z.string().optional(),
+  commissioned: z.boolean().optional(),
   forwarderId: z.string().nullish(),
   portId: z.string().nullish(),
 });

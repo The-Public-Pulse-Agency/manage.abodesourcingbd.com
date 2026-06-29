@@ -763,6 +763,7 @@ model Shipment {
   remarks       String?        // free-text remarks
   telexStatus   TelexStatus    @default(PENDING)
   tcStatus      String?        // transaction-certificate status (free text: Working / NO TC / Send <date>)
+  commissioned  Boolean        @default(false) // buying-house commission settled for this shipment (Yes/No)
   forwarderId   String?
   forwarder     Forwarder?     @relation(fields: [forwarderId], references: [id], onDelete: SetNull)
   portId        String?
